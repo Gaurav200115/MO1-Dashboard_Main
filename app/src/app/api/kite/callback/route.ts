@@ -1,9 +1,9 @@
-import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { KiteConnect } from "kiteconnect";
 import { requireConfig } from "@/lib/kite/config";
 import { getFeed } from "@/lib/kite/feed";
 import { nextTokenExpiry, writeSession } from "@/lib/kite/session";
+import { pathWithParams, redirectTo } from "@/lib/redirect";
 
 export const runtime = "nodejs";
 
@@ -16,15 +16,12 @@ export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
   const requestToken = params.get("request_token");
   const status = params.get("status");
-  const home = new URL("/", request.nextUrl.origin);
 
   if (status && status !== "success") {
-    home.searchParams.set("kite", "denied");
-    return NextResponse.redirect(home);
+    return redirectTo(pathWithParams("/", { kite: "denied" }));
   }
   if (!requestToken) {
-    home.searchParams.set("kite", "no-token");
-    return NextResponse.redirect(home);
+    return redirectTo(pathWithParams("/", { kite: "no-token" }));
   }
 
   try {
@@ -61,14 +58,13 @@ export async function GET(request: NextRequest) {
     resetOptionUniverse();
     kickDailyStartup("sign-in");
 
-    home.searchParams.set("kite", "connected");
-    return NextResponse.redirect(home);
+    return redirectTo(pathWithParams("/", { kite: "connected" }));
   } catch (err) {
-    home.searchParams.set("kite", "failed");
-    home.searchParams.set(
-      "reason",
-      err instanceof Error ? err.message.slice(0, 140) : "Token exchange failed"
+    return redirectTo(
+      pathWithParams("/", {
+        kite: "failed",
+        reason: err instanceof Error ? err.message.slice(0, 140) : "Token exchange failed",
+      })
     );
-    return NextResponse.redirect(home);
   }
 }

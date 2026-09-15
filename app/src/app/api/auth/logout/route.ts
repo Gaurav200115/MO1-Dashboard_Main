@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { SESSION_COOKIE } from "@/lib/auth";
+import { redirectTo } from "@/lib/redirect";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,7 +12,7 @@ export const dynamic = "force-dynamic";
  * conflating them would silently kill a running strategy engine.
  */
 export function GET(request: NextRequest) {
-  const response = NextResponse.redirect(new URL("/login", request.nextUrl.origin));
+  const response = redirectTo("/login");
   response.cookies.delete(SESSION_COOKIE);
   return response;
 }

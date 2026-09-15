@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { readAuthConfig, SESSION_COOKIE, verifyJwt } from "@/lib/auth";
+import { pathWithParams, publicOrigin } from "@/lib/redirect";
 
 /**
  * The door. Everything that is not the sign-in flow itself needs a valid
@@ -38,8 +39,7 @@ export async function middleware(request: NextRequest) {
     );
   }
 
-  const login = new URL("/login", request.nextUrl.origin);
-  login.searchParams.set("next", pathname + request.nextUrl.search);
+  const login = new URL(pathWithParams("/login", { next: pathname + request.nextUrl.search }), publicOrigin(request));
   return NextResponse.redirect(login);
 }
 

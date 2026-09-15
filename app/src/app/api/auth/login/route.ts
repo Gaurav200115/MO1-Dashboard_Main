@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { pathWithParams, redirectTo } from "@/lib/redirect";
 import {
   credentialMatches,
   readAuthConfig,
@@ -18,10 +19,8 @@ function safeNext(next: string | null): string {
 
 /** The middleware redirects unauthenticated page loads here; send them to the form. */
 export function GET(request: NextRequest) {
-  const login = new URL("/login", request.nextUrl.origin);
   const next = request.nextUrl.searchParams.get("next");
-  if (next) login.searchParams.set("next", next);
-  return NextResponse.redirect(login);
+  return redirectTo(pathWithParams("/login", next ? { next } : {}));
 }
 
 /**
@@ -72,18 +71,16 @@ export async function POST(request: NextRequest) {
     if (wantsJson) {
       return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
     }
-    const retry = new URL("/login", request.nextUrl.origin);
-    retry.searchParams.set("error", "1");
-    if (next !== "/") retry.searchParams.set("next", next);
-    return NextResponse.redirect(retry, { status: 303 });
+    return redirectTo(
+      pathWithParams("/login", next !== "/" ? { error: "1", next } : { error: "1" }),
+      303
+    );
   }
 
   const token = await signJwt(config.email, config.secret);
 
   // 303 so the browser follows with GET — a 307 would replay the POST at the desk.
-  const response = wantsJson
-    ? NextResponse.json({ ok: true, next })
-    : NextResponse.redirect(new URL(next, request.nextUrl.origin), { status: 303 });
+  const response = wantsJson ? NextResponse.json({ ok: true, next }) : redirectTo(next, 303);
 
   response.cookies.set(SESSION_COOKIE, token, sessionCookieOptions());
   return response;
