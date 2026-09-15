@@ -1,0 +1,5076 @@
+{
+ "symbol": "TRENT",
+ "source": "screener.in",
+ "variant": "consolidated",
+ "snapshot": "2026-08-27",
+ "company": "Trent Ltd",
+ "classification": {
+  "Broad Sector": "Consumer Discretionary",
+  "Sector": "Consumer Services",
+  "Broad Industry": "Retailing",
+  "Industry": "Speciality Retail"
+ },
+ "topRatios": {
+  "Market Cap": "₹ 1,53,396 Cr.",
+  "Current Price": "₹ 2,878",
+  "High / Low": "₹ 3,783 / 2,184",
+  "Stock P/E": "83.9",
+  "Book Value": "₹ 131",
+  "Dividend Yield": "0.14 %",
+  "ROCE": "28.3 %",
+  "ROE": "27.7 %",
+  "Face Value": "₹ 1.00"
+ },
+ "latestQuarter": "2026-06",
+ "factCount": 721,
+ "warnings": [],
+ "facts": [
+  {
+   "statement": "quarters",
+   "lineItem": "Sales",
+   "periodEnd": "2023-06",
+   "value": 2628,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Sales",
+   "periodEnd": "2023-09",
+   "value": 2982,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Sales",
+   "periodEnd": "2023-12",
+   "value": 3467,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Sales",
+   "periodEnd": "2024-03",
+   "value": 3298,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Sales",
+   "periodEnd": "2024-06",
+   "value": 4104,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Sales",
+   "periodEnd": "2024-09",
+   "value": 4157,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Sales",
+   "periodEnd": "2024-12",
+   "value": 4657,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Sales",
+   "periodEnd": "2025-03",
+   "value": 4217,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Sales",
+   "periodEnd": "2025-06",
+   "value": 4883,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Sales",
+   "periodEnd": "2025-09",
+   "value": 4818,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Sales",
+   "periodEnd": "2025-12",
+   "value": 5345,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Sales",
+   "periodEnd": "2026-03",
+   "value": 5028,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Sales",
+   "periodEnd": "2026-06",
+   "value": 5755,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Expenses",
+   "periodEnd": "2023-06",
+   "value": 2261,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Expenses",
+   "periodEnd": "2023-09",
+   "value": 2526,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Expenses",
+   "periodEnd": "2023-12",
+   "value": 2838,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Expenses",
+   "periodEnd": "2024-03",
+   "value": 2828,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Expenses",
+   "periodEnd": "2024-06",
+   "value": 3491,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Expenses",
+   "periodEnd": "2024-09",
+   "value": 3511,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Expenses",
+   "periodEnd": "2024-12",
+   "value": 3809,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Expenses",
+   "periodEnd": "2025-03",
+   "value": 3566,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Expenses",
+   "periodEnd": "2025-06",
+   "value": 4036,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Expenses",
+   "periodEnd": "2025-09",
+   "value": 4002,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Expenses",
+   "periodEnd": "2025-12",
+   "value": 4264,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Expenses",
+   "periodEnd": "2026-03",
+   "value": 4117,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Expenses",
+   "periodEnd": "2026-06",
+   "value": 4636,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Operating Profit",
+   "periodEnd": "2023-06",
+   "value": 367,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Operating Profit",
+   "periodEnd": "2023-09",
+   "value": 457,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Operating Profit",
+   "periodEnd": "2023-12",
+   "value": 629,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Operating Profit",
+   "periodEnd": "2024-03",
+   "value": 470,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Operating Profit",
+   "periodEnd": "2024-06",
+   "value": 613,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Operating Profit",
+   "periodEnd": "2024-09",
+   "value": 646,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Operating Profit",
+   "periodEnd": "2024-12",
+   "value": 847,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Operating Profit",
+   "periodEnd": "2025-03",
+   "value": 651,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Operating Profit",
+   "periodEnd": "2025-06",
+   "value": 848,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Operating Profit",
+   "periodEnd": "2025-09",
+   "value": 816,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Operating Profit",
+   "periodEnd": "2025-12",
+   "value": 1081,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Operating Profit",
+   "periodEnd": "2026-03",
+   "value": 911,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Operating Profit",
+   "periodEnd": "2026-06",
+   "value": 1119,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "OPM %",
+   "periodEnd": "2023-06",
+   "value": 14,
+   "unit": "pct"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "OPM %",
+   "periodEnd": "2023-09",
+   "value": 15,
+   "unit": "pct"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "OPM %",
+   "periodEnd": "2023-12",
+   "value": 18,
+   "unit": "pct"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "OPM %",
+   "periodEnd": "2024-03",
+   "value": 14,
+   "unit": "pct"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "OPM %",
+   "periodEnd": "2024-06",
+   "value": 15,
+   "unit": "pct"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "OPM %",
+   "periodEnd": "2024-09",
+   "value": 16,
+   "unit": "pct"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "OPM %",
+   "periodEnd": "2024-12",
+   "value": 18,
+   "unit": "pct"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "OPM %",
+   "periodEnd": "2025-03",
+   "value": 15,
+   "unit": "pct"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "OPM %",
+   "periodEnd": "2025-06",
+   "value": 17,
+   "unit": "pct"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "OPM %",
+   "periodEnd": "2025-09",
+   "value": 17,
+   "unit": "pct"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "OPM %",
+   "periodEnd": "2025-12",
+   "value": 20,
+   "unit": "pct"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "OPM %",
+   "periodEnd": "2026-03",
+   "value": 18,
+   "unit": "pct"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "OPM %",
+   "periodEnd": "2026-06",
+   "value": 19,
+   "unit": "pct"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Other Income",
+   "periodEnd": "2023-06",
+   "value": 79,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Other Income",
+   "periodEnd": "2023-09",
+   "value": 105,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Other Income",
+   "periodEnd": "2023-12",
+   "value": 110,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Other Income",
+   "periodEnd": "2024-03",
+   "value": 695,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Other Income",
+   "periodEnd": "2024-06",
+   "value": 101,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Other Income",
+   "periodEnd": "2024-09",
+   "value": 51,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Other Income",
+   "periodEnd": "2024-12",
+   "value": 80,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Other Income",
+   "periodEnd": "2025-03",
+   "value": 74,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Other Income",
+   "periodEnd": "2025-06",
+   "value": 50,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Other Income",
+   "periodEnd": "2025-09",
+   "value": 28,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Other Income",
+   "periodEnd": "2025-12",
+   "value": 5,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Other Income",
+   "periodEnd": "2026-03",
+   "value": 28,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Other Income",
+   "periodEnd": "2026-06",
+   "value": 30,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Interest",
+   "periodEnd": "2023-06",
+   "value": 92,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Interest",
+   "periodEnd": "2023-09",
+   "value": 95,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Interest",
+   "periodEnd": "2023-12",
+   "value": 99,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Interest",
+   "periodEnd": "2024-03",
+   "value": 33,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Interest",
+   "periodEnd": "2024-06",
+   "value": 32,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Interest",
+   "periodEnd": "2024-09",
+   "value": 33,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Interest",
+   "periodEnd": "2024-12",
+   "value": 37,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Interest",
+   "periodEnd": "2025-03",
+   "value": 38,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Interest",
+   "periodEnd": "2025-06",
+   "value": 40,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Interest",
+   "periodEnd": "2025-09",
+   "value": 42,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Interest",
+   "periodEnd": "2025-12",
+   "value": 43,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Interest",
+   "periodEnd": "2026-03",
+   "value": 44,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Interest",
+   "periodEnd": "2026-06",
+   "value": 47,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Depreciation",
+   "periodEnd": "2023-06",
+   "value": 141,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Depreciation",
+   "periodEnd": "2023-09",
+   "value": 152,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Depreciation",
+   "periodEnd": "2023-12",
+   "value": 165,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Depreciation",
+   "periodEnd": "2024-03",
+   "value": 213,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Depreciation",
+   "periodEnd": "2024-06",
+   "value": 181,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Depreciation",
+   "periodEnd": "2024-09",
+   "value": 197,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Depreciation",
+   "periodEnd": "2024-12",
+   "value": 245,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Depreciation",
+   "periodEnd": "2025-03",
+   "value": 272,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Depreciation",
+   "periodEnd": "2025-06",
+   "value": 293,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Depreciation",
+   "periodEnd": "2025-09",
+   "value": 325,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Depreciation",
+   "periodEnd": "2025-12",
+   "value": 367,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Depreciation",
+   "periodEnd": "2026-03",
+   "value": 377,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Depreciation",
+   "periodEnd": "2026-06",
+   "value": 410,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Profit before tax",
+   "periodEnd": "2023-06",
+   "value": 212,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Profit before tax",
+   "periodEnd": "2023-09",
+   "value": 314,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Profit before tax",
+   "periodEnd": "2023-12",
+   "value": 475,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Profit before tax",
+   "periodEnd": "2024-03",
+   "value": 919,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Profit before tax",
+   "periodEnd": "2024-06",
+   "value": 501,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Profit before tax",
+   "periodEnd": "2024-09",
+   "value": 467,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Profit before tax",
+   "periodEnd": "2024-12",
+   "value": 646,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Profit before tax",
+   "periodEnd": "2025-03",
+   "value": 416,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Profit before tax",
+   "periodEnd": "2025-06",
+   "value": 565,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Profit before tax",
+   "periodEnd": "2025-09",
+   "value": 477,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Profit before tax",
+   "periodEnd": "2025-12",
+   "value": 676,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Profit before tax",
+   "periodEnd": "2026-03",
+   "value": 519,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Profit before tax",
+   "periodEnd": "2026-06",
+   "value": 692,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Tax %",
+   "periodEnd": "2023-06",
+   "value": 21,
+   "unit": "pct"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Tax %",
+   "periodEnd": "2023-09",
+   "value": 27,
+   "unit": "pct"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Tax %",
+   "periodEnd": "2023-12",
+   "value": 22,
+   "unit": "pct"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Tax %",
+   "periodEnd": "2024-03",
+   "value": 23,
+   "unit": "pct"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Tax %",
+   "periodEnd": "2024-06",
+   "value": 22,
+   "unit": "pct"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Tax %",
+   "periodEnd": "2024-09",
+   "value": 28,
+   "unit": "pct"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Tax %",
+   "periodEnd": "2024-12",
+   "value": 23,
+   "unit": "pct"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Tax %",
+   "periodEnd": "2025-03",
+   "value": 25,
+   "unit": "pct"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Tax %",
+   "periodEnd": "2025-06",
+   "value": 25,
+   "unit": "pct"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Tax %",
+   "periodEnd": "2025-09",
+   "value": 22,
+   "unit": "pct"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Tax %",
+   "periodEnd": "2025-12",
+   "value": 25,
+   "unit": "pct"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Tax %",
+   "periodEnd": "2026-03",
+   "value": 20,
+   "unit": "pct"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Tax %",
+   "periodEnd": "2026-06",
+   "value": 25,
+   "unit": "pct"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Net Profit",
+   "periodEnd": "2023-06",
+   "value": 167,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Net Profit",
+   "periodEnd": "2023-09",
+   "value": 228,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Net Profit",
+   "periodEnd": "2023-12",
+   "value": 371,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Net Profit",
+   "periodEnd": "2024-03",
+   "value": 712,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Net Profit",
+   "periodEnd": "2024-06",
+   "value": 391,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Net Profit",
+   "periodEnd": "2024-09",
+   "value": 335,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Net Profit",
+   "periodEnd": "2024-12",
+   "value": 497,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Net Profit",
+   "periodEnd": "2025-03",
+   "value": 312,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Net Profit",
+   "periodEnd": "2025-06",
+   "value": 425,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Net Profit",
+   "periodEnd": "2025-09",
+   "value": 373,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Net Profit",
+   "periodEnd": "2025-12",
+   "value": 510,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Net Profit",
+   "periodEnd": "2026-03",
+   "value": 413,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "Net Profit",
+   "periodEnd": "2026-06",
+   "value": 518,
+   "unit": "cr"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "EPS in Rs",
+   "periodEnd": "2023-06",
+   "value": 3.25,
+   "unit": "rs"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "EPS in Rs",
+   "periodEnd": "2023-09",
+   "value": 4.4,
+   "unit": "rs"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "EPS in Rs",
+   "periodEnd": "2023-12",
+   "value": 7.02,
+   "unit": "rs"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "EPS in Rs",
+   "periodEnd": "2024-03",
+   "value": 13.21,
+   "unit": "rs"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "EPS in Rs",
+   "periodEnd": "2024-06",
+   "value": 7.36,
+   "unit": "rs"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "EPS in Rs",
+   "periodEnd": "2024-09",
+   "value": 6.35,
+   "unit": "rs"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "EPS in Rs",
+   "periodEnd": "2024-12",
+   "value": 9.33,
+   "unit": "rs"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "EPS in Rs",
+   "periodEnd": "2025-03",
+   "value": 5.97,
+   "unit": "rs"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "EPS in Rs",
+   "periodEnd": "2025-06",
+   "value": 8.06,
+   "unit": "rs"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "EPS in Rs",
+   "periodEnd": "2025-09",
+   "value": 7.07,
+   "unit": "rs"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "EPS in Rs",
+   "periodEnd": "2025-12",
+   "value": 9.62,
+   "unit": "rs"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "EPS in Rs",
+   "periodEnd": "2026-03",
+   "value": 7.51,
+   "unit": "rs"
+  },
+  {
+   "statement": "quarters",
+   "lineItem": "EPS in Rs",
+   "periodEnd": "2026-06",
+   "value": 9.73,
+   "unit": "rs"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Sales",
+   "periodEnd": "2015-03",
+   "value": 2284,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Sales",
+   "periodEnd": "2016-03",
+   "value": 1686,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Sales",
+   "periodEnd": "2017-03",
+   "value": 1812,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Sales",
+   "periodEnd": "2018-03",
+   "value": 2157,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Sales",
+   "periodEnd": "2019-03",
+   "value": 2630,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Sales",
+   "periodEnd": "2020-03",
+   "value": 3486,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Sales",
+   "periodEnd": "2021-03",
+   "value": 2593,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Sales",
+   "periodEnd": "2022-03",
+   "value": 4498,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Sales",
+   "periodEnd": "2023-03",
+   "value": 8242,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Sales",
+   "periodEnd": "2024-03",
+   "value": 12375,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Sales",
+   "periodEnd": "2025-03",
+   "value": 17135,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Sales",
+   "periodEnd": "2026-03",
+   "value": 20074,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Sales",
+   "periodEnd": "TTM",
+   "value": 20945,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Expenses",
+   "periodEnd": "2015-03",
+   "value": 2196,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Expenses",
+   "periodEnd": "2016-03",
+   "value": 1596,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Expenses",
+   "periodEnd": "2017-03",
+   "value": 1679,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Expenses",
+   "periodEnd": "2018-03",
+   "value": 1949,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Expenses",
+   "periodEnd": "2019-03",
+   "value": 2390,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Expenses",
+   "periodEnd": "2020-03",
+   "value": 2957,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Expenses",
+   "periodEnd": "2021-03",
+   "value": 2479,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Expenses",
+   "periodEnd": "2022-03",
+   "value": 3903,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Expenses",
+   "periodEnd": "2023-03",
+   "value": 7128,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Expenses",
+   "periodEnd": "2024-03",
+   "value": 10404,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Expenses",
+   "periodEnd": "2025-03",
+   "value": 14315,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Expenses",
+   "periodEnd": "2026-03",
+   "value": 16329,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Expenses",
+   "periodEnd": "TTM",
+   "value": 17018,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Operating Profit",
+   "periodEnd": "2015-03",
+   "value": 88,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Operating Profit",
+   "periodEnd": "2016-03",
+   "value": 90,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Operating Profit",
+   "periodEnd": "2017-03",
+   "value": 134,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Operating Profit",
+   "periodEnd": "2018-03",
+   "value": 208,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Operating Profit",
+   "periodEnd": "2019-03",
+   "value": 241,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Operating Profit",
+   "periodEnd": "2020-03",
+   "value": 529,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Operating Profit",
+   "periodEnd": "2021-03",
+   "value": 114,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Operating Profit",
+   "periodEnd": "2022-03",
+   "value": 595,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Operating Profit",
+   "periodEnd": "2023-03",
+   "value": 1114,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Operating Profit",
+   "periodEnd": "2024-03",
+   "value": 1971,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Operating Profit",
+   "periodEnd": "2025-03",
+   "value": 2820,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Operating Profit",
+   "periodEnd": "2026-03",
+   "value": 3745,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Operating Profit",
+   "periodEnd": "TTM",
+   "value": 3928,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "OPM %",
+   "periodEnd": "2015-03",
+   "value": 3.8,
+   "unit": "pct"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "OPM %",
+   "periodEnd": "2016-03",
+   "value": 5,
+   "unit": "pct"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "OPM %",
+   "periodEnd": "2017-03",
+   "value": 7,
+   "unit": "pct"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "OPM %",
+   "periodEnd": "2018-03",
+   "value": 10,
+   "unit": "pct"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "OPM %",
+   "periodEnd": "2019-03",
+   "value": 9,
+   "unit": "pct"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "OPM %",
+   "periodEnd": "2020-03",
+   "value": 15,
+   "unit": "pct"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "OPM %",
+   "periodEnd": "2021-03",
+   "value": 4.4,
+   "unit": "pct"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "OPM %",
+   "periodEnd": "2022-03",
+   "value": 13,
+   "unit": "pct"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "OPM %",
+   "periodEnd": "2023-03",
+   "value": 14,
+   "unit": "pct"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "OPM %",
+   "periodEnd": "2024-03",
+   "value": 16,
+   "unit": "pct"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "OPM %",
+   "periodEnd": "2025-03",
+   "value": 16,
+   "unit": "pct"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "OPM %",
+   "periodEnd": "2026-03",
+   "value": 19,
+   "unit": "pct"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "OPM %",
+   "periodEnd": "TTM",
+   "value": 19,
+   "unit": "pct"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Other Income",
+   "periodEnd": "2015-03",
+   "value": 208,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Other Income",
+   "periodEnd": "2016-03",
+   "value": 86,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Other Income",
+   "periodEnd": "2017-03",
+   "value": 81,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Other Income",
+   "periodEnd": "2018-03",
+   "value": 27,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Other Income",
+   "periodEnd": "2019-03",
+   "value": 30,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Other Income",
+   "periodEnd": "2020-03",
+   "value": 147,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Other Income",
+   "periodEnd": "2021-03",
+   "value": 199,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Other Income",
+   "periodEnd": "2022-03",
+   "value": 152,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Other Income",
+   "periodEnd": "2023-03",
+   "value": 341,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Other Income",
+   "periodEnd": "2024-03",
+   "value": 989,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Other Income",
+   "periodEnd": "2025-03",
+   "value": 305,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Other Income",
+   "periodEnd": "2026-03",
+   "value": 85,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Other Income",
+   "periodEnd": "TTM",
+   "value": 90,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Interest",
+   "periodEnd": "2015-03",
+   "value": 22,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Interest",
+   "periodEnd": "2016-03",
+   "value": 48,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Interest",
+   "periodEnd": "2017-03",
+   "value": 46,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Interest",
+   "periodEnd": "2018-03",
+   "value": 44,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Interest",
+   "periodEnd": "2019-03",
+   "value": 51,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Interest",
+   "periodEnd": "2020-03",
+   "value": 263,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Interest",
+   "periodEnd": "2021-03",
+   "value": 261,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Interest",
+   "periodEnd": "2022-03",
+   "value": 325,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Interest",
+   "periodEnd": "2023-03",
+   "value": 409,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Interest",
+   "periodEnd": "2024-03",
+   "value": 368,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Interest",
+   "periodEnd": "2025-03",
+   "value": 200,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Interest",
+   "periodEnd": "2026-03",
+   "value": 233,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Interest",
+   "periodEnd": "TTM",
+   "value": 175,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Depreciation",
+   "periodEnd": "2015-03",
+   "value": 75,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Depreciation",
+   "periodEnd": "2016-03",
+   "value": 39,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Depreciation",
+   "periodEnd": "2017-03",
+   "value": 41,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Depreciation",
+   "periodEnd": "2018-03",
+   "value": 46,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Depreciation",
+   "periodEnd": "2019-03",
+   "value": 52,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Depreciation",
+   "periodEnd": "2020-03",
+   "value": 247,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Depreciation",
+   "periodEnd": "2021-03",
+   "value": 257,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Depreciation",
+   "periodEnd": "2022-03",
+   "value": 311,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Depreciation",
+   "periodEnd": "2023-03",
+   "value": 494,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Depreciation",
+   "periodEnd": "2024-03",
+   "value": 671,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Depreciation",
+   "periodEnd": "2025-03",
+   "value": 895,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Depreciation",
+   "periodEnd": "2026-03",
+   "value": 1361,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Depreciation",
+   "periodEnd": "TTM",
+   "value": 1478,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Profit before tax",
+   "periodEnd": "2015-03",
+   "value": 200,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Profit before tax",
+   "periodEnd": "2016-03",
+   "value": 90,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Profit before tax",
+   "periodEnd": "2017-03",
+   "value": 128,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Profit before tax",
+   "periodEnd": "2018-03",
+   "value": 147,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Profit before tax",
+   "periodEnd": "2019-03",
+   "value": 168,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Profit before tax",
+   "periodEnd": "2020-03",
+   "value": 165,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Profit before tax",
+   "periodEnd": "2021-03",
+   "value": -205,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Profit before tax",
+   "periodEnd": "2022-03",
+   "value": 111,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Profit before tax",
+   "periodEnd": "2023-03",
+   "value": 552,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Profit before tax",
+   "periodEnd": "2024-03",
+   "value": 1921,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Profit before tax",
+   "periodEnd": "2025-03",
+   "value": 2030,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Profit before tax",
+   "periodEnd": "2026-03",
+   "value": 2236,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Profit before tax",
+   "periodEnd": "TTM",
+   "value": 2364,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Tax %",
+   "periodEnd": "2015-03",
+   "value": 35,
+   "unit": "pct"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Tax %",
+   "periodEnd": "2016-03",
+   "value": 39,
+   "unit": "pct"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Tax %",
+   "periodEnd": "2017-03",
+   "value": 34,
+   "unit": "pct"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Tax %",
+   "periodEnd": "2018-03",
+   "value": 41,
+   "unit": "pct"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Tax %",
+   "periodEnd": "2019-03",
+   "value": 44,
+   "unit": "pct"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Tax %",
+   "periodEnd": "2020-03",
+   "value": 36,
+   "unit": "pct"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Tax %",
+   "periodEnd": "2021-03",
+   "value": -12,
+   "unit": "pct"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Tax %",
+   "periodEnd": "2022-03",
+   "value": 69,
+   "unit": "pct"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Tax %",
+   "periodEnd": "2023-03",
+   "value": 29,
+   "unit": "pct"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Tax %",
+   "periodEnd": "2024-03",
+   "value": 23,
+   "unit": "pct"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Tax %",
+   "periodEnd": "2025-03",
+   "value": 24,
+   "unit": "pct"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Tax %",
+   "periodEnd": "2026-03",
+   "value": 23,
+   "unit": "pct"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Net Profit",
+   "periodEnd": "2015-03",
+   "value": 129,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Net Profit",
+   "periodEnd": "2016-03",
+   "value": 55,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Net Profit",
+   "periodEnd": "2017-03",
+   "value": 85,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Net Profit",
+   "periodEnd": "2018-03",
+   "value": 87,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Net Profit",
+   "periodEnd": "2019-03",
+   "value": 95,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Net Profit",
+   "periodEnd": "2020-03",
+   "value": 106,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Net Profit",
+   "periodEnd": "2021-03",
+   "value": -181,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Net Profit",
+   "periodEnd": "2022-03",
+   "value": 35,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Net Profit",
+   "periodEnd": "2023-03",
+   "value": 394,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Net Profit",
+   "periodEnd": "2024-03",
+   "value": 1477,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Net Profit",
+   "periodEnd": "2025-03",
+   "value": 1534,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Net Profit",
+   "periodEnd": "2026-03",
+   "value": 1721,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Net Profit",
+   "periodEnd": "TTM",
+   "value": 1815,
+   "unit": "cr"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "EPS in Rs",
+   "periodEnd": "2015-03",
+   "value": 2.6,
+   "unit": "rs"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "EPS in Rs",
+   "periodEnd": "2016-03",
+   "value": 1.11,
+   "unit": "rs"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "EPS in Rs",
+   "periodEnd": "2017-03",
+   "value": 1.7,
+   "unit": "rs"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "EPS in Rs",
+   "periodEnd": "2018-03",
+   "value": 1.74,
+   "unit": "rs"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "EPS in Rs",
+   "periodEnd": "2019-03",
+   "value": 1.95,
+   "unit": "rs"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "EPS in Rs",
+   "periodEnd": "2020-03",
+   "value": 2.3,
+   "unit": "rs"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "EPS in Rs",
+   "periodEnd": "2021-03",
+   "value": -2.74,
+   "unit": "rs"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "EPS in Rs",
+   "periodEnd": "2022-03",
+   "value": 1.98,
+   "unit": "rs"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "EPS in Rs",
+   "periodEnd": "2023-03",
+   "value": 8.34,
+   "unit": "rs"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "EPS in Rs",
+   "periodEnd": "2024-03",
+   "value": 27.88,
+   "unit": "rs"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "EPS in Rs",
+   "periodEnd": "2025-03",
+   "value": 29.01,
+   "unit": "rs"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "EPS in Rs",
+   "periodEnd": "2026-03",
+   "value": 32.25,
+   "unit": "rs"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "EPS in Rs",
+   "periodEnd": "TTM",
+   "value": 33.93,
+   "unit": "rs"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Dividend Payout %",
+   "periodEnd": "2015-03",
+   "value": 26,
+   "unit": "pct"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Dividend Payout %",
+   "periodEnd": "2016-03",
+   "value": 54,
+   "unit": "pct"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Dividend Payout %",
+   "periodEnd": "2017-03",
+   "value": 39,
+   "unit": "pct"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Dividend Payout %",
+   "periodEnd": "2018-03",
+   "value": 44,
+   "unit": "pct"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Dividend Payout %",
+   "periodEnd": "2019-03",
+   "value": 45,
+   "unit": "pct"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Dividend Payout %",
+   "periodEnd": "2020-03",
+   "value": 29,
+   "unit": "pct"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Dividend Payout %",
+   "periodEnd": "2021-03",
+   "value": -15,
+   "unit": "pct"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Dividend Payout %",
+   "periodEnd": "2022-03",
+   "value": 57,
+   "unit": "pct"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Dividend Payout %",
+   "periodEnd": "2023-03",
+   "value": 18,
+   "unit": "pct"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Dividend Payout %",
+   "periodEnd": "2024-03",
+   "value": 8,
+   "unit": "pct"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Dividend Payout %",
+   "periodEnd": "2025-03",
+   "value": 11,
+   "unit": "pct"
+  },
+  {
+   "statement": "pnl",
+   "lineItem": "Dividend Payout %",
+   "periodEnd": "2026-03",
+   "value": 8,
+   "unit": "pct"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Equity Capital",
+   "periodEnd": "2015-03",
+   "value": 33,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Equity Capital",
+   "periodEnd": "2016-03",
+   "value": 33,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Equity Capital",
+   "periodEnd": "2017-03",
+   "value": 33,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Equity Capital",
+   "periodEnd": "2018-03",
+   "value": 33,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Equity Capital",
+   "periodEnd": "2019-03",
+   "value": 33,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Equity Capital",
+   "periodEnd": "2020-03",
+   "value": 36,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Equity Capital",
+   "periodEnd": "2021-03",
+   "value": 36,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Equity Capital",
+   "periodEnd": "2022-03",
+   "value": 36,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Equity Capital",
+   "periodEnd": "2023-03",
+   "value": 36,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Equity Capital",
+   "periodEnd": "2024-03",
+   "value": 36,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Equity Capital",
+   "periodEnd": "2025-03",
+   "value": 36,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Equity Capital",
+   "periodEnd": "2026-03",
+   "value": 36,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Reserves",
+   "periodEnd": "2015-03",
+   "value": 1389,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Reserves",
+   "periodEnd": "2016-03",
+   "value": 1431,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Reserves",
+   "periodEnd": "2017-03",
+   "value": 1514,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Reserves",
+   "periodEnd": "2018-03",
+   "value": 1562,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Reserves",
+   "periodEnd": "2019-03",
+   "value": 1613,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Reserves",
+   "periodEnd": "2020-03",
+   "value": 2352,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Reserves",
+   "periodEnd": "2021-03",
+   "value": 2277,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Reserves",
+   "periodEnd": "2022-03",
+   "value": 2328,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Reserves",
+   "periodEnd": "2023-03",
+   "value": 2560,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Reserves",
+   "periodEnd": "2024-03",
+   "value": 4032,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Reserves",
+   "periodEnd": "2025-03",
+   "value": 5426,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Reserves",
+   "periodEnd": "2026-03",
+   "value": 6949,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Borrowings",
+   "periodEnd": "2015-03",
+   "value": 267,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Borrowings",
+   "periodEnd": "2016-03",
+   "value": 400,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Borrowings",
+   "periodEnd": "2017-03",
+   "value": 392,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Borrowings",
+   "periodEnd": "2018-03",
+   "value": 391,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Borrowings",
+   "periodEnd": "2019-03",
+   "value": 494,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Borrowings",
+   "periodEnd": "2020-03",
+   "value": 300,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Borrowings",
+   "periodEnd": "2021-03",
+   "value": 2964,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Borrowings",
+   "periodEnd": "2022-03",
+   "value": 4725,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Borrowings",
+   "periodEnd": "2023-03",
+   "value": 4464,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Borrowings",
+   "periodEnd": "2024-03",
+   "value": 1753,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Borrowings",
+   "periodEnd": "2025-03",
+   "value": 2237,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Borrowings",
+   "periodEnd": "2026-03",
+   "value": 2561,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Other Liabilities",
+   "periodEnd": "2015-03",
+   "value": 518,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Other Liabilities",
+   "periodEnd": "2016-03",
+   "value": 292,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Other Liabilities",
+   "periodEnd": "2017-03",
+   "value": 283,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Other Liabilities",
+   "periodEnd": "2018-03",
+   "value": 349,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Other Liabilities",
+   "periodEnd": "2019-03",
+   "value": 418,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Other Liabilities",
+   "periodEnd": "2020-03",
+   "value": 2819,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Other Liabilities",
+   "periodEnd": "2021-03",
+   "value": 447,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Other Liabilities",
+   "periodEnd": "2022-03",
+   "value": 637,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Other Liabilities",
+   "periodEnd": "2023-03",
+   "value": 1022,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Other Liabilities",
+   "periodEnd": "2024-03",
+   "value": 1341,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Other Liabilities",
+   "periodEnd": "2025-03",
+   "value": 1721,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Other Liabilities",
+   "periodEnd": "2026-03",
+   "value": 2183,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Total Liabilities",
+   "periodEnd": "2015-03",
+   "value": 2207,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Total Liabilities",
+   "periodEnd": "2016-03",
+   "value": 2157,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Total Liabilities",
+   "periodEnd": "2017-03",
+   "value": 2222,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Total Liabilities",
+   "periodEnd": "2018-03",
+   "value": 2336,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Total Liabilities",
+   "periodEnd": "2019-03",
+   "value": 2559,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Total Liabilities",
+   "periodEnd": "2020-03",
+   "value": 5507,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Total Liabilities",
+   "periodEnd": "2021-03",
+   "value": 5724,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Total Liabilities",
+   "periodEnd": "2022-03",
+   "value": 7726,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Total Liabilities",
+   "periodEnd": "2023-03",
+   "value": 8082,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Total Liabilities",
+   "periodEnd": "2024-03",
+   "value": 7162,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Total Liabilities",
+   "periodEnd": "2025-03",
+   "value": 9420,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Total Liabilities",
+   "periodEnd": "2026-03",
+   "value": 11729,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Fixed Assets",
+   "periodEnd": "2015-03",
+   "value": 668,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Fixed Assets",
+   "periodEnd": "2016-03",
+   "value": 477,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Fixed Assets",
+   "periodEnd": "2017-03",
+   "value": 549,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Fixed Assets",
+   "periodEnd": "2018-03",
+   "value": 613,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Fixed Assets",
+   "periodEnd": "2019-03",
+   "value": 662,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Fixed Assets",
+   "periodEnd": "2020-03",
+   "value": 2738,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Fixed Assets",
+   "periodEnd": "2021-03",
+   "value": 3054,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Fixed Assets",
+   "periodEnd": "2022-03",
+   "value": 4687,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Fixed Assets",
+   "periodEnd": "2023-03",
+   "value": 4527,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Fixed Assets",
+   "periodEnd": "2024-03",
+   "value": 2450,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Fixed Assets",
+   "periodEnd": "2025-03",
+   "value": 3895,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Fixed Assets",
+   "periodEnd": "2026-03",
+   "value": 5519,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "CWIP",
+   "periodEnd": "2015-03",
+   "value": 92,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "CWIP",
+   "periodEnd": "2016-03",
+   "value": 55,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "CWIP",
+   "periodEnd": "2017-03",
+   "value": 5,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "CWIP",
+   "periodEnd": "2018-03",
+   "value": 10,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "CWIP",
+   "periodEnd": "2019-03",
+   "value": 87,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "CWIP",
+   "periodEnd": "2020-03",
+   "value": 23,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "CWIP",
+   "periodEnd": "2021-03",
+   "value": 108,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "CWIP",
+   "periodEnd": "2022-03",
+   "value": 105,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "CWIP",
+   "periodEnd": "2023-03",
+   "value": 102,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "CWIP",
+   "periodEnd": "2024-03",
+   "value": 224,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "CWIP",
+   "periodEnd": "2025-03",
+   "value": 180,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "CWIP",
+   "periodEnd": "2026-03",
+   "value": 254,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Investments",
+   "periodEnd": "2015-03",
+   "value": 740,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Investments",
+   "periodEnd": "2016-03",
+   "value": 1067,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Investments",
+   "periodEnd": "2017-03",
+   "value": 1080,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Investments",
+   "periodEnd": "2018-03",
+   "value": 1023,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Investments",
+   "periodEnd": "2019-03",
+   "value": 883,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Investments",
+   "periodEnd": "2020-03",
+   "value": 1515,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Investments",
+   "periodEnd": "2021-03",
+   "value": 1487,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Investments",
+   "periodEnd": "2022-03",
+   "value": 1284,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Investments",
+   "periodEnd": "2023-03",
+   "value": 1110,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Investments",
+   "periodEnd": "2024-03",
+   "value": 1416,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Investments",
+   "periodEnd": "2025-03",
+   "value": 1480,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Investments",
+   "periodEnd": "2026-03",
+   "value": 1385,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Other Assets",
+   "periodEnd": "2015-03",
+   "value": 706,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Other Assets",
+   "periodEnd": "2016-03",
+   "value": 558,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Other Assets",
+   "periodEnd": "2017-03",
+   "value": 588,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Other Assets",
+   "periodEnd": "2018-03",
+   "value": 691,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Other Assets",
+   "periodEnd": "2019-03",
+   "value": 927,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Other Assets",
+   "periodEnd": "2020-03",
+   "value": 1230,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Other Assets",
+   "periodEnd": "2021-03",
+   "value": 1075,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Other Assets",
+   "periodEnd": "2022-03",
+   "value": 1651,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Other Assets",
+   "periodEnd": "2023-03",
+   "value": 2343,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Other Assets",
+   "periodEnd": "2024-03",
+   "value": 3072,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Other Assets",
+   "periodEnd": "2025-03",
+   "value": 3865,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Other Assets",
+   "periodEnd": "2026-03",
+   "value": 4571,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Total Assets",
+   "periodEnd": "2015-03",
+   "value": 2207,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Total Assets",
+   "periodEnd": "2016-03",
+   "value": 2157,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Total Assets",
+   "periodEnd": "2017-03",
+   "value": 2222,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Total Assets",
+   "periodEnd": "2018-03",
+   "value": 2336,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Total Assets",
+   "periodEnd": "2019-03",
+   "value": 2559,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Total Assets",
+   "periodEnd": "2020-03",
+   "value": 5507,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Total Assets",
+   "periodEnd": "2021-03",
+   "value": 5724,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Total Assets",
+   "periodEnd": "2022-03",
+   "value": 7726,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Total Assets",
+   "periodEnd": "2023-03",
+   "value": 8082,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Total Assets",
+   "periodEnd": "2024-03",
+   "value": 7162,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Total Assets",
+   "periodEnd": "2025-03",
+   "value": 9420,
+   "unit": "cr"
+  },
+  {
+   "statement": "balance_sheet",
+   "lineItem": "Total Assets",
+   "periodEnd": "2026-03",
+   "value": 11729,
+   "unit": "cr"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Cash from Operating Activity",
+   "periodEnd": "2015-03",
+   "value": -10,
+   "unit": "cr"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Cash from Operating Activity",
+   "periodEnd": "2016-03",
+   "value": 109,
+   "unit": "cr"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Cash from Operating Activity",
+   "periodEnd": "2017-03",
+   "value": 102,
+   "unit": "cr"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Cash from Operating Activity",
+   "periodEnd": "2018-03",
+   "value": 77,
+   "unit": "cr"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Cash from Operating Activity",
+   "periodEnd": "2019-03",
+   "value": 21,
+   "unit": "cr"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Cash from Operating Activity",
+   "periodEnd": "2020-03",
+   "value": 361,
+   "unit": "cr"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Cash from Operating Activity",
+   "periodEnd": "2021-03",
+   "value": 285,
+   "unit": "cr"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Cash from Operating Activity",
+   "periodEnd": "2022-03",
+   "value": 58,
+   "unit": "cr"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Cash from Operating Activity",
+   "periodEnd": "2023-03",
+   "value": 595,
+   "unit": "cr"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Cash from Operating Activity",
+   "periodEnd": "2024-03",
+   "value": 1349,
+   "unit": "cr"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Cash from Operating Activity",
+   "periodEnd": "2025-03",
+   "value": 1661,
+   "unit": "cr"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Cash from Operating Activity",
+   "periodEnd": "2026-03",
+   "value": 2668,
+   "unit": "cr"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Cash from Investing Activity",
+   "periodEnd": "2015-03",
+   "value": -306,
+   "unit": "cr"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Cash from Investing Activity",
+   "periodEnd": "2016-03",
+   "value": -98,
+   "unit": "cr"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Cash from Investing Activity",
+   "periodEnd": "2017-03",
+   "value": -44,
+   "unit": "cr"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Cash from Investing Activity",
+   "periodEnd": "2018-03",
+   "value": -4,
+   "unit": "cr"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Cash from Investing Activity",
+   "periodEnd": "2019-03",
+   "value": -37,
+   "unit": "cr"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Cash from Investing Activity",
+   "periodEnd": "2020-03",
+   "value": -809,
+   "unit": "cr"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Cash from Investing Activity",
+   "periodEnd": "2021-03",
+   "value": 18,
+   "unit": "cr"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Cash from Investing Activity",
+   "periodEnd": "2022-03",
+   "value": 56,
+   "unit": "cr"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Cash from Investing Activity",
+   "periodEnd": "2023-03",
+   "value": -103,
+   "unit": "cr"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Cash from Investing Activity",
+   "periodEnd": "2024-03",
+   "value": -508,
+   "unit": "cr"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Cash from Investing Activity",
+   "periodEnd": "2025-03",
+   "value": -923,
+   "unit": "cr"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Cash from Investing Activity",
+   "periodEnd": "2026-03",
+   "value": -1577,
+   "unit": "cr"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Cash from Financing Activity",
+   "periodEnd": "2015-03",
+   "value": 310,
+   "unit": "cr"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Cash from Financing Activity",
+   "periodEnd": "2016-03",
+   "value": -13,
+   "unit": "cr"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Cash from Financing Activity",
+   "periodEnd": "2017-03",
+   "value": -51,
+   "unit": "cr"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Cash from Financing Activity",
+   "periodEnd": "2018-03",
+   "value": -74,
+   "unit": "cr"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Cash from Financing Activity",
+   "periodEnd": "2019-03",
+   "value": 37,
+   "unit": "cr"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Cash from Financing Activity",
+   "periodEnd": "2020-03",
+   "value": 452,
+   "unit": "cr"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Cash from Financing Activity",
+   "periodEnd": "2021-03",
+   "value": -283,
+   "unit": "cr"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Cash from Financing Activity",
+   "periodEnd": "2022-03",
+   "value": -108,
+   "unit": "cr"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Cash from Financing Activity",
+   "periodEnd": "2023-03",
+   "value": -491,
+   "unit": "cr"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Cash from Financing Activity",
+   "periodEnd": "2024-03",
+   "value": -629,
+   "unit": "cr"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Cash from Financing Activity",
+   "periodEnd": "2025-03",
+   "value": -694,
+   "unit": "cr"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Cash from Financing Activity",
+   "periodEnd": "2026-03",
+   "value": -1148,
+   "unit": "cr"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Net Cash Flow",
+   "periodEnd": "2015-03",
+   "value": -6,
+   "unit": "rs"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Net Cash Flow",
+   "periodEnd": "2016-03",
+   "value": -2,
+   "unit": "rs"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Net Cash Flow",
+   "periodEnd": "2017-03",
+   "value": 7,
+   "unit": "rs"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Net Cash Flow",
+   "periodEnd": "2018-03",
+   "value": -1,
+   "unit": "rs"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Net Cash Flow",
+   "periodEnd": "2019-03",
+   "value": 21,
+   "unit": "rs"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Net Cash Flow",
+   "periodEnd": "2020-03",
+   "value": 5,
+   "unit": "rs"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Net Cash Flow",
+   "periodEnd": "2021-03",
+   "value": 20,
+   "unit": "rs"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Net Cash Flow",
+   "periodEnd": "2022-03",
+   "value": 6,
+   "unit": "rs"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Net Cash Flow",
+   "periodEnd": "2023-03",
+   "value": 1,
+   "unit": "rs"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Net Cash Flow",
+   "periodEnd": "2024-03",
+   "value": 211,
+   "unit": "rs"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Net Cash Flow",
+   "periodEnd": "2025-03",
+   "value": 44,
+   "unit": "rs"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Net Cash Flow",
+   "periodEnd": "2026-03",
+   "value": -57,
+   "unit": "rs"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Free Cash Flow",
+   "periodEnd": "2015-03",
+   "value": -166,
+   "unit": "rs"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Free Cash Flow",
+   "periodEnd": "2016-03",
+   "value": -21,
+   "unit": "rs"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Free Cash Flow",
+   "periodEnd": "2017-03",
+   "value": 34,
+   "unit": "rs"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Free Cash Flow",
+   "periodEnd": "2018-03",
+   "value": -30,
+   "unit": "rs"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Free Cash Flow",
+   "periodEnd": "2019-03",
+   "value": -174,
+   "unit": "rs"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Free Cash Flow",
+   "periodEnd": "2020-03",
+   "value": 247,
+   "unit": "rs"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Free Cash Flow",
+   "periodEnd": "2021-03",
+   "value": 194,
+   "unit": "rs"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Free Cash Flow",
+   "periodEnd": "2022-03",
+   "value": -152,
+   "unit": "rs"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Free Cash Flow",
+   "periodEnd": "2023-03",
+   "value": 371,
+   "unit": "rs"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Free Cash Flow",
+   "periodEnd": "2024-03",
+   "value": 955,
+   "unit": "rs"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Free Cash Flow",
+   "periodEnd": "2025-03",
+   "value": 799,
+   "unit": "rs"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "Free Cash Flow",
+   "periodEnd": "2026-03",
+   "value": 931,
+   "unit": "rs"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "CFO/OP",
+   "periodEnd": "2015-03",
+   "value": 4,
+   "unit": "pct"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "CFO/OP",
+   "periodEnd": "2016-03",
+   "value": 144,
+   "unit": "pct"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "CFO/OP",
+   "periodEnd": "2017-03",
+   "value": 105,
+   "unit": "pct"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "CFO/OP",
+   "periodEnd": "2018-03",
+   "value": 61,
+   "unit": "pct"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "CFO/OP",
+   "periodEnd": "2019-03",
+   "value": 41,
+   "unit": "pct"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "CFO/OP",
+   "periodEnd": "2020-03",
+   "value": 84,
+   "unit": "pct"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "CFO/OP",
+   "periodEnd": "2021-03",
+   "value": 251,
+   "unit": "pct"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "CFO/OP",
+   "periodEnd": "2022-03",
+   "value": 23,
+   "unit": "pct"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "CFO/OP",
+   "periodEnd": "2023-03",
+   "value": 71,
+   "unit": "pct"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "CFO/OP",
+   "periodEnd": "2024-03",
+   "value": 84,
+   "unit": "pct"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "CFO/OP",
+   "periodEnd": "2025-03",
+   "value": 76,
+   "unit": "pct"
+  },
+  {
+   "statement": "cash_flow",
+   "lineItem": "CFO/OP",
+   "periodEnd": "2026-03",
+   "value": 86,
+   "unit": "pct"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Debtor Days",
+   "periodEnd": "2015-03",
+   "value": 3,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Debtor Days",
+   "periodEnd": "2016-03",
+   "value": 3,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Debtor Days",
+   "periodEnd": "2017-03",
+   "value": 1,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Debtor Days",
+   "periodEnd": "2018-03",
+   "value": 3,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Debtor Days",
+   "periodEnd": "2019-03",
+   "value": 2,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Debtor Days",
+   "periodEnd": "2020-03",
+   "value": 2,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Debtor Days",
+   "periodEnd": "2021-03",
+   "value": 3,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Debtor Days",
+   "periodEnd": "2022-03",
+   "value": 1,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Debtor Days",
+   "periodEnd": "2023-03",
+   "value": 2,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Debtor Days",
+   "periodEnd": "2024-03",
+   "value": 2,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Debtor Days",
+   "periodEnd": "2025-03",
+   "value": 1,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Debtor Days",
+   "periodEnd": "2026-03",
+   "value": 1,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Inventory Days",
+   "periodEnd": "2015-03",
+   "value": 91,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Inventory Days",
+   "periodEnd": "2016-03",
+   "value": 128,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Inventory Days",
+   "periodEnd": "2017-03",
+   "value": 126,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Inventory Days",
+   "periodEnd": "2018-03",
+   "value": 122,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Inventory Days",
+   "periodEnd": "2019-03",
+   "value": 138,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Inventory Days",
+   "periodEnd": "2020-03",
+   "value": 118,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Inventory Days",
+   "periodEnd": "2021-03",
+   "value": 102,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Inventory Days",
+   "periodEnd": "2022-03",
+   "value": 128,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Inventory Days",
+   "periodEnd": "2023-03",
+   "value": 105,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Inventory Days",
+   "periodEnd": "2024-03",
+   "value": 83,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Inventory Days",
+   "periodEnd": "2025-03",
+   "value": 77,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Inventory Days",
+   "periodEnd": "2026-03",
+   "value": 74,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Days Payable",
+   "periodEnd": "2015-03",
+   "value": 61,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Days Payable",
+   "periodEnd": "2016-03",
+   "value": 76,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Days Payable",
+   "periodEnd": "2017-03",
+   "value": 70,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Days Payable",
+   "periodEnd": "2018-03",
+   "value": 74,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Days Payable",
+   "periodEnd": "2019-03",
+   "value": 68,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Days Payable",
+   "periodEnd": "2020-03",
+   "value": 58,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Days Payable",
+   "periodEnd": "2021-03",
+   "value": 65,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Days Payable",
+   "periodEnd": "2022-03",
+   "value": 56,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Days Payable",
+   "periodEnd": "2023-03",
+   "value": 51,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Days Payable",
+   "periodEnd": "2024-03",
+   "value": 41,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Days Payable",
+   "periodEnd": "2025-03",
+   "value": 35,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Days Payable",
+   "periodEnd": "2026-03",
+   "value": 39,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Cash Conversion Cycle",
+   "periodEnd": "2015-03",
+   "value": 33,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Cash Conversion Cycle",
+   "periodEnd": "2016-03",
+   "value": 55,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Cash Conversion Cycle",
+   "periodEnd": "2017-03",
+   "value": 58,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Cash Conversion Cycle",
+   "periodEnd": "2018-03",
+   "value": 51,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Cash Conversion Cycle",
+   "periodEnd": "2019-03",
+   "value": 72,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Cash Conversion Cycle",
+   "periodEnd": "2020-03",
+   "value": 62,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Cash Conversion Cycle",
+   "periodEnd": "2021-03",
+   "value": 40,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Cash Conversion Cycle",
+   "periodEnd": "2022-03",
+   "value": 74,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Cash Conversion Cycle",
+   "periodEnd": "2023-03",
+   "value": 55,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Cash Conversion Cycle",
+   "periodEnd": "2024-03",
+   "value": 45,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Cash Conversion Cycle",
+   "periodEnd": "2025-03",
+   "value": 43,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Cash Conversion Cycle",
+   "periodEnd": "2026-03",
+   "value": 36,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Working Capital Days",
+   "periodEnd": "2015-03",
+   "value": -15,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Working Capital Days",
+   "periodEnd": "2016-03",
+   "value": -25,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Working Capital Days",
+   "periodEnd": "2017-03",
+   "value": 36,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Working Capital Days",
+   "periodEnd": "2018-03",
+   "value": 41,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Working Capital Days",
+   "periodEnd": "2019-03",
+   "value": 24,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Working Capital Days",
+   "periodEnd": "2020-03",
+   "value": 39,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Working Capital Days",
+   "periodEnd": "2021-03",
+   "value": -14,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Working Capital Days",
+   "periodEnd": "2022-03",
+   "value": 42,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Working Capital Days",
+   "periodEnd": "2023-03",
+   "value": 29,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Working Capital Days",
+   "periodEnd": "2024-03",
+   "value": 16,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Working Capital Days",
+   "periodEnd": "2025-03",
+   "value": 15,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "Working Capital Days",
+   "periodEnd": "2026-03",
+   "value": -2,
+   "unit": "days"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "ROCE %",
+   "periodEnd": "2015-03",
+   "value": 4,
+   "unit": "pct"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "ROCE %",
+   "periodEnd": "2016-03",
+   "value": 7,
+   "unit": "pct"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "ROCE %",
+   "periodEnd": "2017-03",
+   "value": 9,
+   "unit": "pct"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "ROCE %",
+   "periodEnd": "2018-03",
+   "value": 10,
+   "unit": "pct"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "ROCE %",
+   "periodEnd": "2019-03",
+   "value": 11,
+   "unit": "pct"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "ROCE %",
+   "periodEnd": "2020-03",
+   "value": 17,
+   "unit": "pct"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "ROCE %",
+   "periodEnd": "2021-03",
+   "value": 1,
+   "unit": "pct"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "ROCE %",
+   "periodEnd": "2022-03",
+   "value": 7,
+   "unit": "pct"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "ROCE %",
+   "periodEnd": "2023-03",
+   "value": 12,
+   "unit": "pct"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "ROCE %",
+   "periodEnd": "2024-03",
+   "value": 24,
+   "unit": "pct"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "ROCE %",
+   "periodEnd": "2025-03",
+   "value": 31,
+   "unit": "pct"
+  },
+  {
+   "statement": "ratios",
+   "lineItem": "ROCE %",
+   "periodEnd": "2026-03",
+   "value": 28,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Promoters",
+   "periodEnd": "2023-09",
+   "value": 37.01,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Promoters",
+   "periodEnd": "2023-12",
+   "value": 37.01,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Promoters",
+   "periodEnd": "2024-03",
+   "value": 37.01,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Promoters",
+   "periodEnd": "2024-06",
+   "value": 37.01,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Promoters",
+   "periodEnd": "2024-09",
+   "value": 37.01,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Promoters",
+   "periodEnd": "2024-12",
+   "value": 37.01,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Promoters",
+   "periodEnd": "2025-03",
+   "value": 37.01,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Promoters",
+   "periodEnd": "2025-06",
+   "value": 37.01,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Promoters",
+   "periodEnd": "2025-09",
+   "value": 37.01,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Promoters",
+   "periodEnd": "2025-12",
+   "value": 37.01,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Promoters",
+   "periodEnd": "2026-03",
+   "value": 37.01,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Promoters",
+   "periodEnd": "2026-06",
+   "value": 37.01,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "FIIs",
+   "periodEnd": "2023-09",
+   "value": 26.17,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "FIIs",
+   "periodEnd": "2023-12",
+   "value": 25.91,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "FIIs",
+   "periodEnd": "2024-03",
+   "value": 26.81,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "FIIs",
+   "periodEnd": "2024-06",
+   "value": 27.87,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "FIIs",
+   "periodEnd": "2024-09",
+   "value": 26.62,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "FIIs",
+   "periodEnd": "2024-12",
+   "value": 21.68,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "FIIs",
+   "periodEnd": "2025-03",
+   "value": 19.65,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "FIIs",
+   "periodEnd": "2025-06",
+   "value": 18.39,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "FIIs",
+   "periodEnd": "2025-09",
+   "value": 16.81,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "FIIs",
+   "periodEnd": "2025-12",
+   "value": 15.62,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "FIIs",
+   "periodEnd": "2026-03",
+   "value": 15.59,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "FIIs",
+   "periodEnd": "2026-06",
+   "value": 15.14,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "DIIs",
+   "periodEnd": "2023-09",
+   "value": 14.89,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "DIIs",
+   "periodEnd": "2023-12",
+   "value": 14.82,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "DIIs",
+   "periodEnd": "2024-03",
+   "value": 13.89,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "DIIs",
+   "periodEnd": "2024-06",
+   "value": 13.18,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "DIIs",
+   "periodEnd": "2024-09",
+   "value": 13.39,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "DIIs",
+   "periodEnd": "2024-12",
+   "value": 15.25,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "DIIs",
+   "periodEnd": "2025-03",
+   "value": 17.2,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "DIIs",
+   "periodEnd": "2025-06",
+   "value": 18.42,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "DIIs",
+   "periodEnd": "2025-09",
+   "value": 19.84,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "DIIs",
+   "periodEnd": "2025-12",
+   "value": 21.37,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "DIIs",
+   "periodEnd": "2026-03",
+   "value": 22.19,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "DIIs",
+   "periodEnd": "2026-06",
+   "value": 23.07,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Government",
+   "periodEnd": "2023-09",
+   "value": 0,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Government",
+   "periodEnd": "2023-12",
+   "value": 0,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Government",
+   "periodEnd": "2024-03",
+   "value": 0,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Government",
+   "periodEnd": "2024-06",
+   "value": 0,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Government",
+   "periodEnd": "2024-09",
+   "value": 0,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Government",
+   "periodEnd": "2024-12",
+   "value": 0.04,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Government",
+   "periodEnd": "2025-03",
+   "value": 0.04,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Government",
+   "periodEnd": "2025-06",
+   "value": 0.12,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Government",
+   "periodEnd": "2025-09",
+   "value": 0.13,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Government",
+   "periodEnd": "2025-12",
+   "value": 0.13,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Government",
+   "periodEnd": "2026-03",
+   "value": 0.17,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Government",
+   "periodEnd": "2026-06",
+   "value": 0.19,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Public",
+   "periodEnd": "2023-09",
+   "value": 21.92,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Public",
+   "periodEnd": "2023-12",
+   "value": 22.26,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Public",
+   "periodEnd": "2024-03",
+   "value": 22.29,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Public",
+   "periodEnd": "2024-06",
+   "value": 21.95,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Public",
+   "periodEnd": "2024-09",
+   "value": 22.98,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Public",
+   "periodEnd": "2024-12",
+   "value": 26.01,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Public",
+   "periodEnd": "2025-03",
+   "value": 26.08,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Public",
+   "periodEnd": "2025-06",
+   "value": 26.06,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Public",
+   "periodEnd": "2025-09",
+   "value": 26.18,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Public",
+   "periodEnd": "2025-12",
+   "value": 25.87,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Public",
+   "periodEnd": "2026-03",
+   "value": 25.03,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Public",
+   "periodEnd": "2026-06",
+   "value": 24.57,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "No. of Shareholders",
+   "periodEnd": "2023-09",
+   "value": 149010,
+   "unit": "count"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "No. of Shareholders",
+   "periodEnd": "2023-12",
+   "value": 175241,
+   "unit": "count"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "No. of Shareholders",
+   "periodEnd": "2024-03",
+   "value": 215715,
+   "unit": "count"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "No. of Shareholders",
+   "periodEnd": "2024-06",
+   "value": 246571,
+   "unit": "count"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "No. of Shareholders",
+   "periodEnd": "2024-09",
+   "value": 281635,
+   "unit": "count"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "No. of Shareholders",
+   "periodEnd": "2024-12",
+   "value": 346036,
+   "unit": "count"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "No. of Shareholders",
+   "periodEnd": "2025-03",
+   "value": 405274,
+   "unit": "count"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "No. of Shareholders",
+   "periodEnd": "2025-06",
+   "value": 421038,
+   "unit": "count"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "No. of Shareholders",
+   "periodEnd": "2025-09",
+   "value": 488273,
+   "unit": "count"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "No. of Shareholders",
+   "periodEnd": "2025-12",
+   "value": 507525,
+   "unit": "count"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "No. of Shareholders",
+   "periodEnd": "2026-03",
+   "value": 512623,
+   "unit": "count"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "No. of Shareholders",
+   "periodEnd": "2026-06",
+   "value": 520340,
+   "unit": "count"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Promoters",
+   "periodEnd": "2016-02",
+   "value": 32.61,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Promoters",
+   "periodEnd": "2017-03",
+   "value": 32.61,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Promoters",
+   "periodEnd": "2018-03",
+   "value": 32.61,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Promoters",
+   "periodEnd": "2019-03",
+   "value": 32.61,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Promoters",
+   "periodEnd": "2020-03",
+   "value": 37.01,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Promoters",
+   "periodEnd": "2021-03",
+   "value": 37.01,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Promoters",
+   "periodEnd": "2022-03",
+   "value": 37.01,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Promoters",
+   "periodEnd": "2023-03",
+   "value": 37.01,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Promoters",
+   "periodEnd": "2024-03",
+   "value": 37.01,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Promoters",
+   "periodEnd": "2025-03",
+   "value": 37.01,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Promoters",
+   "periodEnd": "2026-03",
+   "value": 37.01,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Promoters",
+   "periodEnd": "2026-06",
+   "value": 37.01,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "FIIs",
+   "periodEnd": "2016-02",
+   "value": 0,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "FIIs",
+   "periodEnd": "2017-03",
+   "value": 26.74,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "FIIs",
+   "periodEnd": "2018-03",
+   "value": 24.25,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "FIIs",
+   "periodEnd": "2019-03",
+   "value": 22.19,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "FIIs",
+   "periodEnd": "2020-03",
+   "value": 21.18,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "FIIs",
+   "periodEnd": "2021-03",
+   "value": 29.9,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "FIIs",
+   "periodEnd": "2022-03",
+   "value": 28.32,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "FIIs",
+   "periodEnd": "2023-03",
+   "value": 24.43,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "FIIs",
+   "periodEnd": "2024-03",
+   "value": 26.81,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "FIIs",
+   "periodEnd": "2025-03",
+   "value": 19.65,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "FIIs",
+   "periodEnd": "2026-03",
+   "value": 15.59,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "FIIs",
+   "periodEnd": "2026-06",
+   "value": 15.14,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "DIIs",
+   "periodEnd": "2016-02",
+   "value": 42.44,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "DIIs",
+   "periodEnd": "2017-03",
+   "value": 12.02,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "DIIs",
+   "periodEnd": "2018-03",
+   "value": 14.7,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "DIIs",
+   "periodEnd": "2019-03",
+   "value": 16.9,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "DIIs",
+   "periodEnd": "2020-03",
+   "value": 15.59,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "DIIs",
+   "periodEnd": "2021-03",
+   "value": 10.27,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "DIIs",
+   "periodEnd": "2022-03",
+   "value": 13.43,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "DIIs",
+   "periodEnd": "2023-03",
+   "value": 16.1,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "DIIs",
+   "periodEnd": "2024-03",
+   "value": 13.89,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "DIIs",
+   "periodEnd": "2025-03",
+   "value": 17.2,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "DIIs",
+   "periodEnd": "2026-03",
+   "value": 22.19,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "DIIs",
+   "periodEnd": "2026-06",
+   "value": 23.07,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Government",
+   "periodEnd": "2016-02",
+   "value": 0,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Government",
+   "periodEnd": "2017-03",
+   "value": 0,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Government",
+   "periodEnd": "2018-03",
+   "value": 0,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Government",
+   "periodEnd": "2019-03",
+   "value": 0,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Government",
+   "periodEnd": "2020-03",
+   "value": 0,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Government",
+   "periodEnd": "2021-03",
+   "value": 0,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Government",
+   "periodEnd": "2022-03",
+   "value": 0,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Government",
+   "periodEnd": "2023-03",
+   "value": 0,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Government",
+   "periodEnd": "2024-03",
+   "value": 0,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Government",
+   "periodEnd": "2025-03",
+   "value": 0.04,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Government",
+   "periodEnd": "2026-03",
+   "value": 0.17,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Government",
+   "periodEnd": "2026-06",
+   "value": 0.19,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Public",
+   "periodEnd": "2016-02",
+   "value": 24.95,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Public",
+   "periodEnd": "2017-03",
+   "value": 28.63,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Public",
+   "periodEnd": "2018-03",
+   "value": 28.43,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Public",
+   "periodEnd": "2019-03",
+   "value": 28.29,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Public",
+   "periodEnd": "2020-03",
+   "value": 26.22,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Public",
+   "periodEnd": "2021-03",
+   "value": 22.83,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Public",
+   "periodEnd": "2022-03",
+   "value": 21.24,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Public",
+   "periodEnd": "2023-03",
+   "value": 22.45,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Public",
+   "periodEnd": "2024-03",
+   "value": 22.29,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Public",
+   "periodEnd": "2025-03",
+   "value": 26.08,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Public",
+   "periodEnd": "2026-03",
+   "value": 25.03,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "Public",
+   "periodEnd": "2026-06",
+   "value": 24.57,
+   "unit": "pct"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "No. of Shareholders",
+   "periodEnd": "2016-02",
+   "value": 33504,
+   "unit": "count"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "No. of Shareholders",
+   "periodEnd": "2017-03",
+   "value": 39921,
+   "unit": "count"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "No. of Shareholders",
+   "periodEnd": "2018-03",
+   "value": 45237,
+   "unit": "count"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "No. of Shareholders",
+   "periodEnd": "2019-03",
+   "value": 45507,
+   "unit": "count"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "No. of Shareholders",
+   "periodEnd": "2020-03",
+   "value": 66124,
+   "unit": "count"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "No. of Shareholders",
+   "periodEnd": "2021-03",
+   "value": 84450,
+   "unit": "count"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "No. of Shareholders",
+   "periodEnd": "2022-03",
+   "value": 112460,
+   "unit": "count"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "No. of Shareholders",
+   "periodEnd": "2023-03",
+   "value": 136168,
+   "unit": "count"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "No. of Shareholders",
+   "periodEnd": "2024-03",
+   "value": 215715,
+   "unit": "count"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "No. of Shareholders",
+   "periodEnd": "2025-03",
+   "value": 405274,
+   "unit": "count"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "No. of Shareholders",
+   "periodEnd": "2026-03",
+   "value": 512623,
+   "unit": "count"
+  },
+  {
+   "statement": "shareholding",
+   "lineItem": "No. of Shareholders",
+   "periodEnd": "2026-06",
+   "value": 520340,
+   "unit": "count"
+  },
+  {
+   "statement": "growth",
+   "lineItem": "Compounded Sales Growth / 10 Years",
+   "periodEnd": null,
+   "value": 28,
+   "unit": "pct"
+  },
+  {
+   "statement": "growth",
+   "lineItem": "Compounded Sales Growth / 5 Years",
+   "periodEnd": null,
+   "value": 51,
+   "unit": "pct"
+  },
+  {
+   "statement": "growth",
+   "lineItem": "Compounded Sales Growth / 3 Years",
+   "periodEnd": null,
+   "value": 35,
+   "unit": "pct"
+  },
+  {
+   "statement": "growth",
+   "lineItem": "Compounded Sales Growth / TTM",
+   "periodEnd": null,
+   "value": 17,
+   "unit": "pct"
+  },
+  {
+   "statement": "growth",
+   "lineItem": "Compounded Profit Growth / 10 Years",
+   "periodEnd": null,
+   "value": 43,
+   "unit": "pct"
+  },
+  {
+   "statement": "growth",
+   "lineItem": "Compounded Profit Growth / 5 Years",
+   "periodEnd": null,
+   "value": 69,
+   "unit": "pct"
+  },
+  {
+   "statement": "growth",
+   "lineItem": "Compounded Profit Growth / 3 Years",
+   "periodEnd": null,
+   "value": 71,
+   "unit": "pct"
+  },
+  {
+   "statement": "growth",
+   "lineItem": "Compounded Profit Growth / TTM",
+   "periodEnd": null,
+   "value": 15,
+   "unit": "pct"
+  },
+  {
+   "statement": "growth",
+   "lineItem": "Stock Price CAGR / 10 Years",
+   "periodEnd": null,
+   "value": 35,
+   "unit": "pct"
+  },
+  {
+   "statement": "growth",
+   "lineItem": "Stock Price CAGR / 5 Years",
+   "periodEnd": null,
+   "value": 35,
+   "unit": "pct"
+  },
+  {
+   "statement": "growth",
+   "lineItem": "Stock Price CAGR / 3 Years",
+   "periodEnd": null,
+   "value": 29,
+   "unit": "pct"
+  },
+  {
+   "statement": "growth",
+   "lineItem": "Stock Price CAGR / 1 Year",
+   "periodEnd": null,
+   "value": -18,
+   "unit": "pct"
+  },
+  {
+   "statement": "growth",
+   "lineItem": "Return on Equity / 10 Years",
+   "periodEnd": null,
+   "value": 17,
+   "unit": "pct"
+  },
+  {
+   "statement": "growth",
+   "lineItem": "Return on Equity / 5 Years",
+   "periodEnd": null,
+   "value": 24,
+   "unit": "pct"
+  },
+  {
+   "statement": "growth",
+   "lineItem": "Return on Equity / 3 Years",
+   "periodEnd": null,
+   "value": 29,
+   "unit": "pct"
+  },
+  {
+   "statement": "growth",
+   "lineItem": "Return on Equity / Last Year",
+   "periodEnd": null,
+   "value": 28,
+   "unit": "pct"
+  }
+ ]
+}

@@ -1,0 +1,6 @@
+# Cookie jars — live session cookies for screener.in and NSE. Never commit:
+# anyone with these can act as your logged-in browser against both sites.
+state/*.jar
+
+# Per-run fetch audit logs. Regenerated on every crawl, no value in history.
+state/runs/

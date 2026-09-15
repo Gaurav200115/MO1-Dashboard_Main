@@ -1,0 +1,185 @@
+@import "tailwindcss";
+
+/*
+  Tokens are plain CSS variables so they can be swapped at runtime; `@theme inline`
+  points Tailwind's utilities at the variables rather than baking in literals.
+  Three theme states are covered: explicit light, explicit dark, and the default
+  unstamped document where only prefers-color-scheme applies.
+*/
+@theme inline {
+  --color-ground: var(--ground);
+  --color-surface: var(--surface);
+  --color-surface2: var(--surface-2);
+  --color-sunken: var(--sunken);
+  --color-ink: var(--ink);
+  --color-ink2: var(--ink-2);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-line: var(--line);
+  --color-linestrong: var(--line-strong);
+  --color-accent: var(--accent);
+  --color-accentink: var(--accent-ink);
+  --color-accentsoft: var(--accent-soft);
+  --color-pos: var(--pos);
+  --color-neg: var(--neg);
+  --color-alert: var(--alert);
+  --color-alertsoft: var(--alert-soft);
+
+  --font-display: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+:root {
+  --ground: #f5f6f8;
+  --surface: #ffffff;
+  --surface-2: #edeff3;
+  --sunken: #e7eaef;
+  --ink: #171c24;
+  --ink-2: #3e4854;
+  --muted: #6b7686;
+  --faint: #96a0ae;
+  --line: #dde2e9;
+  --line-strong: #c6cdd7;
+  --accent: #2d6e8e;
+  --accent-ink: #ffffff;
+  --accent-soft: #e3eef4;
+  --pos: #1a8f5e;
+  --neg: #c0435a;
+  --alert: #c77a17;
+  --alert-soft: #fbf0de;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground: #12151a;
+    --surface: #1a1f26;
+    --surface-2: #222831;
+    --sunken: #0e1116;
+    --ink: #e8ecf2;
+    --ink-2: #c2cad5;
+    --muted: #8b95a5;
+    --faint: #69737f;
+    --line: #2b323c;
+    --line-strong: #3b434f;
+    --accent: #5fa8cc;
+    --accent-ink: #0e1116;
+    --accent-soft: #1e2c36;
+    --pos: #3dbe87;
+    --neg: #e8697e;
+    --alert: #f0a93b;
+    --alert-soft: #33270f;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --ground: #12151a;
+  --surface: #1a1f26;
+  --surface-2: #222831;
+  --sunken: #0e1116;
+  --ink: #e8ecf2;
+  --ink-2: #c2cad5;
+  --muted: #8b95a5;
+  --faint: #69737f;
+  --line: #2b323c;
+  --line-strong: #3b434f;
+  --accent: #5fa8cc;
+  --accent-ink: #0e1116;
+  --accent-soft: #1e2c36;
+  --pos: #3dbe87;
+  --neg: #e8697e;
+  --alert: #f0a93b;
+  --alert-soft: #33270f;
+  color-scheme: dark;
+}
+
+html,
+body {
+  background: var(--ground);
+  color: var(--ink);
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* Reserved exclusively for reporting state so it never competes with valuation colour. */
+@keyframes reportPulse {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 var(--alert);
+  }
+  50% {
+    opacity: 0.4;
+    box-shadow: 0 0 0 5px transparent;
+  }
+}
+
+.animate-report-pulse {
+  animation: reportPulse 1.15s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-report-pulse {
+    animation: none;
+    outline: 2px solid var(--alert);
+    outline-offset: 2px;
+  }
+}
+
+/* Tick flash. Brief and low-contrast on purpose — it marks which rows moved
+   without turning a busy tape into a light show. */
+@keyframes tickUp {
+  from {
+    background-color: color-mix(in srgb, var(--pos) 20%, transparent);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+
+@keyframes tickDown {
+  from {
+    background-color: color-mix(in srgb, var(--neg) 20%, transparent);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+
+.tick-up {
+  animation: tickUp 420ms ease-out;
+}
+
+.tick-down {
+  animation: tickDown 420ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tick-up,
+  .tick-down {
+    animation: none;
+  }
+}
+
+/* Scrollbars that don't fight either theme */
+* {
+  scrollbar-color: var(--line-strong) transparent;
+  scrollbar-width: thin;
+}

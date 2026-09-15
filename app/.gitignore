@@ -1,0 +1,19 @@
+node_modules
+.next
+out
+
+# Secrets. Everything with a real credential in it lives in a *.local file and
+# is never committed. See .env for what each one has to contain.
+.env.local
+.env*.local
+
+# .env itself IS committed — it carries non-secret defaults and documents what
+# the .local file must supply. The `!` is load-bearing: the repo-root .gitignore
+# ignores `.env` everywhere, and without this line app/.env would be swept up
+# with it and silently never committed.
+!.env
+
+# Kite session, instrument cache, last-quote cache, EOD reports and trade
+# journal. On a hosted box these live on the mounted volume instead — see
+# KITE_RUNTIME_DIR in .env.
+.kite/
