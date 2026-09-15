@@ -60,7 +60,10 @@ function b64urlEncode(bytes: Uint8Array): string {
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-function b64urlDecode(value: string): Uint8Array {
+// The type argument is load-bearing: a bare `Uint8Array` widens to
+// `Uint8Array<ArrayBufferLike>`, which Web Crypto rejects as a `BufferSource`
+// because that admits `SharedArrayBuffer`. This returns a plain `ArrayBuffer`.
+function b64urlDecode(value: string): Uint8Array<ArrayBuffer> {
   const padded = value.replace(/-/g, "+").replace(/_/g, "/");
   const binary = atob(padded + "=".repeat((4 - (padded.length % 4)) % 4));
   const bytes = new Uint8Array(binary.length);
