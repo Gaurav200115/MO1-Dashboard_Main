@@ -8,7 +8,7 @@ import { istClock, istDate, istMinutes, parseIstTime } from "./ist";
 import { buildWatchPlan, toTriggerLevel, type SymbolPlan, type WatchPlan } from "./levels";
 import { fetchPremiums, fillPrice, quoteKey, resolveAtm, type PremiumQuote } from "./options";
 import { evaluate, profitAt, sizeTrade } from "./position";
-import { activeStrategies } from "./registry";
+import { activeStrategies, MAX_OPEN_POSITIONS } from "./registry";
 import { evaluateSymbol, initialState, type Signal, type SymbolState } from "./signals";
 import {
   ensureIndexes,
@@ -46,6 +46,57 @@ export type { EngineSnapshot, EngineStatus, SymbolStatus } from "./types";
 /** How often open positions are re-priced. One batched quote call per tick. */
 const TRACK_MS = 2_000;
 
+/**
+ * The desk's open positions, shared by every engine.
+ *
+ * The cap is on the account, not on the rule, so it cannot live inside an
+ * engine: two engines each politely holding to three would put six positions on.
+ *
+ * Reservations are the load-bearing part. Opening a position means resolving a
+ * contract and quoting it, which is two round trips, and the tick stream keeps
+ * arriving throughout — so without counting in-flight entries against the cap,
+ * the long and the short rule can both look at two open positions, both decide
+ * there is room, and both open the fourth.
+ */
+class PositionBook {
+  private readonly open = new Map<string, string>();
+  private readonly pending = new Set<string>();
+
+  constructor(private readonly cap: number) {}
+
+  size(): number {
+    return this.open.size + this.pending.size;
+  }
+
+  hasRoom(): boolean {
+    return this.size() < this.cap;
+  }
+
+  limit(): number {
+    return this.cap;
+  }
+
+  /** Claims a slot for an entry that is about to be attempted. */
+  reserve(key: string): boolean {
+    if (this.pending.has(key) || !this.hasRoom()) return false;
+    this.pending.add(key);
+    return true;
+  }
+
+  release(key: string): void {
+    this.pending.delete(key);
+  }
+
+  /** Keyed on trade id, so re-adopting the same position twice cannot double-count. */
+  add(tradeId: string, strategyId: string): void {
+    this.open.set(tradeId, strategyId);
+  }
+
+  remove(tradeId: string): void {
+    this.open.delete(tradeId);
+  }
+}
+
 export class StrategyEngine {
   private status: EngineStatus = "idle";
   private detail: string | null = null;
@@ -70,6 +121,8 @@ export class StrategyEngine {
 
   private readonly cutoffMin: number;
   private readonly flattenMin: number;
+  /** The legs this strategy runs, so one engine cannot fire another's setups. */
+  private readonly setupIds: ReadonlySet<string>;
 
   constructor(
     private readonly strategy: StrategyDefinition,
@@ -77,6 +130,7 @@ export class StrategyEngine {
   ) {
     this.cutoffMin = parseIstTime(strategy.params.entryCutoffIst);
     this.flattenMin = parseIstTime(strategy.params.flattenIst);
+    this.setupIds = new Set(strategy.setups.map((setup) => setup.id));
   }
 
   snapshot(): EngineSnapshot {
@@ -93,6 +147,8 @@ export class StrategyEngine {
       entriesOpen: this.entriesOpen(),
       entryCutoffIst: this.strategy.params.entryCutoffIst,
       openTrades: this.open.size,
+      deskOpenTrades: book().size(),
+      deskMaxOpen: book().limit(),
       tradesToday: this.openedToday,
       lastSignalAt: this.lastSignalAt,
       errors: this.errors.slice(-5),
@@ -111,6 +167,7 @@ export class StrategyEngine {
         name: plan.name,
         phaseA: state.phaseA,
         phaseB: state.phaseB,
+        phaseC: state.phaseC,
         note: state.note,
         ltp: state.lastLtp,
         ema: bars?.emaValue ?? null,
@@ -181,6 +238,7 @@ export class StrategyEngine {
     this.plans.clear();
     this.states.clear();
     for (const plan of this.plan.plans) {
+      if (!this.tradeable(plan)) continue;
       this.plans.set(plan.symbol, plan);
       this.states.set(plan.symbol, initialState(plan));
       this.bars.track(plan.symbol);
@@ -190,13 +248,6 @@ export class StrategyEngine {
       this.status = "no-levels";
       this.detail = `No stock in ${report.basedOn} has a level clearing the skew thresholds (${this.strategy.params.resistanceSkew}x / ${this.strategy.params.supportSkew}x).`;
       return;
-    }
-
-    try {
-      await ensureIndexes();
-      await syncStrategies([this.strategy]);
-    } catch (err) {
-      this.note(`strategy sync failed: ${mongoMessage(err)}`);
     }
 
     await this.resume();
@@ -223,6 +274,18 @@ export class StrategyEngine {
     void this.warm();
   }
 
+  /**
+   * Does this stock carry the level any of this strategy's legs anchors on? The
+   * short rule has nothing to do with a stock that produced only a major
+   * resistance, and warming its EMA would spend a history call for a signal that
+   * can never fire.
+   */
+  private tradeable(plan: SymbolPlan): boolean {
+    return this.strategy.setups.some((setup) =>
+      setup.requires === "majorResistance" ? plan.majorResistance != null : plan.majorSupport != null
+    );
+  }
+
   private async warm(): Promise<void> {
     for (const symbol of this.plans.keys()) {
       try {
@@ -247,12 +310,14 @@ export class StrategyEngine {
           continue;
         }
         this.open.set(trade._id, trade);
+        book().add(trade._id, this.strategy.id);
         this.openedToday += 1;
         const state = this.states.get(trade.symbol);
         if (state) {
           state.tradesToday += 1;
           if (trade.setup === "A") state.phaseA = "spent";
           if (trade.setup === "B") state.phaseB = "spent";
+          if (trade.setup === "C") state.phaseC = "spent";
         }
       }
       if (existing.length > 0) this.note(`resumed ${this.open.size} open trades`);
@@ -282,14 +347,20 @@ export class StrategyEngine {
     this.detail = "Stopped by request.";
   }
 
+  /**
+   * The cutoff is exclusive: "runs till 15:15" means it has stopped by 15:15,
+   * not that 15:15 is the last minute it trades. It has to be, now that the
+   * flatten fires at the same time — otherwise a position could be opened in the
+   * same minute that closes everything.
+   */
   private entriesOpen(now = Date.now()): boolean {
     const minute = istMinutes(now);
     return (
       this.status === "running" &&
       this.tradingDate === istDate(now) &&
-      minute <= this.cutoffMin &&
+      minute < this.cutoffMin &&
       this.openedToday < this.strategy.params.maxTradesPerDay &&
-      this.open.size < this.strategy.params.maxOpenTrades
+      book().hasRoom()
     );
   }
 
@@ -311,6 +382,7 @@ export class StrategyEngine {
       lastBarClose: lastBar?.c ?? null,
       at: Date.now(),
       entriesOpen: this.entriesOpen(),
+      setups: this.setupIds,
     });
 
     if (signal) void this.enter(signal, plan);
@@ -328,11 +400,26 @@ export class StrategyEngine {
     const symbol = signal.symbol;
     if (this.opening.has(symbol)) return;
     if (!this.entriesOpen()) return;
+
+    const setup = this.strategy.setups.find((s) => s.id === signal.setup);
+    const side = setup?.side ?? "LONG";
+
+    // Claimed before the first await so the slot cannot be taken twice. Keyed by
+    // strategy as well as symbol — the long and the short rule are allowed to be
+    // interested in the same stock at the same moment.
+    const slot = `${this.strategy.id}:${symbol}`;
+    if (!book().reserve(slot)) return;
     this.opening.add(symbol);
 
     try {
       const expiry = this.report?.stocks.find((s) => s.symbol === symbol)?.expiry;
-      const instrument = await resolveAtm(symbol, signal.spot, "CE", expiry);
+      /*
+       * A short is expressed as a bought put, never as a sold call. The rupee
+       * risk budget is the whole sizing model here and it only means anything
+       * when the most that can be lost is the premium paid; writing the call
+       * instead would put an unbounded loss behind a 550 stop.
+       */
+      const instrument = await resolveAtm(symbol, signal.spot, side === "SHORT" ? "PE" : "CE", expiry);
 
       const key = quoteKey(instrument);
       const quotes = await fetchPremiums([key]);
@@ -354,7 +441,6 @@ export class StrategyEngine {
 
       const sizing = sizeTrade(entry, instrument.lotSize, this.strategy.risk);
       const state = this.states.get(symbol);
-      const setup = this.strategy.setups.find((s) => s.id === signal.setup);
       const at = Date.now();
 
       const trade: StrategyTrade = {
@@ -374,7 +460,7 @@ export class StrategyEngine {
         setupLabel: setup?.label ?? signal.setup,
         tradingDate: this.tradingDate ?? istDate(at),
         symbol,
-        side: "LONG",
+        side,
         instrument,
         qty: sizing.qty,
         buy: { price: entry, at },
@@ -392,6 +478,7 @@ export class StrategyEngine {
           setup: signal.setup,
           level: toTriggerLevel(signal.level),
           basis: signal.basis ? toTriggerLevel(signal.basis) : null,
+          retracement: signal.retracement,
           crossedAt: signal.crossedAt,
           ema: signal.ema,
           spot: signal.spot,
@@ -408,13 +495,14 @@ export class StrategyEngine {
       }
 
       this.open.set(trade._id, trade);
+      book().add(trade._id, this.strategy.id);
       this.openedToday += 1;
       this.lastSignalAt = at;
       if (state) state.tradesToday += 1;
 
       console.log(
         `[strategy] ${istClock(at)} ${this.strategy.id} ${setup?.label ?? signal.setup}: ` +
-          `LONG ${instrument.tradingsymbol} @ ${entry.toFixed(2)} x${sizing.qty} ` +
+          `${side} ${instrument.tradingsymbol} @ ${entry.toFixed(2)} x${sizing.qty} ` +
           `(stop ${sizing.stop.toFixed(2)}, target ${sizing.target.toFixed(2)}) ` +
           `on ${signal.level.kind} ${signal.level.pivot} ${signal.level.pivotValue.toFixed(2)}` +
           `${plan.name ? ` — ${plan.name}` : ""}`
@@ -423,6 +511,9 @@ export class StrategyEngine {
       this.note(`${symbol}: entry failed — ${message(err)}`);
     } finally {
       this.opening.delete(symbol);
+      // Either the trade is in the book now or the attempt failed; the
+      // reservation has done its job in both cases.
+      book().release(slot);
     }
   }
 
@@ -517,6 +608,8 @@ export class StrategyEngine {
     trade.status = "closed";
     trade.closedAt = new Date();
     this.open.delete(trade._id);
+    // Frees the slot immediately, so a stop-out at 10:30 lets the next signal in.
+    book().remove(trade._id);
 
     try {
       await updateTrade(trade, {
@@ -543,6 +636,11 @@ export class StrategyEngine {
   }
 }
 
+/** The one book every engine checks before opening anything. */
+function book(): PositionBook {
+  return runtime().book;
+}
+
 function quoteKeyOf(trade: StrategyTrade): string {
   return quoteKey(trade.instrument);
 }
@@ -556,12 +654,17 @@ function message(err: unknown): string {
 interface Runtime {
   engines: Map<string, StrategyEngine>;
   bars: Map<string, BarEngine>;
+  book: PositionBook;
 }
 
 const globalRef = globalThis as typeof globalThis & { __strategyRuntime?: Runtime };
 
 function runtime(): Runtime {
-  globalRef.__strategyRuntime ??= { engines: new Map(), bars: new Map() };
+  globalRef.__strategyRuntime ??= {
+    engines: new Map(),
+    bars: new Map(),
+    book: new PositionBook(MAX_OPEN_POSITIONS),
+  };
   return globalRef.__strategyRuntime;
 }
 
@@ -594,6 +697,27 @@ export function engines(): StrategyEngine[] {
 export async function startStrategies(): Promise<EngineSnapshot[]> {
   const { engines: registry } = runtime();
   const snapshots: EngineSnapshot[] = [];
+
+  /*
+   * Mirror the catalogue before booting anything, and independently of whether
+   * any engine can actually run.
+   *
+   * This used to sit inside boot(), behind the checks for a usable report — so
+   * on an evening, a weekend or a day the scan had not run, the definition was
+   * never written at all. That is precisely backwards: the record of what a rule
+   * said on a given day is most worth having when no trade came of it, and a
+   * version that exists only once it has traded cannot be compared against the
+   * one that replaced it.
+   */
+  try {
+    await ensureIndexes();
+    const outcome = await syncStrategies(activeStrategies());
+    if (outcome.skipped !== "not-configured") {
+      console.log(`[strategy] catalogue synced — ${outcome.synced} active definition(s) written`);
+    }
+  } catch (err) {
+    console.warn(`[strategy] catalogue sync failed: ${mongoMessage(err)}`);
+  }
 
   for (const strategy of activeStrategies()) {
     let engine = registry.get(strategy.id);

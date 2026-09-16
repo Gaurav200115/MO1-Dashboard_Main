@@ -182,6 +182,15 @@ function TradeRow({
               <ChevronRight size={11} className="text-faint" aria-hidden />
             )}
             <span className="font-mono text-[12px] font-semibold">{trade.symbol}</span>
+            <span
+              className={`ml-1 rounded-[3px] border px-1 py-px text-[9.5px] font-bold uppercase tracking-[0.08em] ${
+                trade.side === "SHORT"
+                  ? "border-neg/40 text-neg"
+                  : "border-pos/40 text-pos"
+              }`}
+            >
+              {trade.side}
+            </span>
           </button>
         </td>
 
@@ -242,6 +251,7 @@ function TradeRow({
 
 function Detail({ trade }: { trade: StrategyTrade }) {
   const { trigger } = trade;
+  const short = trade.side === "SHORT";
   return (
     <div className="flex flex-wrap gap-x-10 gap-y-3 text-[11.5px]">
       <Field label="Trigger">
@@ -263,6 +273,16 @@ function Detail({ trade }: { trade: StrategyTrade }) {
         Spot {fmtPrice(trigger.spot)} · 21 EMA {fmtPrice(trigger.ema)}
         {trigger.crossedAt ? ` · crossed ${istClock(trigger.crossedAt)}` : ""}
       </Field>
+
+      {trigger.retracement ? (
+        <Field label="Retracement">
+          {short ? "Rallied" : "Pulled back"} to{" "}
+          <strong>{fmtPrice(trigger.retracement.extreme)}</strong> at{" "}
+          {istClock(trigger.retracement.at)} — {grouped(trigger.retracement.emaGapPct, 2)}% off the
+          21 EMA — then turned {short ? "down" : "up"}{" "}
+          {grouped(trigger.retracement.turnPct, 2)}% into the entry
+        </Field>
+      ) : null}
 
       <Field label="Risk">
         ₹{grouped(Math.round(trade.riskPerUnit * trade.qty))} planned ·{" "}
@@ -359,8 +379,13 @@ function EngineStrip({
                   {definition.risk.moneyness} · 1:{definition.risk.rewardMultiple} then{" "}
                   {definition.risk.trail === "ladder" ? "laddered trail" : "one trail step"} ·{" "}
                   {definition.params.emaPeriod} EMA on {definition.params.emaIntervalMinutes}m ·
-                  skew ≥ {definition.params.resistanceSkew}× / {definition.params.supportSkew}× ·
-                  max {definition.params.maxOpenTrades} open, {definition.params.maxTradesPerDay}/day
+                  retrace within {definition.params.emaZonePct}% of it, enter on a{" "}
+                  {definition.params.entryReboundPct}% turn · first trail at 1:
+                  {definition.risk.trailStartMultiple} to +₹
+                  {definition.risk.trailLockMultiple * definition.risk.rupeesPerTrade}, then one
+                  step behind · runs to {definition.params.entryCutoffIst}, flat at{" "}
+                  {definition.params.flattenIst} · max {definition.params.maxOpenTrades} open
+                  across all strategies
                 </p>
               </div>
             ) : null}

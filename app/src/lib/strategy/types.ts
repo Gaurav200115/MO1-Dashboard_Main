@@ -24,6 +24,14 @@ export interface SetupDefinition {
   id: SetupId;
   label: string;
   side: Side;
+  /**
+   * Which major level this leg anchors on. Data rather than a branch in the
+   * engine, so a strategy only warms and watches the stocks it could actually
+   * trade — the short rule has no use for a stock that has a major resistance
+   * and no major support, and seeding a 21 EMA for it is a wasted history call
+   * against a 3 req/sec limit.
+   */
+  requires: "majorResistance" | "majorSupport";
   /** The entry condition in words, as specified. Shown on the trade row. */
   description: string;
 }
@@ -32,8 +40,18 @@ export interface StrategyParams {
   emaPeriod: number;
   /** Candle size the EMA is computed on, in minutes. */
   emaIntervalMinutes: number;
-  /** How close to the EMA counts as "near", as a percentage of the EMA. */
-  emaProximityPct: number;
+  /**
+   * How close to the EMA price must come for the pullback to count as a proper
+   * retracement, as a percentage of the EMA. Measured either side, so a wick
+   * through the line still counts as having reached it.
+   */
+  emaZonePct: number;
+  /**
+   * How far price must rebound off the low of that retracement before the entry
+   * is taken, as a percentage of the low. This is the confirmation leg: touching
+   * the EMA is the setup, turning back up off it is the trigger.
+   */
+  entryReboundPct: number;
   /** Minimum callOI/putOI for a resistance to count as major. */
   resistanceSkew: number;
   /** Minimum putOI/callOI for a support to count as major. */
@@ -42,6 +60,12 @@ export interface StrategyParams {
   entryCutoffIst: string;
   /** IST HH:MM at which anything still open is closed at market. */
   flattenIst: string;
+  /**
+   * Positions that may be open at once. Enforced **across every running
+   * strategy**, not per strategy — it is a limit on the desk's exposure, and one
+   * account holding three longs and three shorts is holding six positions.
+   * Carried on each definition so a stored trade records the cap it ran under.
+   */
   maxOpenTrades: number;
   maxTradesPerDay: number;
   maxTradesPerSymbolPerDay: number;
@@ -53,11 +77,18 @@ export interface StrategyRisk {
   lots: number;
   /** Which strike relative to spot. ATM = the ladder strike nearest the price. */
   moneyness: "ATM";
-  /** First target, as a multiple of the risk. 2 = the 1:2 that starts trailing. */
+  /** First checkpoint on the ladder, as a multiple of the risk. */
   rewardMultiple: number;
   /**
-   * "ladder" — each time the target is reached, stop and target both ratchet up
-   * one risk unit, so the trade can only ever be closed by the trailing stop.
+   * The multiple at which the stop first moves at all. Below this the trade runs
+   * on its original stop — reaching 1:2 is progress, not a reason to tighten.
+   */
+  trailStartMultiple: number;
+  /** Where the stop goes on that first move, as a multiple of the risk. */
+  trailLockMultiple: number;
+  /**
+   * "ladder" — past the first move the stop follows one checkpoint behind, so
+   * the trade can only ever be closed by its trailing stop.
    * "single" — one ratchet, then a hard target.
    */
   trail: "ladder" | "single";
@@ -101,6 +132,23 @@ export interface TriggerLevel {
   gapPct: number;
 }
 
+/** Where the pullback turned, and how far off the EMA that was. */
+export interface Retracement {
+  /**
+   * The furthest point the pullback reached inside the EMA zone — its *low* for
+   * a long, its *high* for a short. Named for what it is rather than for one
+   * direction, because a field called `low` holding a high is how a sign error
+   * survives code review.
+   */
+  extreme: number;
+  /** Distance from that point to the EMA, as a percentage of the EMA. */
+  emaGapPct: number;
+  /** When price first entered the zone. */
+  at: number;
+  /** How far the turn off the extreme had gone when the entry was taken, in percent. */
+  turnPct: number;
+}
+
 export interface TradeTrigger {
   setup: SetupId;
   /** Setup A: the resistance that was broken. Setup B: the level crossed. */
@@ -111,6 +159,8 @@ export interface TradeTrigger {
   crossedAt: number | null;
   /** The 21 EMA at entry, from the last closed bar. */
   ema: number;
+  /** Setup A only — the pullback the entry was taken off. Null for setup B. */
+  retracement: Retracement | null;
   /** Underlying price at entry, as opposed to the option premium paid. */
   spot: number;
 }
@@ -222,14 +272,17 @@ export type EngineStatus =
   | "stopped"
   | "error";
 
-export type PhaseA = "idle" | "below" | "crossed" | "spent";
+export type PhaseA = "idle" | "below" | "crossed" | "retraced" | "spent";
 export type PhaseB = "idle" | "watching" | "spent";
+/** Setup C, the short: above the support, broken it, pulled back to the EMA. */
+export type PhaseC = "idle" | "above" | "broken" | "retraced" | "spent";
 
 export interface SymbolStatus {
   symbol: string;
   name: string;
   phaseA: PhaseA;
   phaseB: PhaseB;
+  phaseC: PhaseC;
   note: string | null;
   ltp: number | null;
   ema: number | null;
@@ -252,6 +305,9 @@ export interface EngineSnapshot {
   entriesOpen: boolean;
   entryCutoffIst: string;
   openTrades: number;
+  /** Positions open across every strategy, and the desk-wide cap on them. */
+  deskOpenTrades: number;
+  deskMaxOpen: number;
   tradesToday: number;
   lastSignalAt: number | null;
   /** Most recent notes, newest last — warm-up gaps, skipped entries, write failures. */

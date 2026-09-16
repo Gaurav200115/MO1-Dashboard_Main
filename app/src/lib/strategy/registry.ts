@@ -1,4 +1,4 @@
-import type { StrategyDefinition } from "./types";
+import type { StrategyDefinition, StrategyParams, StrategyRisk } from "./types";
 
 /**
  * Every strategy the desk knows, defined in code and mirrored into Mongo.
@@ -14,20 +14,98 @@ import type { StrategyDefinition } from "./types";
  * were produced by different rules.
  */
 
+/**
+ * Positions open at once, across the whole desk.
+ *
+ * Deliberately not a per-strategy number. The long rule and the short rule are
+ * separate strategies but they are not separate money — one account running
+ * three longs and three shorts is running six positions and six times the risk.
+ * The engines share one book and check it before every entry.
+ */
+export const MAX_OPEN_POSITIONS = 3;
+
+/** Session bounds and geometry shared by both rules, so the two cannot drift. */
+const SHARED_PARAMS: Pick<
+  StrategyParams,
+  | "emaPeriod"
+  | "emaIntervalMinutes"
+  | "emaZonePct"
+  | "entryReboundPct"
+  | "entryCutoffIst"
+  | "flattenIst"
+  | "maxOpenTrades"
+  | "maxTradesPerDay"
+  | "maxTradesPerSymbolPerDay"
+> = {
+  emaPeriod: 21,
+  emaIntervalMinutes: 5,
+  /*
+   * The retracement zone. Price must come back within 0.4% of the 21 EMA for the
+   * pullback to count — the worked example is an EMA of 1200 and a pullback to
+   * 1204.5, which is 0.375% above it. Measured either side, so a wick through
+   * the line is the same event as a pullback that stops exactly on it.
+   */
+  emaZonePct: 0.4,
+  /*
+   * The confirmation leg. Reaching the EMA arms the setup; turning back off it
+   * is what takes the trade. From a long's retracement low of 1204.5 that puts
+   * the entry at 1206.91 — 0.2% of the low, not of the EMA, so the trigger sits
+   * the same distance from the pullback wherever in the zone it stopped.
+   */
+  entryReboundPct: 0.2,
+  /*
+   * Both rules now run to 15:15, and 15:15 is also when everything is closed:
+   * entries stop and any position still open is flattened in the same minute.
+   * The cutoff is the moment the strategy stops, not the last minute it trades.
+   */
+  entryCutoffIst: "15:15",
+  flattenIst: "15:15",
+  maxOpenTrades: MAX_OPEN_POSITIONS,
+  /*
+   * Mine, not specified. With entries now running all session rather than
+   * stopping at 11:30, some ceiling has to exist or a choppy day can churn.
+   */
+  maxTradesPerDay: 15,
+  maxTradesPerSymbolPerDay: 1,
+};
+
+/** The money side, identical for both rules — same budget, same ladder. */
+const SHARED_RISK: StrategyRisk = {
+  rupeesPerTrade: 550,
+  lots: 1,
+  moneyness: "ATM",
+  rewardMultiple: 2,
+  /*
+   * The stop does not move at 1:2 any more. It first moves at 1:3, straight to
+   * +1R, which leaves a 1100 gap; from 1:4 on it follows one checkpoint behind
+   * and the gap settles at 550.
+   *
+   *   +1100 (1:2)  stop stays at -550
+   *   +1650 (1:3)  stop -> +550
+   *   +2200 (1:4)  stop -> +1650
+   *   +2750 (1:5)  stop -> +2200
+   */
+  trailStartMultiple: 3,
+  trailLockMultiple: 1,
+  trail: "ladder",
+};
+
 /** Strategy 1 — level break, pull back to the 21 EMA, long the ATM call. */
 export const BREAKOUT_RETRACE_21EMA: StrategyDefinition = {
   id: "breakout-retrace-21ema",
-  version: 1,
+  version: 3,
   name: "Level Break → 21 EMA Retrace",
-  createdAt: "2026-09-14",
+  createdAt: "2026-09-16",
 
   spec: [
     "Entry: Price is below the major Resistance point (point with least gap and the skew should be above 4x) and crosses it, then when prices Retraces back to near 21 EMA then plan a LONG trade.",
+    "v2: the retracement must bring price within 0.4% of the 21 EMA — if the 21 EMA is 1200 and price comes back to 1204.5, that is a proper retracement level. Entry is not taken there: as soon as price then moves 0.2% up off that retracement low, take the LONG.",
     "OR",
     "Price is above major Support (point with less gap and skew above 5x) and crosses another support or the resistance point (that we have marked as important from the OI and pivots) and also crossed 21 EMA, make entry.",
-    "This would be active till 11:30 AM. After this this wont run.",
+    "v3: runs till 3:15 PM — entries stop and anything still open is closed at 15:15. Was 11:30 AM.",
+    "v3: no more than 3 trades live at a time, counted across every running strategy. A 4th cannot be placed until one closes on its SL or trailing SL.",
     "Risk of 550 rupees per trade, one lot of each stock, on the ATM strike.",
-    "Trail the target once 1:2 is achieved and make the SL trail to 1 i.e. 550 profit, and the target by the same i.e. now target would be 1650.",
+    "v3: the SL no longer moves at 1:2. Once 1:3 is achieved the SL trails to 550, and from then on it follows one step behind — 2200 hit trails the SL to 1650, 2750 trails it to 2200.",
   ],
 
   setups: [
@@ -35,58 +113,72 @@ export const BREAKOUT_RETRACE_21EMA: StrategyDefinition = {
       id: "A",
       label: "Break & retrace",
       side: "LONG",
+      requires: "majorResistance",
       description:
-        "Price crossed above the major resistance (least gap, call skew ≥ 4x), then pulled back to within range of the 21 EMA.",
+        "Price crossed above the major resistance (least gap, call skew ≥ 4x), pulled back to within 0.4% of the 21 EMA, then turned up 0.2% off that low.",
     },
     {
       id: "B",
       label: "Support hold & level cross",
       side: "LONG",
+      requires: "majorSupport",
       description:
         "Price is holding above the major support (least gap, put skew ≥ 5x), crossed up through another confirmed level, and is above the 21 EMA.",
     },
   ],
 
   params: {
-    emaPeriod: 21,
-    emaIntervalMinutes: 5,
-    /**
-     * "Near" the EMA. Measured either side, so a wick through it still counts as
-     * a touch — a retrace that undershoots by a tick is the same event as one
-     * that stops exactly on the line.
-     */
-    emaProximityPct: 0.25,
+    ...SHARED_PARAMS,
     resistanceSkew: 4,
     supportSkew: 5,
-    entryCutoffIst: "11:30",
-    /**
-     * Not part of the stated rule. An options position has to be closed before
-     * the close or it is marked to the settlement price with no say in the
-     * matter, so something has to flatten it; 15:20 leaves ten minutes of
-     * liquidity. Entries stop at 11:30, but a trade opened at 11:29 runs on.
-     */
-    flattenIst: "15:20",
-    /**
-     * Also not part of the stated rule, and the number most worth arguing with.
-     * The overnight scan confirms levels on ~163 of 184 stocks, so an uncapped
-     * run could open dozens of positions in the first hour — 550 x 40 is 22,000
-     * of risk on the table at once. These are the knobs to change, not the rule.
-     */
-    maxOpenTrades: 5,
-    maxTradesPerDay: 15,
-    maxTradesPerSymbolPerDay: 1,
   },
 
-  risk: {
-    rupeesPerTrade: 550,
-    lots: 1,
-    moneyness: "ATM",
-    rewardMultiple: 2,
-    trail: "ladder",
-  },
+  risk: SHARED_RISK,
 };
 
-const ALL: StrategyDefinition[] = [BREAKOUT_RETRACE_21EMA];
+/** Strategy 2 — the short. Break the major support, rally to the 21 EMA, roll over. */
+export const BREAKDOWN_RETRACE_21EMA: StrategyDefinition = {
+  id: "breakdown-retrace-21ema",
+  version: 1,
+  name: "Support Break → 21 EMA Retrace (Short)",
+  createdAt: "2026-09-16",
+
+  spec: [
+    "Entry: If price breaks major support with highest priority point and when it retraces back to 21 EMA till 0.4% after crossing support we will make short entry.",
+    "Mirrors the long: the rally back to within 0.4% of the 21 EMA arms the setup, and the entry is taken once price rolls back over 0.2% off the high of that rally.",
+    "Runs till 3:15 PM — entries stop and anything still open is closed at 15:15.",
+    "No more than 3 trades live at a time, counted across every running strategy.",
+    "Risk of 550 rupees per trade, one lot of each stock, on the ATM strike.",
+    "The SL does not move at 1:2. Once 1:3 is achieved the SL trails to 550, and from then on it follows one step behind.",
+  ],
+
+  setups: [
+    {
+      id: "C",
+      label: "Breakdown & retrace",
+      side: "SHORT",
+      requires: "majorSupport",
+      description:
+        "Price broke below the major support (least gap, put skew ≥ 5x), rallied back to within 0.4% of the 21 EMA, then rolled over 0.2% off that high.",
+    },
+  ],
+
+  params: {
+    ...SHARED_PARAMS,
+    /*
+     * "Major support with highest priority point" is the same level the long
+     * rule already calls major: least gap between pivot and strike, among
+     * supports whose put skew clears 5x. `resistanceSkew` is carried only so the
+     * stored record is comparable across strategies — setup C never reads it.
+     */
+    resistanceSkew: 4,
+    supportSkew: 5,
+  },
+
+  risk: SHARED_RISK,
+};
+
+const ALL: StrategyDefinition[] = [BREAKOUT_RETRACE_21EMA, BREAKDOWN_RETRACE_21EMA];
 
 export const STRATEGIES: ReadonlyMap<string, StrategyDefinition> = new Map(
   ALL.map((strategy) => [strategy.id, strategy])
@@ -106,7 +198,10 @@ export function getStrategy(id: string): StrategyDefinition | null {
 }
 
 /** Which strategies the live engine runs. Separate from the catalogue so a rule can be parked without deleting it. */
-export const ACTIVE_STRATEGY_IDS: string[] = [BREAKOUT_RETRACE_21EMA.id];
+export const ACTIVE_STRATEGY_IDS: string[] = [
+  BREAKOUT_RETRACE_21EMA.id,
+  BREAKDOWN_RETRACE_21EMA.id,
+];
 
 export function activeStrategies(): StrategyDefinition[] {
   return ACTIVE_STRATEGY_IDS.map((id) => STRATEGIES.get(id)).filter(
