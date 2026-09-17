@@ -19,6 +19,48 @@ import type { TradesResult } from "@/lib/useTrades";
  * that matter — in, out, profit, and the two times — lead; the reasoning behind
  * a trade is one click away rather than crowding the line.
  */
+/**
+ * What the trade cost to put on.
+ *
+ * Every position here is a bought option, so the debit is the whole capital
+ * requirement — there is no margin to model and nothing is released until the
+ * exit. Derived rather than stored: `qty` and the fill price are already on the
+ * record, and a second copy would be one more field to keep honest.
+ */
+function tradeCost(trade: StrategyTrade): number {
+  return trade.qty * trade.buy.price;
+}
+
+/**
+ * The most capital the day ever had committed at one moment.
+ *
+ * The sum of every trade's cost answers "what did the day turn over", not "what
+ * did the account need" — eight sequential trades of a lakh each need a lakh,
+ * not eight. Sweeping the opens and closes in time order and keeping the high
+ * water mark gives the figure that actually sizes the account.
+ */
+function peakDeployed(trades: StrategyTrade[]): number {
+  const events = trades.flatMap((trade) => {
+    const cost = tradeCost(trade);
+    return trade.sell
+      ? [{ at: trade.buy.at, delta: cost }, { at: trade.sell.at, delta: -cost }]
+      : // Still open: the capital is committed to the end of the day.
+        [{ at: trade.buy.at, delta: cost }];
+  });
+
+  // Ties release before they commit — an exit and an entry on the same second
+  // reuse the same rupees rather than needing both at once.
+  events.sort((a, b) => a.at - b.at || a.delta - b.delta);
+
+  let running = 0;
+  let peak = 0;
+  for (const event of events) {
+    running += event.delta;
+    if (running > peak) peak = running;
+  }
+  return peak;
+}
+
 export default function TradeBlotter({ data }: { data: TradesResult }) {
   const { trades, days, strategies, engines, date, loading, error, configured, select } = data;
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -35,7 +77,9 @@ export default function TradeBlotter({ data }: { data: TradesResult }) {
     let wins = 0;
     let losses = 0;
     let open = 0;
+    let deployed = 0;
     for (const trade of trades) {
+      deployed += tradeCost(trade);
       if (trade.status === "open") {
         open += 1;
         running += trade.mtm?.profit ?? 0;
@@ -45,7 +89,7 @@ export default function TradeBlotter({ data }: { data: TradesResult }) {
         else if (trade.profit < 0) losses += 1;
       }
     }
-    return { realised, running, wins, losses, open };
+    return { realised, running, wins, losses, open, deployed, peak: peakDeployed(trades) };
   }, [trades]);
 
   if (!configured) {
@@ -124,6 +168,7 @@ export default function TradeBlotter({ data }: { data: TradesResult }) {
                   <Th className="text-left">Strategy</Th>
                   <Th className="text-left">Contract</Th>
                   <Th>Buy</Th>
+                  <Th>Cost</Th>
                   <Th>Sell</Th>
                   <Th>Out</Th>
                   <Th>Stop</Th>
@@ -143,6 +188,37 @@ export default function TradeBlotter({ data }: { data: TradesResult }) {
                   />
                 ))}
               </tbody>
+
+              {/*
+                * The day's bottom line. Two different questions get two different
+                * numbers: `deployed` is every rupee the day put to work, `peak` is
+                * the most it ever needed at one time. They diverge whenever trades
+                * close before the next opens, which is most days.
+                */}
+              <tfoot>
+                <tr className="border-t-2 border-linestrong bg-sunken">
+                  <td colSpan={5} className="px-3 py-2 text-left align-top">
+                    <span className="font-display text-[9.5px] font-bold uppercase tracking-[0.12em] text-muted">
+                      {trades.length} trade{trades.length === 1 ? "" : "s"} · {date}
+                    </span>
+                    <span className="ml-2 text-[10.5px] text-faint">
+                      peak ₹{grouped(Math.round(totals.peak))} committed at once
+                    </span>
+                  </td>
+
+                  <Td className="font-semibold">
+                    ₹{grouped(Math.round(totals.deployed))}
+                  </Td>
+
+                  <td colSpan={4} className="px-3 py-2 text-right text-[10px] uppercase tracking-[0.08em] text-muted">
+                    {totals.open > 0 ? "Realised + running" : "Realised"}
+                  </td>
+
+                  <Td>
+                    <Money value={totals.realised + totals.running} pending={totals.open > 0} />
+                  </Td>
+                </tr>
+              </tfoot>
             </table>
           </div>
         )}
@@ -214,6 +290,9 @@ function TradeRow({
         </td>
 
         <Td>{fmtPrice(trade.buy.price)}</Td>
+        <Td title={`${trade.qty} x ${fmtPrice(trade.buy.price)}`}>
+          ₹{grouped(Math.round(tradeCost(trade)))}
+        </Td>
         <Td className={open ? "text-muted" : ""}>{mark == null ? DASH : fmtPrice(mark)}</Td>
         <Td className="text-[11px]">
           {open ? (
@@ -240,7 +319,7 @@ function TradeRow({
 
       {expanded ? (
         <tr className="bg-sunken">
-          <td colSpan={10} className="px-4 py-3">
+          <td colSpan={11} className="px-4 py-3">
             <Detail trade={trade} />
           </td>
         </tr>
@@ -470,6 +549,18 @@ function Th({ children, className = "" }: { children: React.ReactNode; className
   return <th className={`px-3 py-2 text-right font-medium ${className}`}>{children}</th>;
 }
 
-function Td({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return <td className={`tnum px-3 py-1.5 text-right align-top font-mono ${className}`}>{children}</td>;
+function Td({
+  children,
+  className = "",
+  title,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  title?: string;
+}) {
+  return (
+    <td title={title} className={`tnum px-3 py-1.5 text-right align-top font-mono ${className}`}>
+      {children}
+    </td>
+  );
 }
