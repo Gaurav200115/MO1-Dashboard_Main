@@ -36,6 +36,11 @@ const SHARED_PARAMS: Pick<
   | "maxOpenTrades"
   | "maxTradesPerDay"
   | "maxTradesPerSymbolPerDay"
+  | "maxSpreadPct"
+  | "maxSpreadOfRiskPct"
+  | "maxAskOverLastPct"
+  | "staleQuoteSec"
+  | "minStrikeOiShare"
 > = {
   emaPeriod: 21,
   emaIntervalMinutes: 5,
@@ -67,6 +72,23 @@ const SHARED_PARAMS: Pick<
    */
   maxTradesPerDay: 15,
   maxTradesPerSymbolPerDay: 1,
+
+  /*
+   * Book checks, added after the first three sessions. 9 of 36 trades died
+   * inside ten seconds and accounted for the whole net loss; every one had been
+   * filled at an ask far above where the contract was trading. The other 27
+   * netted positive. See tradeable.ts.
+   *
+   * The thresholds are set to clear the observed damage with room, not tuned —
+   * the worst survivors were 3% and 4% over the last print, so 2% rejects them
+   * with margin while leaving a normal ATM book (well under 1%) alone. Every
+   * rejection is counted and logged so these can be moved on evidence.
+   */
+  maxSpreadPct: 2.0,
+  maxSpreadOfRiskPct: 30,
+  maxAskOverLastPct: 2.0,
+  staleQuoteSec: 120,
+  minStrikeOiShare: 3,
 };
 
 /** The money side, identical for both rules — same budget, same ladder. */
@@ -93,7 +115,7 @@ const SHARED_RISK: StrategyRisk = {
 /** Strategy 1 — level break, pull back to the 21 EMA, long the ATM call. */
 export const BREAKOUT_RETRACE_21EMA: StrategyDefinition = {
   id: "breakout-retrace-21ema",
-  version: 3,
+  version: 4,
   name: "Level Break → 21 EMA Retrace",
   createdAt: "2026-09-16",
 
@@ -106,6 +128,7 @@ export const BREAKOUT_RETRACE_21EMA: StrategyDefinition = {
     "v3: no more than 3 trades live at a time, counted across every running strategy. A 4th cannot be placed until one closes on its SL or trailing SL.",
     "Risk of 550 rupees per trade, one lot of each stock, on the ATM strike.",
     "v3: the SL no longer moves at 1:2. Once 1:3 is achieved the SL trails to 550, and from then on it follows one step behind — 2200 hit trails the SL to 1650, 2750 trails it to 2200.",
+    "v4: a signal is skipped unless the option's book is tradeable — two-sided, ask within 2% of a fresh print, spread under 2% and under 30% of the stop distance, and the strike carrying at least 3% of its chain's heaviest OI. The 550 stop itself is unchanged.",
   ],
 
   setups: [
@@ -139,7 +162,7 @@ export const BREAKOUT_RETRACE_21EMA: StrategyDefinition = {
 /** Strategy 2 — the short. Break the major support, rally to the 21 EMA, roll over. */
 export const BREAKDOWN_RETRACE_21EMA: StrategyDefinition = {
   id: "breakdown-retrace-21ema",
-  version: 1,
+  version: 2,
   name: "Support Break → 21 EMA Retrace (Short)",
   createdAt: "2026-09-16",
 
@@ -150,6 +173,7 @@ export const BREAKDOWN_RETRACE_21EMA: StrategyDefinition = {
     "No more than 3 trades live at a time, counted across every running strategy.",
     "Risk of 550 rupees per trade, one lot of each stock, on the ATM strike.",
     "The SL does not move at 1:2. Once 1:3 is achieved the SL trails to 550, and from then on it follows one step behind.",
+    "v2: a signal is skipped unless the option's book is tradeable — same checks as the long rule. The 550 stop itself is unchanged.",
   ],
 
   setups: [

@@ -8,6 +8,7 @@ import { istClock, istDate, istMinutes, parseIstTime } from "./ist";
 import { buildWatchPlan, toTriggerLevel, type SymbolPlan, type WatchPlan } from "./levels";
 import { fetchPremiums, fillPrice, quoteKey, resolveAtm, type PremiumQuote } from "./options";
 import { evaluate, profitAt, sizeTrade } from "./position";
+import { assessBook, describeRejection } from "./tradeable";
 import { activeStrategies, MAX_OPEN_POSITIONS } from "./registry";
 import { evaluateSymbol, initialState, type Signal, type SymbolState } from "./signals";
 import {
@@ -111,6 +112,8 @@ export class StrategyEngine {
   private readonly opening = new Set<string>();
 
   private openedToday = 0;
+  /** Signals turned away by the book checks, counted by reason. */
+  private readonly rejected = new Map<string, number>();
   private lastSignalAt: number | null = null;
   private readonly errors: string[] = [];
 
@@ -149,6 +152,7 @@ export class StrategyEngine {
       openTrades: this.open.size,
       deskOpenTrades: book().size(),
       deskMaxOpen: book().limit(),
+      rejected: Object.fromEntries(this.rejected),
       tradesToday: this.openedToday,
       lastSignalAt: this.lastSignalAt,
       errors: this.errors.slice(-5),
@@ -200,6 +204,7 @@ export class StrategyEngine {
     // failures into today's status panel would report problems that are no
     // longer true, which is worse than reporting none.
     this.errors.length = 0;
+    this.rejected.clear();
 
     const today = istDate();
     const report = await readLatestReport();
@@ -429,11 +434,38 @@ export class StrategyEngine {
         return;
       }
 
-      const entry = fillPrice(quote, "buy");
-      if (!Number.isFinite(entry) || entry <= 0) {
-        this.note(`${symbol}: premium came back as ${entry}, entry skipped`);
+      /*
+       * The book has to be worth trading before the signal is allowed to become
+       * a position. This runs on the live quote rather than on anything decided
+       * overnight, because the question is what can be bought right now.
+       */
+      const chain = this.report?.stocks.find((stock) => stock.symbol === symbol)?.chain;
+      const oiSide = instrument.type === "CE" ? "callOi" : "putOi";
+      const strikeRow = chain?.find((row) => row.strike === instrument.strike);
+      const qty = instrument.lotSize * this.strategy.risk.lots;
+
+      const verdict = assessBook({
+        quote,
+        qty,
+        riskPerUnit: this.strategy.risk.rupeesPerTrade / qty,
+        params: this.strategy.params,
+        strikeOi: strikeRow ? strikeRow[oiSide] : null,
+        chainMaxOi: chain ? Math.max(...chain.map((row) => row[oiSide])) : null,
+      });
+
+      if (!verdict.ok) {
+        this.rejected.set(verdict.reason, (this.rejected.get(verdict.reason) ?? 0) + 1);
+        this.note(describeRejection(symbol, verdict));
+        /*
+         * The setup is spent either way. Re-arming would have the engine retry
+         * the same broken book on every tick for the rest of the session, and a
+         * strike that has no bid at 10:03 is not a different opportunity at
+         * 10:03:02.
+         */
         return;
       }
+
+      const entry = verdict.entry;
 
       // Re-checked after the awaits — the cutoff or a cap may have been reached
       // while the quote was in flight.

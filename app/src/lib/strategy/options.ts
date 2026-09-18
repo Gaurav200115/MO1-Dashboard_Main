@@ -154,6 +154,18 @@ export interface PremiumQuote {
   /** Best bid and ask from the depth book. Null when the book came back empty. */
   bid: number | null;
   ask: number | null;
+  /** Contracts outstanding on this strike. */
+  oi: number | null;
+  /** Units traded today. Zero means nobody has touched this contract. */
+  volume: number | null;
+  /**
+   * When this contract last actually traded.
+   *
+   * Load-bearing for the entry gate: `last` on a contract that has not printed
+   * for an hour is a stale number, and comparing a live ask against it would
+   * reject good books and accept bad ones. Null when Kite sends no timestamp.
+   */
+  lastTradeAt: number | null;
   at: number;
 }
 
@@ -185,11 +197,15 @@ export async function fetchPremiums(keys: string[]): Promise<Map<string, Premium
     for (const [key, quote] of Object.entries(quotes)) {
       const last = typeof quote.last_price === "number" ? quote.last_price : NaN;
       if (!Number.isFinite(last)) continue;
+      const traded = quote.last_trade_time ? new Date(quote.last_trade_time).getTime() : NaN;
       out.set(key, {
         key,
         last,
         bid: topOf(quote.depth?.buy),
         ask: topOf(quote.depth?.sell),
+        oi: typeof quote.oi === "number" ? quote.oi : null,
+        volume: typeof quote.volume === "number" ? quote.volume : null,
+        lastTradeAt: Number.isFinite(traded) ? traded : null,
         at,
       });
     }
