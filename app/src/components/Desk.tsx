@@ -4,13 +4,14 @@ import { useCallback, useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import type { FloatTable } from "@/lib/float";
 import { COLUMNS, sortCompanies } from "@/lib/metrics";
-import { computeSectorIndices } from "@/lib/sectorIndex";
+import { anchorIsStale, computeSectorIndices } from "@/lib/sectorIndex";
 import { confirmedStocks, currentStocks } from "@/lib/eod/watch";
 import { effectiveSector, groupBySector } from "@/lib/sectors";
 import type { DeskIndex, LiveRow, MetricKey, SortKey } from "@/lib/types";
 import { useAlerts } from "@/lib/useAlerts";
 import { useEod } from "@/lib/useEod";
 import { useQuotes } from "@/lib/useQuotes";
+import { useSectors } from "@/lib/useSectors";
 import { useTrades } from "@/lib/useTrades";
 import AlertsBell from "./AlertsBell";
 import CompanySheet from "./CompanySheet";
@@ -18,8 +19,10 @@ import CompanyTable from "./CompanyTable";
 import FeedStatus from "./FeedStatus";
 import LeaderStrip from "./LeaderStrip";
 import LevelArchive from "./LevelArchive";
+import SectorIndexChart from "./SectorIndexChart";
 import SectorIndexStrip from "./SectorIndexStrip";
-import SectorRail, { ALL, ARCHIVE, CURRENT, SPECIAL, TRADES } from "./SectorRail";
+import SectorRail, { ALL, ARCHIVE, CURRENT, ROTATION, SPECIAL, TRADES } from "./SectorRail";
+import SectorRotation from "./SectorRotation";
 import ThemeToggle from "./ThemeToggle";
 import TodaysSpecial from "./TodaysSpecial";
 import TradeBlotter from "./TradeBlotter";
@@ -34,6 +37,14 @@ export default function Desk({ data, floats }: { data: DeskIndex; floats: FloatT
 
   const { quotes, feed } = useQuotes();
   const { report } = useEod();
+
+  /*
+   * The stored index chain. Loaded client-side rather than on the server for
+   * the same reason the EOD report is: this page is statically prerendered, and
+   * reading the chain during render would bake one evening previous close into
+   * the build and never move it again.
+   */
+  const { anchor, rotation, missing: noChain } = useSectors();
   const { alerts, armed, unread, markRead } = useAlerts(report, quotes);
 
   /*
@@ -66,9 +77,12 @@ export default function Desk({ data, floats }: { data: DeskIndex; floats: FloatT
    * summing two floats per constituent, no allocation per tick.
    */
   const indices = useMemo(
-    () => computeSectorIndices(data.companies, quotes, floats),
-    [data.companies, quotes, floats]
+    () => computeSectorIndices(data.companies, quotes, floats, anchor),
+    [data.companies, quotes, floats, anchor]
   );
+
+  /** The chain has not been extended recently enough for its last bar to be yesterday. */
+  const chainStale = useMemo(() => anchorIsStale(anchor), [anchor]);
 
   /** Member counts per sector, after the banks / ex-banks split. */
   const sectorCounts = useMemo(() => {
@@ -92,7 +106,12 @@ export default function Desk({ data, floats }: { data: DeskIndex; floats: FloatT
   const handleSectorSelect = useCallback((next: string) => {
     setSector(next);
     const isPanel =
-      next === ALL || next === SPECIAL || next === CURRENT || next === ARCHIVE || next === TRADES;
+      next === ALL ||
+      next === SPECIAL ||
+      next === CURRENT ||
+      next === ARCHIVE ||
+      next === TRADES ||
+      next === ROTATION;
     if (!isPanel) {
       setSortKey("chg");
       setSortDir(-1);
@@ -111,6 +130,15 @@ export default function Desk({ data, floats }: { data: DeskIndex; floats: FloatT
   }, [inSector, query, sortKey, sortDir]);
 
   const activeIndex = sector === ALL ? undefined : indices.get(sector);
+
+  /** The rail shows the current leader, so the panel is worth opening or not. */
+  const rotationSummary = useMemo(
+    () =>
+      rotation
+        ? { sessions: rotation.depth, leader: rotation.rows[0]?.sector ?? null }
+        : null,
+    [rotation]
+  );
 
   /**
    * The two stages of the watchlist. Today's Special is the overnight output;
@@ -192,11 +220,22 @@ export default function Desk({ data, floats }: { data: DeskIndex; floats: FloatT
             onSelect={handleSectorSelect}
             special={special}
             trades={tradeCounts}
+            rotation={rotationSummary}
           />
         </aside>
 
         <main className="min-w-0 px-6 pb-16 pt-5">
-          {sector === TRADES ? (
+          {sector === ROTATION ? (
+            rotation ? (
+              <SectorRotation view={rotation} onSelect={handleSectorSelect} />
+            ) : (
+              <p className="text-[12.5px] text-muted">
+                {noChain
+                  ? "No stored index chain yet. Sign in to Kite and POST /api/sectors to build it — one call reads a year of daily candles and writes the chained history the rotation view runs on."
+                  : "Loading the stored index chain…"}
+              </p>
+            )
+          ) : sector === TRADES ? (
             <TradeBlotter data={tradeData} />
           ) : sector === ARCHIVE ? (
             <LevelArchive active />
@@ -228,8 +267,9 @@ export default function Desk({ data, floats }: { data: DeskIndex; floats: FloatT
           ) : (
             <>
               {activeIndex ? (
-                <div className="mb-5">
-                  <SectorIndexStrip index={activeIndex} />
+                <div className="mb-5 flex flex-col gap-4">
+                  <SectorIndexStrip index={activeIndex} chainStale={chainStale} />
+                  <SectorIndexChart sector={sector} />
                 </div>
               ) : null}
 

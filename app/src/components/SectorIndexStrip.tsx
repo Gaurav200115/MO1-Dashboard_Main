@@ -8,9 +8,17 @@ import type { SectorIndex } from "@/lib/sectorIndex";
  * then the things that qualify it — how many members are actually priced, the
  * traded value behind the move, and the heaviest constituent.
  */
-export default function SectorIndexStrip({ index }: { index: SectorIndex }) {
+export default function SectorIndexStrip({
+  index,
+  chainStale,
+}: {
+  index: SectorIndex;
+  /** The stored chain has not been extended recently enough to be yesterday. */
+  chainStale?: boolean;
+}) {
   const rising = index.changePct >= 0;
   const stale = index.priced < index.members;
+  const chained = index.chainedFrom;
 
   return (
     <section
@@ -59,8 +67,31 @@ export default function SectorIndexStrip({ index }: { index: SectorIndex }) {
         </Stat>
       ) : null}
 
-      <p className="ml-auto max-w-[26ch] text-[10.5px] leading-snug text-faint">
-        Free-float market-cap weighted, rebased to 1,000 at the previous close.
+      {chained ? (
+        <Stat label="Prev close">
+          <span className={chainStale ? "text-alert" : ""} title={`Stored close of ${chained.date}`}>
+            {grouped(chained.level, 2)}
+          </span>
+          <span className="ml-1 text-[10px] font-normal text-faint">{chained.date}</span>
+        </Stat>
+      ) : null}
+
+      <p className="ml-auto max-w-[27ch] text-[10.5px] leading-snug text-faint">
+        {chained ? (
+          chainStale ? (
+            <span className="text-alert">
+              Chained onto {chained.date}, which is not the last session — the stored history needs
+              extending before this level is trustworthy.
+            </span>
+          ) : (
+            <>Free-float market-cap weighted, chained onto the stored close of {chained.date}.</>
+          )
+        ) : (
+          <>
+            Free-float market-cap weighted, showing 1,000 at the previous close — no stored history
+            yet, so this level restarts every morning.
+          </>
+        )}
       </p>
     </section>
   );

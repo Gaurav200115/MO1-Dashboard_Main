@@ -1,15 +1,29 @@
 import type { FloatFactor } from "./float";
+import { BASE_LEVEL, type ChainAnchor } from "./sector/types";
 import { groupBySector, MIN_CONSTITUENTS } from "./sectors";
 import type { Quote } from "./types";
 
-/** Every index is rebased here at the previous close, so 1007.3 reads as +0.73%. */
-export const BASE_LEVEL = 1000;
+export { BASE_LEVEL };
+
+/**
+ * Past this many days without a stored session the chain is not trustworthy as
+ * "yesterday". Four covers a long weekend — Friday to Tuesday — without firing
+ * on an ordinary one.
+ */
+const STALE_DAYS = 4;
+const DAY_MS = 86_400_000;
 
 export interface SectorIndex {
   sector: string;
-  /** Rebased to BASE_LEVEL at the previous close. */
+  /**
+   * Chained onto the stored previous close, so this is a real index level that
+   * compounds across sessions. Falls back to BASE_LEVEL only when no history
+   * has been built yet.
+   */
   level: number;
   changePct: number;
+  /** Session the level is chained onto, and its level. Null before any backfill. */
+  chainedFrom: { date: string; level: number } | null;
   /** Members in the sector, and how many carried a usable live quote. */
   members: number;
   priced: number;
@@ -17,6 +31,12 @@ export interface SectorIndex {
   turnover: number | null;
   /** Heaviest constituent, which is the honest caveat on a weighted index. */
   top: { symbol: string; weightPct: number } | null;
+}
+
+/** True when the chain has not been extended recently enough to be yesterday. */
+export function anchorIsStale(anchor: ChainAnchor | null, now = Date.now()): boolean {
+  if (!anchor) return false;
+  return now - Date.parse(`${anchor.date}T00:00:00.000Z`) > STALE_DAYS * DAY_MS;
 }
 
 /**
@@ -38,16 +58,29 @@ export interface SectorIndex {
  *
  * A member with no live quote is left out of both sums rather than treated as
  * unchanged; carrying it at zero return would quietly drag the index toward flat.
+ *
+ * `anchor` is the last stored session from the chain on disk, and it is what
+ * turns this from a day gauge into an index: the ratio is multiplied into
+ * yesterday level rather than into a fresh 1,000. The two halves agree by
+ * construction, because the stored chain multiplies exactly this ratio computed
+ * from the same previous close — the one the quote packet carries in its OHLC
+ * block, which is the official close the exchange finalised overnight.
  */
 export function computeSectorIndices(
   companies: { symbol: string; sector: string }[],
   quotes: Record<string, Quote>,
-  floats: Record<string, FloatFactor>
+  floats: Record<string, FloatFactor>,
+  anchor?: ChainAnchor | null
 ): Map<string, SectorIndex> {
   const indices = new Map<string, SectorIndex>();
 
   for (const [sector, members] of groupBySector(companies)) {
     if (members.length < MIN_CONSTITUENTS) continue;
+
+    const stored = anchor?.levels[sector];
+    const base = stored != null && Number.isFinite(stored) && stored > 0 ? stored : BASE_LEVEL;
+    const chainedFrom =
+      anchor && stored != null ? { date: anchor.date, level: stored } : null;
 
     let weightSum = 0;
     let weightedReturn = 0;
@@ -87,8 +120,9 @@ export function computeSectorIndices(
     if (weightSum <= 0) {
       indices.set(sector, {
         sector,
-        level: BASE_LEVEL,
+        level: base,
         changePct: 0,
+        chainedFrom,
         members: members.length,
         priced: 0,
         turnover: null,
@@ -101,8 +135,9 @@ export function computeSectorIndices(
 
     indices.set(sector, {
       sector,
-      level: BASE_LEVEL * ratio,
+      level: base * ratio,
       changePct: (ratio - 1) * 100,
+      chainedFrom,
       members: members.length,
       priced,
       turnover: sawVolume ? turnover : null,

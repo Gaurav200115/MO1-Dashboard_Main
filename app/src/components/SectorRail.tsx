@@ -12,6 +12,8 @@ export const CURRENT = "__current__";
 export const ARCHIVE = "__archive__";
 /** Paper trades taken by the strategy engine, by day. */
 export const TRADES = "__trades__";
+/** Where money is moving between sectors, off the stored index chain. */
+export const ROTATION = "__rotation__";
 
 export default function SectorRail({
   sectors,
@@ -21,6 +23,7 @@ export default function SectorRail({
   onSelect,
   special,
   trades,
+  rotation,
 }: {
   sectors: Map<string, number>;
   indices: Map<string, SectorIndex>;
@@ -31,6 +34,8 @@ export default function SectorRail({
   special: { today: number; current: number } | null;
   /** Today's paper trades — null while the strategy engine is not running. */
   trades: { taken: number; open: number } | null;
+  /** Stored sessions behind the rotation view; null before the first backfill. */
+  rotation: { sessions: number; leader: string | null } | null;
 }) {
   // Indexed sectors first, sorted by today's move so the rail reads as a
   // heatmap; the sectors too thin to index sit below, ordered by size.
@@ -117,6 +122,42 @@ export default function SectorRail({
       <h2 className="font-display text-[10px] font-bold uppercase tracking-[0.13em] text-muted">
         Sectors
       </h2>
+
+      {/*
+        Above the sector list rather than in the watchlist block: it is the way
+        into the list, not a sibling of it — the question "which sector" comes
+        before "which stock in it".
+      */}
+      <button
+        type="button"
+        onClick={() => onSelect(ROTATION)}
+        aria-current={active === ROTATION}
+        title={
+          rotation
+            ? `${rotation.sessions} stored sessions` +
+              (rotation.leader ? ` · ${rotation.leader} leads on one-month excess` : "")
+            : "Sector rotation — needs the stored index chain"
+        }
+        className={`flex w-full items-center justify-between gap-2 rounded-[5px] px-2 py-1.5 text-left text-[12.5px] ${
+          active === ROTATION
+            ? "bg-accentsoft font-semibold text-accent"
+            : "text-ink2 hover:bg-surface2"
+        }`}
+      >
+        <span className="shrink-0">Rotation</span>
+        {/* The leader name is the useful thing to see without opening the panel,
+            but it is long enough to shove the label out of its own button — so
+            it truncates and the label keeps its width. */}
+        <span
+          className={`tnum min-w-0 truncate text-right font-mono text-[10.5px] ${
+            active === ROTATION ? "text-accent" : "text-faint"
+          }`}
+          title={rotation?.leader ?? undefined}
+        >
+          {rotation?.leader ?? (rotation ? `${rotation.sessions}d` : "—")}
+        </span>
+      </button>
+
       <div className="flex flex-row flex-wrap gap-px lg:flex-col">
         <Item
           label="All companies"

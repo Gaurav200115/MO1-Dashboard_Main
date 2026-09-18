@@ -38,6 +38,80 @@ thirteen quarters of statements load only for the company actually being inspect
 | `src/lib/metrics.ts` | Column and leader-metric definitions, sort comparator |
 | `src/lib/types.ts` | Shared types, including the not-yet-populated `Quote` |
 
+## Sector indices and rotation
+
+The sector indices are **chained and stored**. They were previously rebased to 1,000 at
+every previous close, which made the level a day gauge wearing an index costume: it said
++0.73% and forgot it by the evening. Now a session multiplies into yesterday level and the
+result is written to disk, so 1,180 means the sector has compounded 18% since the base date.
+
+```
+.kite/sectors/history.json      the chain — source of truth, one file, all indices
+Mongo sector_index_daily        queryable mirror, one doc per (date, sector)
+```
+
+Both halves of the desk use the same formula, a free-float market-cap weighted index
+expressed as a weighted mean of constituent day-returns:
+
+```
+level_t = level_{t-1} * Sum(w_i * P_i,t / P_i,t-1) / Sum(w_i),   w_i = shares_i * float_i * P_i,t-1
+```
+
+`src/lib/sector/series.ts` runs it over daily candles for the stored history;
+`src/lib/sectorIndex.ts` runs it over live quotes and chains onto the last stored close.
+Extending the chain one session at a time is verified to land on exactly the levels a
+single full build produces, so a daily append never drifts from a backfill.
+
+| Path | Role |
+| --- | --- |
+| `src/lib/sector/series.ts` | The chaining maths, plus breadth and turnover per session |
+| `src/lib/sector/rotation.ts` | Relative strength, RRG coordinates, quadrants, rankings |
+| `src/lib/sector/store.ts` | `history.json` + the Mongo mirror |
+| `src/lib/sector/job.ts` | Daily extend / first backfill, from Kite candles |
+| `src/lib/sector/seed.ts` | Provisional chain from the stored EOD reports, no token needed |
+| `src/components/SectorRotation.tsx` | The rotation panel — RRG, table, how to read it |
+| `src/components/RotationGraph.tsx` | Relative Rotation Graph with 10-session tails |
+| `src/components/SectorIndexChart.tsx` | One sector chain against the benchmark |
+
+### Running it
+
+The chain extends itself: `runDailyStartup` calls it after the EOD scan, which is deliberate
+— that scan has just pulled a year of daily candles for every F&O name and the history cache
+holds them for six hours, so the extend costs about fifteen requests rather than two hundred.
+
+```bash
+curl -X POST localhost:3000/api/sectors             # extend, or first backfill
+curl -X POST 'localhost:3000/api/sectors?force=1'   # rebuild from candles, resets the base
+curl -X POST 'localhost:3000/api/sectors?from=eod'  # provisional chain, no Kite session needed
+curl 'localhost:3000/api/sectors'                   # rotation view
+curl 'localhost:3000/api/sectors?view=series&sector=Banks'
+```
+
+`from=eod` exists because the Kite token dies at 06:00 IST and the reports on disk already
+carry one settled close per stock per session. It covers only the F&O names and only as far
+back as the reports go, so it is tagged `source: "eod-reports"` and the next signed-in run
+**replaces** it with a full candle backfill rather than chaining onto it.
+
+### What the numbers mean
+
+`RS-Ratio` and `RS-Momentum` are a Relative Rotation Graph. The published JdK formulas are
+proprietary; this is the open replication — z-score the relative-strength line over a
+50-session window, and z-score its 10-session change the same way, both centred on 100.
+Quadrants rotate clockwise, Improving → Leading → Weakening → Lagging, and the two hinges are
+where the information is: a sector entering Improving is still bottom of every trailing
+return column, and one entering Weakening still tops them.
+
+Three caveats the panel does not hide:
+
+- **Float factors and membership are the current snapshot applied backwards.** A promoter who
+  sold down in March is treated as having sold a year ago, and a stock that joined the index
+  in June is in it from the base date. Fine for ranking sectors against each other, not a
+  tradable index history.
+- **The benchmark is the in-house whole-universe index**, not the published Nifty 200 —
+  otherwise relative strength would be partly the two constructions disagreeing.
+- **The RRG needs 120 stored sessions.** Below that the panel says so and falls back to
+  ranking on the longest horizon the chain actually supports.
+
 ## Conventions worth keeping
 
 **Indian digit grouping everywhere** — `₹3,36,304 Cr`, via `en-IN`. All figures use

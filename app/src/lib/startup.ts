@@ -1,4 +1,7 @@
 import { runEodScan } from "@/lib/eod/job";
+import { updateSectorHistory } from "@/lib/sector/job";
+import { seedFromReports } from "@/lib/sector/seed";
+import { readSeries } from "@/lib/sector/store";
 import { startStrategies } from "@/lib/strategy/engine";
 
 /**
@@ -28,6 +31,48 @@ export async function runDailyStartup(trigger: string): Promise<void> {
     console.log(`[eod] skipped on ${trigger} — no Kite session. Sign in, then POST /api/eod.`);
   } else if (outcome.reason === "already-done") {
     console.log(`[eod] ${outcome.detail}`);
+  }
+
+  /*
+   * After the scan rather than before it, so the year of daily candles the scan
+   * just pulled is still in the six-hour history cache. Extending the chain then
+   * costs only the Nifty 200 members that have no options — about fifteen calls
+   * instead of two hundred.
+   *
+   * Never fatal: the chain is a research asset, and a day missed from it is
+   * recovered by the next run, which rebuilds every session after the last one
+   * stored.
+   */
+  try {
+    const sectors = await updateSectorHistory();
+    if (sectors.ran) {
+      console.log(
+        `[sectors] ${sectors.reason} — ${sectors.sessions} sessions to ${sectors.to}` +
+          `${sectors.failed ? ` (${sectors.failed.length} symbols unread)` : ""}`
+      );
+    } else if (sectors.reason === "no-session") {
+      /*
+       * No token, so no candles — but the EOD reports on disk carry the same
+       * closes for the F&O names, and a short provisional chain beats an index
+       * that resets to 1,000 every morning. The next signed-in run replaces it.
+       */
+      const chain = await readSeries();
+      if (!chain) {
+        const seeded = await seedFromReports();
+        console.log(
+          seeded.ran
+            ? `[sectors] no Kite session — seeded ${seeded.sessions} sessions from the EOD reports ` +
+                `(${seeded.from} to ${seeded.to}), provisional until a backfill`
+            : `[sectors] skipped on ${trigger} — ${sectors.detail}; seed unavailable (${seeded.detail})`
+        );
+      } else {
+        console.log(`[sectors] skipped on ${trigger} — ${sectors.detail}`);
+      }
+    } else if (sectors.reason !== "up-to-date") {
+      console.log(`[sectors] skipped on ${trigger} — ${sectors.detail ?? sectors.reason}`);
+    }
+  } catch (err) {
+    console.warn("[sectors] update failed:", err instanceof Error ? err.message : err);
   }
 
   /*
