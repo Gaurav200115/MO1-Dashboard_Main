@@ -427,6 +427,11 @@ function EngineStrip({
                     {engine.entriesOpen ? "entries open" : `entries shut (${engine.entryCutoffIst})`}
                   </Chip>
                   {engine.basedOn ? <Chip>levels from {engine.basedOn}</Chip> : null}
+                  {Object.entries(engine.rejected).map(([reason, count]) => (
+                    <Chip key={reason}>
+                      <span className="text-alert">{count}</span> {reason.replace(/-/g, " ")}
+                    </Chip>
+                  ))}
                 </>
               ) : engine.detail ? (
                 <span className="text-muted">{engine.detail}</span>

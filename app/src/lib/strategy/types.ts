@@ -36,7 +36,28 @@ export interface SetupDefinition {
   description: string;
 }
 
-export interface StrategyParams {
+/**
+ * The pre-trade book checks. Split out of StrategyParams so `assessBook` can be
+ * handed exactly what it needs and tested without inventing a whole strategy.
+ */
+export interface LiquidityParams {
+  /** Reject when (ask − bid) / mid exceeds this, in percent. */
+  maxSpreadPct: number;
+  /**
+   * Reject when the spread is this large a share of the distance to the stop,
+   * in percent. The economic test: the round trip is paid twice out of a fixed
+   * 550 risk budget.
+   */
+  maxSpreadOfRiskPct: number;
+  /** Reject when the ask sits this far above a *fresh* last traded price. */
+  maxAskOverLastPct: number;
+  /** How old the last print may be for the ask-versus-last test to mean anything. */
+  staleQuoteSec: number;
+  /** Reject when the strike carries less than this share of its chain's heaviest OI. */
+  minStrikeOiShare: number;
+}
+
+export interface StrategyParams extends LiquidityParams {
   emaPeriod: number;
   /** Candle size the EMA is computed on, in minutes. */
   emaIntervalMinutes: number;
@@ -308,6 +329,8 @@ export interface EngineSnapshot {
   /** Positions open across every strategy, and the desk-wide cap on them. */
   deskOpenTrades: number;
   deskMaxOpen: number;
+  /** Signals that fired but were turned away by the book checks, by reason. */
+  rejected: Record<string, number>;
   tradesToday: number;
   lastSignalAt: number | null;
   /** Most recent notes, newest last — warm-up gaps, skipped entries, write failures. */

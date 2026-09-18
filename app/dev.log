@@ -9,10 +9,169 @@
 
  ✓ Starting...
  ○ Compiling /instrumentation ...
- ✓ Compiled /instrumentation in 2.2s (52 modules)
- ✓ Ready in 8.8s
-[eod] Report for 2026-09-16 already exists
-[db] Mongo live — nifty200desk (ping 7585ms)
-[strategy] catalogue synced — 2 active definition(s) written
-[strategy] breakout-retrace-21ema v3: no-levels — Latest report is based on 2026-09-16, which is not a completed prior session.
-[strategy] breakdown-retrace-21ema v1: no-levels — Latest report is based on 2026-09-16, which is not a completed prior session.
+ ✓ Compiled /instrumentation in 3.2s (53 modules)
+[eod] skipped on boot — no Kite session. Sign in, then POST /api/eod.
+ ✓ Ready in 25.5s
+[db] Mongo unreachable after 9205ms — Server selection timed out after 8000 ms
+[strategy] catalogue sync failed: Server selection timed out after 8000 ms
+[strategy:breakout-retrace-21ema] levels for 2026-09-16 are still provisional — Kite had not finalised the daily candle when they were computed
+[strategy:breakout-retrace-21ema] report was computed for 2026-09-17, trading it on 2026-09-18
+[strategy:breakout-retrace-21ema] PAYTM: no Kite session
+[strategy:breakdown-retrace-21ema] levels for 2026-09-16 are still provisional — Kite had not finalised the daily candle when they were computed
+[strategy:breakdown-retrace-21ema] report was computed for 2026-09-17, trading it on 2026-09-18
+[strategy:breakout-retrace-21ema] NAUKRI: no Kite session
+[strategy] breakout-retrace-21ema v4: running — Watching 85 stocks from 2026-09-16.
+[strategy] breakdown-retrace-21ema v2: running — Watching 79 stocks from 2026-09-16.
+[strategy:breakout-retrace-21ema] SUPREMEIND: no Kite session
+[strategy:breakdown-retrace-21ema] NAUKRI: no Kite session
+[strategy:breakout-retrace-21ema] BOSCHLTD: no Kite session
+[strategy:breakdown-retrace-21ema] SUPREMEIND: no Kite session
+[strategy:breakout-retrace-21ema] ASIANPAINT: no Kite session
+[strategy:breakdown-retrace-21ema] BOSCHLTD: no Kite session
+[strategy:breakout-retrace-21ema] CIPLA: no Kite session
+[strategy:breakdown-retrace-21ema] ASIANPAINT: no Kite session
+[strategy:breakout-retrace-21ema] ABB: no Kite session
+[strategy:breakdown-retrace-21ema] CIPLA: no Kite session
+[strategy:breakout-retrace-21ema] BAJAJ-AUTO: no Kite session
+[strategy:breakdown-retrace-21ema] ABB: no Kite session
+[strategy:breakout-retrace-21ema] KEI: no Kite session
+[strategy:breakdown-retrace-21ema] BAJAJ-AUTO: no Kite session
+[strategy:breakout-retrace-21ema] TORNTPHARM: no Kite session
+[strategy:breakdown-retrace-21ema] KEI: no Kite session
+[strategy:breakout-retrace-21ema] FORTIS: no Kite session
+[strategy:breakdown-retrace-21ema] TORNTPHARM: no Kite session
+[strategy:breakout-retrace-21ema] UPL: no Kite session
+[strategy:breakdown-retrace-21ema] FORTIS: no Kite session
+[strategy:breakout-retrace-21ema] MARUTI: no Kite session
+[strategy:breakdown-retrace-21ema] UPL: no Kite session
+[strategy:breakout-retrace-21ema] RADICO: no Kite session
+[strategy:breakdown-retrace-21ema] MARUTI: no Kite session
+[strategy:breakout-retrace-21ema] PIDILITIND: no Kite session
+[strategy:breakdown-retrace-21ema] RADICO: no Kite session
+[strategy:breakout-retrace-21ema] LUPIN: no Kite session
+[strategy:breakdown-retrace-21ema] PIDILITIND: no Kite session
+[strategy:breakout-retrace-21ema] SAIL: no Kite session
+[strategy:breakdown-retrace-21ema] LUPIN: no Kite session
+[strategy:breakout-retrace-21ema] JINDALSTEL: no Kite session
+[strategy:breakdown-retrace-21ema] SAIL: no Kite session
+[strategy:breakout-retrace-21ema] SHREECEM: no Kite session
+[strategy:breakdown-retrace-21ema] JINDALSTEL: no Kite session
+[strategy:breakout-retrace-21ema] BAJAJFINSV: no Kite session
+[strategy:breakdown-retrace-21ema] SHREECEM: no Kite session
+[strategy:breakout-retrace-21ema] COCHINSHIP: no Kite session
+[strategy:breakdown-retrace-21ema] BAJAJFINSV: no Kite session
+[strategy:breakout-retrace-21ema] LT: no Kite session
+[strategy:breakdown-retrace-21ema] COCHINSHIP: no Kite session
+[strategy:breakout-retrace-21ema] CONCOR: no Kite session
+[strategy:breakdown-retrace-21ema] LT: no Kite session
+[strategy:breakout-retrace-21ema] ONGC: no Kite session
+[strategy:breakdown-retrace-21ema] CONCOR: no Kite session
+[strategy:breakout-retrace-21ema] CHOLAFIN: no Kite session
+[strategy:breakdown-retrace-21ema] INDUSINDBK: no Kite session
+[strategy:breakout-retrace-21ema] CUMMINSIND: no Kite session
+[strategy:breakdown-retrace-21ema] ALKEM: no Kite session
+[strategy:breakout-retrace-21ema] TCS: no Kite session
+[strategy:breakdown-retrace-21ema] GMRAIRPORT: no Kite session
+[strategy:breakout-retrace-21ema] LTF: no Kite session
+[strategy:breakdown-retrace-21ema] HYUNDAI: no Kite session
+[strategy:breakout-retrace-21ema] PHOENIXLTD: no Kite session
+[strategy:breakdown-retrace-21ema] INDIGO: no Kite session
+[strategy:breakout-retrace-21ema] GLENMARK: no Kite session
+[strategy:breakdown-retrace-21ema] POLYCAB: no Kite session
+[strategy:breakout-retrace-21ema] INDIGO: no Kite session
+[strategy:breakdown-retrace-21ema] 360ONE: no Kite session
+[strategy:breakout-retrace-21ema] POLYCAB: no Kite session
+[strategy:breakdown-retrace-21ema] GODREJCP: no Kite session
+[strategy:breakout-retrace-21ema] 360ONE: no Kite session
+[strategy:breakdown-retrace-21ema] NESTLEIND: no Kite session
+[strategy:breakout-retrace-21ema] GODREJCP: no Kite session
+[strategy:breakdown-retrace-21ema] POLICYBZR: no Kite session
+[strategy:breakout-retrace-21ema] NESTLEIND: no Kite session
+[strategy:breakdown-retrace-21ema] ABCAPITAL: no Kite session
+[strategy:breakout-retrace-21ema] KALYANKJIL: no Kite session
+[strategy:breakdown-retrace-21ema] LTM: no Kite session
+[strategy:breakout-retrace-21ema] POLICYBZR: no Kite session
+[strategy:breakdown-retrace-21ema] SBILIFE: no Kite session
+[strategy:breakout-retrace-21ema] ABCAPITAL: no Kite session
+[strategy:breakdown-retrace-21ema] OFSS: no Kite session
+[strategy:breakout-retrace-21ema] LTM: no Kite session
+[strategy:breakdown-retrace-21ema] PAGEIND: no Kite session
+[strategy:breakout-retrace-21ema] SBILIFE: no Kite session
+[strategy:breakdown-retrace-21ema] JIOFIN: no Kite session
+[strategy:breakout-retrace-21ema] OFSS: no Kite session
+[strategy:breakdown-retrace-21ema] PATANJALI: no Kite session
+[strategy:breakout-retrace-21ema] PAGEIND: no Kite session
+[strategy:breakdown-retrace-21ema] MAZDOCK: no Kite session
+[strategy:breakout-retrace-21ema] JIOFIN: no Kite session
+[strategy:breakdown-retrace-21ema] ZYDUSLIFE: no Kite session
+[strategy:breakout-retrace-21ema] PATANJALI: no Kite session
+[strategy:breakdown-retrace-21ema] GODREJPROP: no Kite session
+[strategy:breakout-retrace-21ema] MAZDOCK: no Kite session
+[strategy:breakdown-retrace-21ema] ULTRACEMCO: no Kite session
+[strategy:breakout-retrace-21ema] ZYDUSLIFE: no Kite session
+[strategy:breakdown-retrace-21ema] IRFC: no Kite session
+[strategy:breakout-retrace-21ema] GODREJPROP: no Kite session
+[strategy:breakdown-retrace-21ema] GAIL: no Kite session
+[strategy:breakout-retrace-21ema] ULTRACEMCO: no Kite session
+[strategy:breakdown-retrace-21ema] MOTHERSON: no Kite session
+[strategy:breakout-retrace-21ema] IRFC: no Kite session
+[strategy:breakdown-retrace-21ema] AMBUJACEM: no Kite session
+[strategy:breakout-retrace-21ema] GAIL: no Kite session
+[strategy:breakdown-retrace-21ema] BRITANNIA: no Kite session
+[strategy:breakout-retrace-21ema] MOTHERSON: no Kite session
+[strategy:breakdown-retrace-21ema] DRREDDY: no Kite session
+[strategy:breakout-retrace-21ema] AMBUJACEM: no Kite session
+[strategy:breakdown-retrace-21ema] TVSMOTOR: no Kite session
+[strategy:breakout-retrace-21ema] BRITANNIA: no Kite session
+[strategy:breakdown-retrace-21ema] SBICARD: no Kite session
+[strategy:breakout-retrace-21ema] DRREDDY: no Kite session
+[strategy:breakdown-retrace-21ema] SBIN: no Kite session
+[strategy:breakout-retrace-21ema] TVSMOTOR: no Kite session
+[strategy:breakdown-retrace-21ema] MARICO: no Kite session
+[strategy:breakout-retrace-21ema] SBICARD: no Kite session
+[strategy:breakdown-retrace-21ema] IOC: no Kite session
+[strategy:breakout-retrace-21ema] SBIN: no Kite session
+[strategy:breakdown-retrace-21ema] TATACONSUM: no Kite session
+[strategy:breakout-retrace-21ema] MARICO: no Kite session
+[strategy:breakdown-retrace-21ema] SIEMENS: no Kite session
+[strategy:breakout-retrace-21ema] IOC: no Kite session
+[strategy:breakdown-retrace-21ema] HAL: no Kite session
+[strategy:breakout-retrace-21ema] TATACONSUM: no Kite session
+[strategy:breakdown-retrace-21ema] UNITDSPR: no Kite session
+[strategy:breakout-retrace-21ema] SIEMENS: no Kite session
+[strategy:breakdown-retrace-21ema] ASHOKLEY: no Kite session
+[strategy:breakout-retrace-21ema] MANKIND: no Kite session
+[strategy:breakdown-retrace-21ema] SOLARINDS: no Kite session
+[strategy:breakout-retrace-21ema] HAL: no Kite session
+[strategy:breakdown-retrace-21ema] BHARATFORG: no Kite session
+[strategy:breakout-retrace-21ema] UNITDSPR: no Kite session
+[strategy:breakdown-retrace-21ema] WAAREEENER: no Kite session
+[strategy:breakout-retrace-21ema] ASHOKLEY: no Kite session
+[strategy:breakout-retrace-21ema] SOLARINDS: no Kite session
+[strategy:breakdown-retrace-21ema] TATASTEEL: no Kite session
+[strategy:breakout-retrace-21ema] BHARATFORG: no Kite session
+[strategy:breakdown-retrace-21ema] ASTRAL: no Kite session
+[strategy:breakout-retrace-21ema] WAAREEENER: no Kite session
+[strategy:breakdown-retrace-21ema] ADANIENSOL: no Kite session
+[strategy:breakout-retrace-21ema] TATASTEEL: no Kite session
+[strategy:breakdown-retrace-21ema] COFORGE: no Kite session
+[strategy:breakout-retrace-21ema] ASTRAL: no Kite session
+[strategy:breakdown-retrace-21ema] TIINDIA: no Kite session
+[strategy:breakout-retrace-21ema] ADANIENSOL: no Kite session
+[strategy:breakdown-retrace-21ema] NYKAA: no Kite session
+[strategy:breakout-retrace-21ema] COFORGE: no Kite session
+[strategy:breakdown-retrace-21ema] PREMIERENE: no Kite session
+[strategy:breakout-retrace-21ema] COLPAL: no Kite session
+[strategy:breakdown-retrace-21ema] OBEROIRLTY: no Kite session
+[strategy:breakout-retrace-21ema] TIINDIA: no Kite session
+[strategy:breakdown-retrace-21ema] MFSL: no Kite session
+[strategy:breakout-retrace-21ema] NYKAA: no Kite session
+[strategy:breakdown-retrace-21ema] SRF: no Kite session
+[strategy:breakout-retrace-21ema] PREMIERENE: no Kite session
+[strategy:breakdown-retrace-21ema] APLAPOLLO: no Kite session
+[strategy:breakout-retrace-21ema] OBEROIRLTY: no Kite session
+[strategy:breakdown-retrace-21ema] VMM: no Kite session
+[strategy:breakout-retrace-21ema] MFSL: no Kite session
+[strategy:breakout-retrace-21ema] SRF: no Kite session
+[strategy:breakout-retrace-21ema] APLAPOLLO: no Kite session
+[strategy:breakout-retrace-21ema] VMM: no Kite session
