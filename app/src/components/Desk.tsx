@@ -5,15 +5,13 @@ import { Search } from "lucide-react";
 import type { FloatTable } from "@/lib/float";
 import { COLUMNS, sortCompanies } from "@/lib/metrics";
 import { anchorIsStale, computeSectorIndices } from "@/lib/sectorIndex";
-import { confirmedStocks, currentStocks } from "@/lib/eod/watch";
+import { confirmedStocks, currentStocks, isArmed, watchLevels } from "@/lib/eod/watch";
 import { effectiveSector, groupBySector } from "@/lib/sectors";
 import type { DeskIndex, LiveRow, MetricKey, SortKey } from "@/lib/types";
-import { useAlerts } from "@/lib/useAlerts";
 import { useEod } from "@/lib/useEod";
 import { useQuotes } from "@/lib/useQuotes";
 import { useSectors } from "@/lib/useSectors";
 import { useTrades } from "@/lib/useTrades";
-import AlertsBell from "./AlertsBell";
 import CompanySheet from "./CompanySheet";
 import CompanyTable from "./CompanyTable";
 import FeedStatus from "./FeedStatus";
@@ -45,7 +43,24 @@ export default function Desk({ data, floats }: { data: DeskIndex; floats: FloatT
    * the build and never move it again.
    */
   const { anchor, rotation, missing: noChain } = useSectors();
-  const { alerts, armed, unread, markRead } = useAlerts(report, quotes);
+
+  /**
+   * Confirmed levels live price is currently inside the band of.
+   *
+   * A plain derived value: recomputed from the levels and the latest quote
+   * batch, with nothing remembered between renders. It was a hook while the
+   * desk fired a once-per-level alert off it and needed somewhere to keep the
+   * dedupe set; with the alerts gone there is no state left to hold.
+   */
+  const levels = useMemo(() => watchLevels(report), [report]);
+  const armed = useMemo(() => {
+    const inside = new Set<string>();
+    for (const level of levels) {
+      const quote = quotes[level.symbol];
+      if (quote && isArmed(quote.ltp, level.value)) inside.add(level.id);
+    }
+    return inside;
+  }, [levels, quotes]);
 
   /*
    * Lifted out of the blotter so the rail can show a live count without a second
@@ -198,14 +213,6 @@ export default function Desk({ data, floats }: { data: DeskIndex; floats: FloatT
             className="w-[220px] rounded-md border border-line bg-sunken py-1.5 pl-7 pr-2.5 text-[13px] placeholder:text-faint"
           />
         </div>
-
-        <AlertsBell
-          alerts={alerts}
-          unread={unread}
-          markRead={markRead}
-          feed={feed}
-          onOpen={setOpen}
-        />
 
         <ThemeToggle />
       </header>

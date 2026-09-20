@@ -17,6 +17,7 @@
 export async function register(): Promise<void> {
   if (process.env.NEXT_RUNTIME === "nodejs") {
     const { kickDailyStartup } = await import("@/lib/startup");
+    const { startEodSchedule } = await import("@/lib/eod/schedule");
     const { checkConnection, describeStatus } = await import("@/lib/mongo");
 
     /*
@@ -39,5 +40,16 @@ export async function register(): Promise<void> {
      * Kite callback carries every day after it; see runDailyStartup.
      */
     kickDailyStartup("boot");
+
+    /*
+     * The one genuinely scheduled thing on the desk: a 21:00 IST scan of the
+     * session that just closed. Everything else still hangs off the morning
+     * Kite sign-in, which is the only event guaranteed to happen daily on a
+     * box that is never restarted.
+     *
+     * Armed after the boot kick rather than before it so the log reads in the
+     * order things happen, and cheap either way — it sets one timer.
+     */
+    startEodSchedule();
   }
 }

@@ -50,12 +50,7 @@ const MAX_DAILY_MOVE = 0.35;
 const FAST_MA = 50;
 const SLOW_MA = 200;
 
-/**
- * The exchange closes at 15:30 IST; before this hour today candle is still
- * forming, so its close is a mid-session print. Same rule and same reason as
- * lastSettledCandle in eod/report.ts.
- */
-const SESSION_SETTLED_HOUR_IST = 16;
+/** India has no daylight saving, so a fixed offset is exact, not an estimate. */
 const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
 
 export interface BuildInput {
@@ -82,10 +77,6 @@ export interface BuildResult {
   rejectedDates: string[];
 }
 
-function istHour(now: number): number {
-  return new Date(now + IST_OFFSET_MS).getUTCHours();
-}
-
 /** Mean of the last `n` closes, or null while the window is not full yet. */
 function tailMean(values: number[], n: number): number | null {
   if (values.length < n) return null;
@@ -97,7 +88,6 @@ function tailMean(values: number[], n: number): number | null {
 export function buildSeries(input: BuildInput): BuildResult {
   const now = input.now ?? Date.now();
   const today = istDateString(now);
-  const settled = istHour(now) >= SESSION_SETTLED_HOUR_IST;
 
   const groups = groupBySector(input.companies);
   const indexed = [...groups.entries()].filter(([, members]) => members.length >= MIN_CONSTITUENTS);
@@ -113,7 +103,7 @@ export function buildSeries(input: BuildInput): BuildResult {
   const universeMembers = input.companies.filter((company) => input.floats[company.symbol]);
   const books: [string, { symbol: string }[]][] = [[BENCHMARK, universeMembers], ...indexed];
 
-  // date -> symbol -> candle, settled sessions only.
+  // date -> symbol -> candle, finalised sessions only.
   const byDate = new Map<string, Map<string, Candle>>();
   const counted = new Set<string>();
 
@@ -122,8 +112,23 @@ export function buildSeries(input: BuildInput): BuildResult {
     counted.add(symbol);
     for (const candle of candles) {
       const date = istDateString(candle.t);
-      if (date > today) continue;
-      if (date === today && !settled) continue;
+      /*
+       * Today is never chained, at any hour — not even after 16:00 IST, when
+       * the EOD scan is already willing to call the session settled.
+       *
+       * The scan can afford that, because a level it gets slightly wrong is
+       * corrected by the verification pass the next morning. The chain has no
+       * second chance: every level is multiplied into every level after it, so
+       * a provisional close is not an error that ages out, it is a permanent
+       * offset in the whole series. And Kite's evening close *is* provisional —
+       * measured on this desk, 154 of 163 closes were still moving at 23:00 on
+       * the session day, by a median 0.31%.
+       *
+       * So the chain always stops at the previous session and picks today up
+       * tomorrow, once the candle is final. That is also exactly what the live
+       * strip wants of it: an anchor meaning "yesterday's close".
+       */
+      if (date >= today) continue;
       if (!Number.isFinite(candle.c) || candle.c <= 0) continue;
       let row = byDate.get(date);
       if (!row) byDate.set(date, (row = new Map()));

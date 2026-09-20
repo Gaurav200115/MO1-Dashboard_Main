@@ -10,7 +10,7 @@ export function confirmedStocks(report: EodReport | null): SpecialStock[] {
   return report ? report.stocks.filter((stock) => stock.levels.length > 0) : [];
 }
 
-/** The key a level is tracked and deduped by, in one place so it cannot drift. */
+/** The key a level is tracked by, in one place so it cannot drift. */
 export function levelId(symbol: string, pivot: PivotLabel): string {
   return `${symbol}:${pivot}`;
 }
@@ -36,17 +36,17 @@ export function currentStocks(report: EodReport | null, armed: Set<string>): Spe
  *
  * The level being watched is the *pivot*, not the option strike. The strike is
  * what corroborated it; the pivot is the precise price the level sits at.
+ *
+ * Carries only what the band check needs. It used to also carry the name,
+ * sector, kind and strike, which existed to render an alert row — the desk no
+ * longer raises alerts, and anything that wants the full level reads it off the
+ * report, where it has never stopped being.
  */
 export interface WatchLevel {
-  /** Stable across renders and reports — also the alert dedupe key. */
+  /** Stable across renders and reports. */
   id: string;
   symbol: string;
-  name: string;
-  sector: string;
-  pivot: PivotLabel;
-  kind: "support" | "resistance";
   value: number;
-  strike: number;
 }
 
 export function watchLevels(report: EodReport | null): WatchLevel[] {
@@ -58,12 +58,7 @@ export function watchLevels(report: EodReport | null): WatchLevel[] {
       levels.push({
         id: levelId(stock.symbol, level.pivot),
         symbol: stock.symbol,
-        name: stock.name,
-        sector: stock.sector,
-        pivot: level.pivot,
-        kind: level.kind,
         value: level.pivotValue,
-        strike: level.strike,
       });
     }
   }
@@ -72,9 +67,9 @@ export function watchLevels(report: EodReport | null): WatchLevel[] {
 
 /**
  * The same band the EOD confluence test used, now measured from live price to
- * the confirmed level. Being a band rather than a ceiling makes this an
- * approach warning: it arms while price is closing in and falls quiet once
- * price is effectively at the level.
+ * the confirmed level. Being a band rather than a ceiling means a level counts
+ * as reached while price is closing in on it, and stops counting once price is
+ * effectively at it.
  */
 export function isArmed(ltp: number, level: number): boolean {
   if (!Number.isFinite(ltp) || ltp <= 0 || !Number.isFinite(level) || level <= 0) return false;
