@@ -14,6 +14,8 @@ export const ARCHIVE = "__archive__";
 export const TRADES = "__trades__";
 /** Where money is moving between sectors, off the stored index chain. */
 export const ROTATION = "__rotation__";
+/** The whole paper-trade record, filtered and broken down. */
+export const ANALYSIS = "__analysis__";
 
 export default function SectorRail({
   sectors,
@@ -117,6 +119,19 @@ export default function SectorRail({
           live={(trades?.open ?? 0) > 0}
           liveLabel="A paper position is open right now"
         />
+        <button
+          type="button"
+          onClick={() => onSelect(ANALYSIS)}
+          aria-current={active === ANALYSIS}
+          title="Every paper trade on record — filter by side, time, hold, strategy and more"
+          className={`flex w-full items-center rounded-[5px] px-2 py-1.5 text-left text-[12.5px] ${
+            active === ANALYSIS
+              ? "bg-accentsoft font-semibold text-accent"
+              : "text-ink2 hover:bg-surface2"
+          }`}
+        >
+          Trade analysis
+        </button>
       </div>
 
       <h2 className="font-display text-[10px] font-bold uppercase tracking-[0.13em] text-muted">
