@@ -2,6 +2,7 @@ import type { Collection } from "mongodb";
 import { getDb, isConfigured, mongoMessage } from "@/lib/mongo";
 import {
   appendJournal,
+  journalDates,
   journalDays,
   journalOpenTrades,
   patchJournal,
@@ -232,6 +233,42 @@ export async function tradesOn(
   if (strategyId) filter.strategyId = strategyId;
   return collection.find(filter).sort({ "buy.at": 1 }).toArray();
 }
+/**
+ * Every trade between two IST dates (inclusive; either bound may be omitted),
+ * for the analysis panel.
+ *
+ * Merged rather than chosen between, for the reason `tradeDays` gives: disk
+ * holds what this machine recorded, Mongo holds every day any instance
+ * mirrored, and a day can live in only one of them. Disk wins a collision on
+ * `_id`, since the mirror is allowed to lag the session.
+ */
+export async function tradesBetween(from?: string, to?: string): Promise<StrategyTrade[]> {
+  const inRange = (date: string) => (!from || date >= from) && (!to || date <= to);
+
+  const fromDisk: StrategyTrade[] = [];
+  for (const date of (await journalDates()).filter(inRange)) {
+    fromDisk.push(...(await readJournal(date)));
+  }
+
+  const collection = await trades().catch(() => null);
+  const fromMongo = collection
+    ? await collection
+        .find({
+          ...(from || to
+            ? { tradingDate: { ...(from ? { $gte: from } : {}), ...(to ? { $lte: to } : {}) } }
+            : {}),
+        })
+        .toArray()
+        // An unreachable cluster costs the days only Mongo knows about, never the disk ones.
+        .catch(() => [] as StrategyTrade[])
+    : [];
+
+  const merged = new Map<string, StrategyTrade>();
+  for (const trade of fromMongo) merged.set(trade._id, trade);
+  for (const trade of fromDisk) merged.set(trade._id, trade);
+  return [...merged.values()].sort((a, b) => a.buy.at - b.buy.at);
+}
+
 /** The mirror's view of the same question. Split out so `tradeDays` can merge. */
 async function mongoDays(limit: number): Promise<TradeDaySummary[]> {
   const collection = await trades().catch(() => null);

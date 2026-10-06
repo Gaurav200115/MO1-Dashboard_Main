@@ -7,6 +7,7 @@ import {
   backfillTrades,
   isConfigured,
   tradeDays,
+  tradesBetween,
   tradesOn,
 } from "@/lib/strategy/store";
 
@@ -20,6 +21,7 @@ export const dynamic = "force-dynamic";
  *   GET /api/trades?date=YYYY-MM-DD      that day's
  *   GET /api/trades?strategy=<id>        narrowed to one strategy
  *   GET /api/trades?days=1               the list of days that have trades
+ *   GET /api/trades?range=1&from=&to=    every trade in a date range (analysis)
  *
  * Served from the on-disk journal, which is written before Mongo on every fill,
  * so the blotter keeps working through a database outage. `configured` reports
@@ -32,6 +34,17 @@ export async function GET(request: NextRequest) {
   try {
     if (params.get("days") === "1") {
       return ok({ days: await tradeDays() });
+    }
+
+    if (params.get("range") === "1") {
+      const from = params.get("from")?.trim() || undefined;
+      const to = params.get("to")?.trim() || undefined;
+      for (const bound of [from, to]) {
+        if (bound && !/^\d{4}-\d{2}-\d{2}$/.test(bound)) {
+          return NextResponse.json({ error: "from/to must be YYYY-MM-DD" }, { status: 400 });
+        }
+      }
+      return ok({ from: from ?? null, to: to ?? null, trades: await tradesBetween(from, to) });
     }
 
     const date = params.get("date")?.trim() || istDate();
