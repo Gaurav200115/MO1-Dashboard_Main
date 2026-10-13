@@ -3,8 +3,13 @@
 /*
   Tokens are plain CSS variables so they can be swapped at runtime; `@theme inline`
   points Tailwind's utilities at the variables rather than baking in literals.
-  Three theme states are covered: explicit light, explicit dark, and the default
-  unstamped document where only prefers-color-scheme applies.
+
+  Dark is the ground state, not a variant: an unstamped document is dark. That is
+  deliberate. The stamp comes from a single inline script in layout.tsx, so if
+  that read ever fails — blocked storage, or a load where the script does not run
+  — the page settles on dark rather than flashing light at someone who asked for
+  dark. Three states: the default (and explicit dark), explicit light, and
+  "system", which is the only one that defers to the OS.
 */
 @theme inline {
   --color-ground: var(--ground);
@@ -31,6 +36,28 @@
 }
 
 :root {
+  --ground: #12151a;
+  --surface: #1a1f26;
+  --surface-2: #222831;
+  --sunken: #0e1116;
+  --ink: #e8ecf2;
+  --ink-2: #c2cad5;
+  --muted: #8b95a5;
+  --faint: #69737f;
+  --line: #2b323c;
+  --line-strong: #3b434f;
+  --accent: #5fa8cc;
+  --accent-ink: #0e1116;
+  --accent-soft: #1e2c36;
+  --pos: #3dbe87;
+  --neg: #e8697e;
+  --alert: #f0a93b;
+  --alert-soft: #33270f;
+  color-scheme: dark;
+}
+
+/* Explicitly chosen light. */
+:root[data-theme="light"] {
   --ground: #f5f6f8;
   --surface: #ffffff;
   --surface-2: #edeff3;
@@ -51,48 +78,28 @@
   color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --ground: #12151a;
-    --surface: #1a1f26;
-    --surface-2: #222831;
-    --sunken: #0e1116;
-    --ink: #e8ecf2;
-    --ink-2: #c2cad5;
-    --muted: #8b95a5;
-    --faint: #69737f;
-    --line: #2b323c;
-    --line-strong: #3b434f;
-    --accent: #5fa8cc;
-    --accent-ink: #0e1116;
-    --accent-soft: #1e2c36;
-    --pos: #3dbe87;
-    --neg: #e8697e;
-    --alert: #f0a93b;
-    --alert-soft: #33270f;
-    color-scheme: dark;
+/* "System" on a light OS. System on a dark OS needs no rule — that is the default. */
+@media (prefers-color-scheme: light) {
+  :root[data-theme="system"] {
+    --ground: #f5f6f8;
+    --surface: #ffffff;
+    --surface-2: #edeff3;
+    --sunken: #e7eaef;
+    --ink: #171c24;
+    --ink-2: #3e4854;
+    --muted: #6b7686;
+    --faint: #96a0ae;
+    --line: #dde2e9;
+    --line-strong: #c6cdd7;
+    --accent: #2d6e8e;
+    --accent-ink: #ffffff;
+    --accent-soft: #e3eef4;
+    --pos: #1a8f5e;
+    --neg: #c0435a;
+    --alert: #c77a17;
+    --alert-soft: #fbf0de;
+    color-scheme: light;
   }
-}
-
-:root[data-theme="dark"] {
-  --ground: #12151a;
-  --surface: #1a1f26;
-  --surface-2: #222831;
-  --sunken: #0e1116;
-  --ink: #e8ecf2;
-  --ink-2: #c2cad5;
-  --muted: #8b95a5;
-  --faint: #69737f;
-  --line: #2b323c;
-  --line-strong: #3b434f;
-  --accent: #5fa8cc;
-  --accent-ink: #0e1116;
-  --accent-soft: #1e2c36;
-  --pos: #3dbe87;
-  --neg: #e8697e;
-  --alert: #f0a93b;
-  --alert-soft: #33270f;
-  color-scheme: dark;
 }
 
 html,

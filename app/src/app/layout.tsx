@@ -30,12 +30,14 @@ export const metadata: Metadata = {
 
 /**
  * Applies the stored theme before first paint so the page never flashes the
- * wrong ground. Absence of the attribute means "follow the OS".
+ * wrong ground. Dark is the default: anything that is not an explicit "light" or
+ * "system" resolves to it, and if this script never runs at all the stylesheet's
+ * unstamped `:root` is dark too, so the failure mode is dark rather than light.
  */
 const themeBootstrap = `
 try {
   var t = localStorage.getItem("n200-theme");
-  if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t);
+  document.documentElement.setAttribute("data-theme", t === "light" || t === "system" ? t : "dark");
 } catch (e) {}
 `;
 

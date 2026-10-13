@@ -5,32 +5,48 @@ import { Monitor, Moon, Sun } from "lucide-react";
 
 type Mode = "light" | "system" | "dark";
 
+const STORAGE_KEY = "n200-theme";
+
+/** Dark unless something stored says otherwise — see globals.css and layout.tsx. */
+const DEFAULT_MODE: Mode = "dark";
+
 const OPTIONS: { mode: Mode; label: string; Icon: typeof Sun }[] = [
   { mode: "light", label: "Light", Icon: Sun },
   { mode: "system", label: "System", Icon: Monitor },
   { mode: "dark", label: "Dark", Icon: Moon },
 ];
 
+function readStored(): Mode {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored === "light" || stored === "system" || stored === "dark") return stored;
+  } catch {
+    /* private mode / blocked storage — take the default */
+  }
+  return DEFAULT_MODE;
+}
+
 export default function ThemeToggle() {
-  const [mode, setMode] = useState<Mode>("system");
+  const [mode, setMode] = useState<Mode>(DEFAULT_MODE);
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem("n200-theme");
-      if (stored === "light" || stored === "dark") setMode(stored);
-    } catch {
-      /* private mode / blocked storage — stay on system */
-    }
+    const stored = readStored();
+    setMode(stored);
+    /*
+     * The attribute is re-asserted here, not just mirrored into state.
+     * layout.tsx stamps it before first paint, but that script was the only
+     * writer: any load where its read came up empty left the ground light while
+     * this toggle still showed "Dark" selected, with nothing to correct it for
+     * the rest of the session. Writing it again on mount closes that gap.
+     */
+    document.documentElement.setAttribute("data-theme", stored);
   }, []);
 
   function apply(next: Mode) {
     setMode(next);
-    const root = document.documentElement;
-    if (next === "system") root.removeAttribute("data-theme");
-    else root.setAttribute("data-theme", next);
+    document.documentElement.setAttribute("data-theme", next);
     try {
-      if (next === "system") localStorage.removeItem("n200-theme");
-      else localStorage.setItem("n200-theme", next);
+      localStorage.setItem(STORAGE_KEY, next);
     } catch {
       /* not fatal — the attribute is already applied */
     }
