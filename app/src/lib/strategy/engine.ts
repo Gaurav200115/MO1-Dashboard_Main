@@ -2,6 +2,7 @@ import type { ConfirmedLevel } from "@/lib/eod/confluence";
 import { readLatestReport } from "@/lib/eod/report";
 import type { EodReport } from "@/lib/eod/types";
 import { getFeed } from "@/lib/kite/feed";
+import { readSession } from "@/lib/kite/session";
 import { mongoMessage } from "@/lib/mongo";
 import { BarEngine } from "./bars";
 import { istClock, istDate, istMinutes, parseIstTime } from "./ist";
@@ -16,6 +17,7 @@ import {
   insertTrade,
   openTrades,
   syncStrategies,
+  tradesOn,
   tradeId,
   updateTrade,
 } from "./store";
@@ -46,6 +48,14 @@ export type { EngineSnapshot, EngineStatus, SymbolStatus } from "./types";
 
 /** How often open positions are re-priced. One batched quote call per tick. */
 const TRACK_MS = 2_000;
+
+/**
+ * How often an engine checks whether a Kite session has appeared for symbols
+ * whose EMA warm-up failed for lack of one. The check is a file read; history is
+ * only fetched once a session exists.
+ */
+const REWARM_MS = 30_000;
+const NO_SESSION = "no Kite session";
 
 /**
  * The desk's open positions, shared by every engine.
@@ -119,7 +129,11 @@ export class StrategyEngine {
 
   private unsubscribe: (() => void) | null = null;
   private tracker: NodeJS.Timeout | null = null;
+  private rewarmer: NodeJS.Timeout | null = null;
   private starting: Promise<void> | null = null;
+  private warming: Promise<void> | null = null;
+  /** A warm-up was asked for while one was running; run one more pass after it. */
+  private warmAgain = false;
   private trackingNow = false;
 
   private readonly cutoffMin: number;
@@ -185,11 +199,29 @@ export class StrategyEngine {
 
   /** Idempotent, and safe to call from a request handler as well as from boot. */
   async start(): Promise<EngineSnapshot> {
-    if (this.status === "running") return this.snapshot();
     if (this.starting) {
       await this.starting;
       return this.snapshot();
     }
+
+    /*
+     * A running engine is not necessarily a current one. The morning sign-in
+     * calls this on a process that may have booted before the token existed, or
+     * yesterday, and returning early here is what left a whole session with no
+     * EMA ready: every warm-up had failed for lack of a session, and nothing ever
+     * asked again. So a running engine is rebooted when its day or its levels
+     * are out of date, and otherwise re-warmed.
+     */
+    if (this.status === "running") {
+      const reason = await this.staleness();
+      if (!reason) {
+        void this.warm();
+        return this.snapshot();
+      }
+      console.log(`[strategy:${this.strategy.id}] rebooting — ${reason}`);
+      this.stop();
+    }
+
     this.starting = this.boot().finally(() => {
       this.starting = null;
     });
@@ -205,6 +237,13 @@ export class StrategyEngine {
     // longer true, which is worse than reporting none.
     this.errors.length = 0;
     this.rejected.clear();
+
+    // A reboot of a running engine starts from the store, not from memory:
+    // resume() re-adopts today's open positions and settles older ones, so
+    // yesterday's positions and count must not survive into today.
+    for (const id of this.open.keys()) book().remove(id);
+    this.open.clear();
+    this.openedToday = 0;
 
     const today = istDate();
     const report = await readLatestReport();
@@ -268,6 +307,10 @@ export class StrategyEngine {
       this.tracker = setInterval(() => void this.track(), TRACK_MS);
       this.tracker.unref();
     }
+    if (!this.rewarmer) {
+      this.rewarmer = setInterval(() => void this.rewarmIfSignedIn(), REWARM_MS);
+      this.rewarmer.unref();
+    }
 
     this.status = "running";
     this.detail = `Watching ${this.plans.size} stocks from ${report.basedOn}.`;
@@ -291,15 +334,64 @@ export class StrategyEngine {
     );
   }
 
-  private async warm(): Promise<void> {
+  /**
+   * Seeds every watched symbol's EMA. Safe to call at any time: symbols already
+   * seeded today return without a fetch, and a call made while a pass is running
+   * queues exactly one more pass, so a sign-in that lands halfway through a
+   * failing pass still gets the symbols that pass had already given up on.
+   */
+  private warm(): Promise<void> {
+    if (this.warming) {
+      this.warmAgain = true;
+      return this.warming;
+    }
+    this.warming = (async () => {
+      do {
+        this.warmAgain = false;
+        await this.warmPass();
+      } while (this.warmAgain);
+    })().finally(() => {
+      this.warming = null;
+    });
+    return this.warming;
+  }
+
+  private async warmPass(): Promise<void> {
     for (const symbol of this.plans.keys()) {
       try {
         const bars = await this.bars.seed(symbol);
         if (bars.seedError) this.note(`${symbol}: ${bars.seedError}`);
+        else this.clearNotes(`${symbol}: `);
       } catch (err) {
         this.note(`${symbol}: seed failed — ${message(err)}`);
       }
     }
+  }
+
+  /**
+   * The safety net under start(): if warm-up failed for lack of a session and a
+   * session now exists, warm again — whatever path the session arrived by.
+   */
+  private async rewarmIfSignedIn(): Promise<void> {
+    if (this.status !== "running" || this.warming) return;
+    const waiting = [...this.plans.keys()].some((symbol) => {
+      const bars = this.bars.get(symbol);
+      return !bars?.seeded && bars?.seedError === NO_SESSION;
+    });
+    if (!waiting || !(await readSession())) return;
+    console.log(`[strategy:${this.strategy.id}] Kite session found — retrying EMA warm-up`);
+    void this.warm();
+  }
+
+  /** Why a running engine can no longer trade today as booted, or null if it can. */
+  private async staleness(): Promise<string | null> {
+    const today = istDate();
+    if (this.tradingDate !== today) return `booted for ${this.tradingDate}, today is ${today}`;
+    const latest = await readLatestReport().catch(() => null);
+    if (latest && this.report && latest.basedOn > this.report.basedOn) {
+      return `levels from ${this.report.basedOn}, a newer report from ${latest.basedOn} exists`;
+    }
+    return null;
   }
 
   /** Re-adopts positions left open by a previous process. */
@@ -326,6 +418,22 @@ export class StrategyEngine {
         }
       }
       if (existing.length > 0) this.note(`resumed ${this.open.size} open trades`);
+
+      // Trades already closed today still count against the daily cap and still
+      // spend their setup. Without this a mid-session reboot would reset both and
+      // could re-enter a stock the rule has already traded and exited today.
+      if (this.tradingDate) {
+        for (const trade of await tradesOn(this.tradingDate, this.strategy.id)) {
+          if (trade.status !== "closed" || this.open.has(trade._id)) continue;
+          this.openedToday += 1;
+          const state = this.states.get(trade.symbol);
+          if (!state) continue;
+          state.tradesToday += 1;
+          if (trade.setup === "A") state.phaseA = "spent";
+          if (trade.setup === "B") state.phaseB = "spent";
+          if (trade.setup === "C") state.phaseC = "spent";
+        }
+      }
     } catch (err) {
       this.note(`resume failed: ${mongoMessage(err)}`);
     }
@@ -348,15 +456,20 @@ export class StrategyEngine {
     this.unsubscribe = null;
     if (this.tracker) clearInterval(this.tracker);
     this.tracker = null;
+    if (this.rewarmer) clearInterval(this.rewarmer);
+    this.rewarmer = null;
     this.status = "stopped";
     this.detail = "Stopped by request.";
   }
 
   /**
-   * The cutoff is exclusive: "runs till 15:15" means it has stopped by 15:15,
-   * not that 15:15 is the last minute it trades. It has to be, now that the
-   * flatten fires at the same time — otherwise a position could be opened in the
-   * same minute that closes everything.
+   * Gates entries only. Nothing here can close a position.
+   *
+   * The cutoff is exclusive: "ends at 13:00" means it has stopped by 13:00, not
+   * that 13:00 is the last minute it trades. Once it is shut, a position opened
+   * at 12:59 carries on being managed by `track()` under the ordinary rules —
+   * the two clocks are independent, and the flatten is the only one that closes
+   * anything.
    */
   private entriesOpen(now = Date.now()): boolean {
     const minute = istMinutes(now);
@@ -665,6 +778,13 @@ export class StrategyEngine {
     this.errors.push(text);
     if (this.errors.length > 50) this.errors.splice(0, this.errors.length - 50);
     console.warn(`[strategy:${this.strategy.id}] ${text}`);
+  }
+
+  /** Drops notes a later success has made untrue, so the panel shows only live problems. */
+  private clearNotes(prefix: string): void {
+    for (let i = this.errors.length - 1; i >= 0; i -= 1) {
+      if (this.errors[i].startsWith(prefix)) this.errors.splice(i, 1);
+    }
   }
 }
 

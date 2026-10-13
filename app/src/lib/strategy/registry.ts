@@ -59,16 +59,24 @@ const SHARED_PARAMS: Pick<
    */
   entryReboundPct: 0.2,
   /*
-   * Both rules now run to 15:15, and 15:15 is also when everything is closed:
-   * entries stop and any position still open is flattened in the same minute.
-   * The cutoff is the moment the strategy stops, not the last minute it trades.
+   * Entries stop at 13:00 and positions already open are left alone.
+   *
+   * These are two different clocks and they are deliberately no longer the same
+   * one. 13:00 is when the strategies stop *looking* — the cutoff is exclusive,
+   * so it has stopped by 13:00 rather than trading through that minute. A trade
+   * taken at 12:59 then runs on under the ordinary rules and can only be closed
+   * by its stop or its trailing stop.
+   *
+   * 15:15 is not a strategy rule; it is the backstop. A bought option has to be
+   * out before the close or it is marked to settlement with no say in the
+   * matter, so something has to flatten whatever is still running.
    */
-  entryCutoffIst: "15:15",
+  entryCutoffIst: "13:00",
   flattenIst: "15:15",
   maxOpenTrades: MAX_OPEN_POSITIONS,
   /*
-   * Mine, not specified. With entries now running all session rather than
-   * stopping at 11:30, some ceiling has to exist or a choppy day can churn.
+   * Mine, not specified. A ceiling has to exist or a choppy morning can churn;
+   * with the window now closing at 13:00 this binds far less often than it did.
    */
   maxTradesPerDay: 15,
   maxTradesPerSymbolPerDay: 1,
@@ -115,7 +123,7 @@ const SHARED_RISK: StrategyRisk = {
 /** Strategy 1 — level break, pull back to the 21 EMA, long the ATM call. */
 export const BREAKOUT_RETRACE_21EMA: StrategyDefinition = {
   id: "breakout-retrace-21ema",
-  version: 4,
+  version: 5,
   name: "Level Break → 21 EMA Retrace",
   createdAt: "2026-09-16",
 
@@ -129,6 +137,7 @@ export const BREAKOUT_RETRACE_21EMA: StrategyDefinition = {
     "Risk of 550 rupees per trade, one lot of each stock, on the ATM strike.",
     "v3: the SL no longer moves at 1:2. Once 1:3 is achieved the SL trails to 550, and from then on it follows one step behind — 2200 hit trails the SL to 1650, 2750 trails it to 2200.",
     "v4: a signal is skipped unless the option's book is tradeable — two-sided, ask within 2% of a fresh print, spread under 2% and under 30% of the stop distance, and the strike carrying at least 3% of its chain's heaviest OI. The 550 stop itself is unchanged.",
+    "v5: both strategies end at 1:00 PM — no entries after that. A trade already running is left open and managed by the ordinary rules; 15:15 stays only as the end-of-day backstop.",
   ],
 
   setups: [
@@ -162,7 +171,7 @@ export const BREAKOUT_RETRACE_21EMA: StrategyDefinition = {
 /** Strategy 2 — the short. Break the major support, rally to the 21 EMA, roll over. */
 export const BREAKDOWN_RETRACE_21EMA: StrategyDefinition = {
   id: "breakdown-retrace-21ema",
-  version: 2,
+  version: 3,
   name: "Support Break → 21 EMA Retrace (Short)",
   createdAt: "2026-09-16",
 
@@ -174,6 +183,7 @@ export const BREAKDOWN_RETRACE_21EMA: StrategyDefinition = {
     "Risk of 550 rupees per trade, one lot of each stock, on the ATM strike.",
     "The SL does not move at 1:2. Once 1:3 is achieved the SL trails to 550, and from then on it follows one step behind.",
     "v2: a signal is skipped unless the option's book is tradeable — same checks as the long rule. The 550 stop itself is unchanged.",
+    "v3: ends at 1:00 PM — no entries after that. A trade already running is left open and managed by the ordinary rules; 15:15 stays only as the end-of-day backstop.",
   ],
 
   setups: [

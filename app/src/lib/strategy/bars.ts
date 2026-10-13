@@ -232,7 +232,11 @@ export class BarEngine {
 }
 
 function message(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
+  if (err instanceof Error) return err.message;
+  // kiteconnect rejects with plain objects ({ message, error_type, ... }), which
+  // String() turns into "[object Object]" and hides the actual reason.
+  if (err && typeof err === "object" && "message" in err) return String(err.message);
+  return String(err);
 }
 
 /** Bar timestamps are epoch ms; this is the IST label for one. */
