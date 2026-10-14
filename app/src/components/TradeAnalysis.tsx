@@ -30,6 +30,7 @@ import {
   slotKey,
   slotLabel,
   SLOT_MIN,
+  sortPivots,
   stats as statsOf,
   TIME_PRESETS,
   type AnalysedTrade,
@@ -100,6 +101,9 @@ export default function TradeAnalysis() {
 
   const all = useMemo(() => analyse(raw ?? []), [raw]);
   const rows = useMemo(() => applyFilters(all, f), [all, f]);
+  // Every other filter applied, pivots not excluded — so the pivot panel can
+  // still show an excluded pivot's figures and let it be switched back on.
+  const pivotBase = useMemo(() => applyFilters(all, { ...f, pivotOut: [] }), [all, f]);
   const openCount = useMemo(() => (raw ?? []).filter((t) => t.status === "open").length, [raw]);
 
   // Options come from the data, so a filter never offers a value with no trades behind it.
@@ -114,7 +118,7 @@ export default function TradeAnalysis() {
       setups.set(setupKey, `${t.setupLabel} (${t.setup})`);
       if (t.trigger?.level?.pivot) pivots.add(t.trigger.level.pivot);
     }
-    return { strategies, setups, pivots: [...pivots].sort() };
+    return { strategies, setups, pivots: sortPivots(pivots) };
   }, [all]);
 
   if (raw === null) {
@@ -150,7 +154,13 @@ export default function TradeAnalysis() {
           </p>
         </Panel>
       ) : (
-        <Results rows={rows} set={set} />
+        <Results
+          rows={rows}
+          set={set}
+          pivotBase={pivotBase}
+          pivots={options.pivots}
+          pivotOut={f.pivotOut}
+        />
       )}
     </div>
   );
@@ -160,7 +170,19 @@ export default function TradeAnalysis() {
 // Results
 // ---------------------------------------------------------------------------
 
-function Results({ rows, set }: { rows: AnalysedTrade[]; set: (p: Partial<Filters>) => void }) {
+function Results({
+  rows,
+  set,
+  pivotBase,
+  pivots,
+  pivotOut,
+}: {
+  rows: AnalysedTrade[];
+  set: (p: Partial<Filters>) => void;
+  pivotBase: AnalysedTrade[];
+  pivots: string[];
+  pivotOut: string[];
+}) {
   const s = useMemo(() => statsOf(rows), [rows]);
   const dayList = useMemo(() => dayResults(rows), [rows]);
   const notes = useMemo(() => buildInsights(rows, s), [rows, s]);
@@ -193,7 +215,6 @@ function Results({ rows, set }: { rows: AnalysedTrade[]; set: (p: Partial<Filter
       exit: breakdown(rows, (a) => a.trade.sell?.reason ?? null, (k) => EXIT_LABELS[k] ?? k),
       option: breakdown(rows, (a) => a.trade.instrument.type, (k) => (k === "CE" ? "Calls (CE)" : "Puts (PE)"), ["CE", "PE"]),
       level: breakdown(rows, (a) => a.trade.trigger?.level?.kind ?? null, (k) => (k === "support" ? "Off a support" : "Off a resistance"), ["support", "resistance"]),
-      pivot: breakdown(rows, (a) => a.trade.trigger?.level?.pivot ?? null, (k) => k),
       trailed: breakdown(rows, (a) => (a.trade.step > 1 ? "yes" : "no"), (k) => (k === "yes" ? "Reached the trail" : "Never trailed"), ["yes", "no"]),
       symbol: breakdown(rows, (a) => a.trade.symbol, (k) => k),
     };
@@ -307,6 +328,14 @@ function Results({ rows, set }: { rows: AnalysedTrade[]; set: (p: Partial<Filter
         </Panel>
       ) : null}
 
+      <PivotPanel
+        base={pivotBase}
+        included={rows}
+        pivots={pivots}
+        pivotOut={pivotOut}
+        setOut={(next) => set({ pivotOut: next })}
+      />
+
       {/* ---------------- curves ---------------- */}
       <div className="grid gap-4 xl:grid-cols-2">
         <Panel title="Equity curve" aside="Cumulative P&L, trade by trade">
@@ -372,7 +401,6 @@ function Results({ rows, set }: { rows: AnalysedTrade[]; set: (p: Partial<Filter
         <Breakdown title="Weekday" buckets={b.dow} onPick={(k) => set({ dow: [Number(k)] })} />
         <Breakdown title="Option type" buckets={b.option} onPick={(k) => set({ option: k as Filters["option"] })} />
         <Breakdown title="Trigger level" buckets={b.level} onPick={(k) => set({ level: k as Filters["level"] })} />
-        <Breakdown title="Pivot" buckets={b.pivot} onPick={(k) => set({ pivot: k })} />
       </div>
 
       <Breakdown
@@ -602,6 +630,48 @@ function FilterBar({
           </div>
         </Row>
 
+        {options.pivots.length > 0 ? (
+          <Row label="Pivots">
+            <div className="flex flex-wrap gap-1">
+              {options.pivots.map((p) => {
+                const out = f.pivotOut.includes(p);
+                return (
+                  <button
+                    key={p}
+                    type="button"
+                    aria-pressed={!out}
+                    title={out ? `${p} excluded — click to include it again` : `Click to exclude ${p}`}
+                    onClick={() =>
+                      set({ pivotOut: out ? f.pivotOut.filter((x) => x !== p) : [...f.pivotOut, p] })
+                    }
+                    className={
+                      out
+                        ? "rounded-[4px] border border-dashed border-line px-2 py-0.5 font-mono text-[11.5px] text-faint line-through"
+                        : chipCls(true)
+                    }
+                  >
+                    {p}
+                  </button>
+                );
+              })}
+            </div>
+            <span className="text-[10.5px] text-faint">
+              {f.pivotOut.length === 0
+                ? "All included · click a pivot to exclude it"
+                : `${f.pivotOut.length} excluded`}
+            </span>
+            {f.pivotOut.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => set({ pivotOut: [] })}
+                className="text-[11px] text-accent"
+              >
+                Include all
+              </button>
+            ) : null}
+          </Row>
+        ) : null}
+
         <div className="grid gap-2.5 border-t border-line pt-3 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-6">
           <Select label="Strategy" value={f.strategy} onChange={(v) => set({ strategy: v })}>
             <option value="">All strategies</option>
@@ -664,14 +734,6 @@ function FilterBar({
             <option value="">Any</option>
             <option value="support">Support</option>
             <option value="resistance">Resistance</option>
-          </Select>
-          <Select label="Pivot" value={f.pivot} onChange={(v) => set({ pivot: v })}>
-            <option value="">Any pivot</option>
-            {options.pivots.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
           </Select>
           <label className="flex flex-col gap-1">
             <span className="text-[10.5px] text-muted">Symbol</span>
@@ -859,6 +921,178 @@ function MiniTile({
     </button>
   ) : (
     <div className={cls}>{body}</div>
+  );
+}
+
+/**
+ * Pivot points, each switchable in or out of the analysis.
+ *
+ * Built off `base` — every other filter applied but no pivot excluded — so an
+ * excluded pivot keeps its row and can be switched back on from here. The two
+ * footer lines split the same trades: what is still in (and drives every other
+ * figure on the page) against what was left out.
+ */
+function PivotPanel({
+  base,
+  included,
+  pivots,
+  pivotOut,
+  setOut,
+}: {
+  base: AnalysedTrade[];
+  included: AnalysedTrade[];
+  pivots: string[];
+  pivotOut: string[];
+  setOut: (next: string[]) => void;
+}) {
+  const buckets = useMemo(() => {
+    const present = sortPivots(
+      new Set(base.map((a) => a.trade.trigger?.level?.pivot).filter((p): p is NonNullable<typeof p> => !!p))
+    );
+    return breakdown(base, (a) => a.trade.trigger?.level?.pivot ?? null, (k) => k, present);
+  }, [base]);
+  const unpivoted = useMemo(() => base.filter((a) => !a.trade.trigger?.level?.pivot).length, [base]);
+  const inStats = useMemo(() => statsOf(included), [included]);
+  const outStats = useMemo(
+    () =>
+      statsOf(
+        base.filter((a) => {
+          const p = a.trade.trigger?.level?.pivot;
+          return !!p && pivotOut.includes(p);
+        })
+      ),
+    [base, pivotOut]
+  );
+
+  if (buckets.length === 0) return null;
+
+  const maxAbs = Math.max(1, ...buckets.map((x) => Math.abs(x.stats.net)));
+  const toggle = (p: string) =>
+    setOut(pivotOut.includes(p) ? pivotOut.filter((x) => x !== p) : [...pivotOut, p]);
+  const pf = (st: Stats) =>
+    st.profitFactor === null ? (st.wins ? "∞" : DASH) : st.profitFactor.toFixed(2);
+
+  return (
+    <Panel
+      title="Pivot points"
+      aside="Untick a pivot to leave it out — every figure on the page recomputes without it"
+    >
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse text-[12px]">
+          <thead>
+            <tr className="text-[10px] uppercase tracking-[0.08em] text-muted">
+              <Th className="w-10 text-left">In</Th>
+              <Th className="text-left">Pivot</Th>
+              <Th>Trades</Th>
+              <Th>Win %</Th>
+              <Th className="w-[34%]">Net P&amp;L</Th>
+              <Th>Avg</Th>
+              <Th>PF</Th>
+              <Th>&nbsp;</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {buckets.map((x) => {
+              const out = pivotOut.includes(x.key);
+              const width = (Math.abs(x.stats.net) / maxAbs) * 50;
+              return (
+                <tr
+                  key={x.key}
+                  className={`border-t border-line hover:bg-surface2 ${out ? "opacity-50" : ""}`}
+                >
+                  <td className="px-3 py-1.5 align-top">
+                    <input
+                      type="checkbox"
+                      checked={!out}
+                      onChange={() => toggle(x.key)}
+                      aria-label={`Include ${x.key}`}
+                      style={{ accentColor: "var(--accent)" }}
+                      className="h-3.5 w-3.5 cursor-pointer"
+                    />
+                  </td>
+                  <td className="px-3 py-1.5 align-top">
+                    <button
+                      type="button"
+                      onClick={() => toggle(x.key)}
+                      className={`font-mono font-semibold ${out ? "text-faint line-through" : "text-ink"}`}
+                    >
+                      {x.key}
+                    </button>
+                  </td>
+                  <Td className="text-ink2">{x.stats.trades}</Td>
+                  <Td className="text-ink2">{pct(x.stats.winRate)}</Td>
+                  <td className="px-3 py-1.5 align-top">
+                    <div className="flex items-center gap-2">
+                      <div className="relative hidden h-[7px] flex-1 sm:block" aria-hidden>
+                        <div className="absolute inset-y-[-2px] left-1/2 w-px bg-linestrong" />
+                        <div
+                          className={`absolute inset-y-0 rounded-[2px] ${x.stats.net >= 0 ? "bg-pos" : "bg-neg"}`}
+                          style={{ width: `${width}%`, left: x.stats.net >= 0 ? "50%" : `${50 - width}%` }}
+                        />
+                      </div>
+                      <span className="tnum w-[84px] shrink-0 text-right font-mono">
+                        <Money v={x.stats.net} />
+                      </span>
+                    </div>
+                  </td>
+                  <Td className="text-ink2">{signed(x.stats.expectancy)}</Td>
+                  <Td className="text-ink2">{pf(x.stats)}</Td>
+                  <td className="px-3 py-1.5 text-right align-top">
+                    <button
+                      type="button"
+                      onClick={() => setOut(pivots.filter((p) => p !== x.key))}
+                      title={`Exclude every pivot except ${x.key}`}
+                      className="text-[11px] text-accent"
+                    >
+                      only
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+          <tfoot>
+            <tr className="border-t-2 border-linestrong bg-sunken">
+              <td colSpan={2} className="px-3 py-2 text-left text-[11.5px] font-semibold">
+                Included
+                <span className="ml-1.5 font-normal text-faint">
+                  {buckets.filter((x) => !pivotOut.includes(x.key)).length} of {buckets.length} pivots
+                  {unpivoted ? ` + ${unpivoted} trade${unpivoted === 1 ? "" : "s"} with no pivot` : ""}
+                </span>
+              </td>
+              <Td className="font-semibold">{inStats.trades}</Td>
+              <Td className="font-semibold">{pct(inStats.winRate)}</Td>
+              <Td className="text-[13px]">
+                <Money v={inStats.net} />
+              </Td>
+              <Td>{signed(inStats.expectancy)}</Td>
+              <Td>{pf(inStats)}</Td>
+              <td />
+            </tr>
+            {pivotOut.length > 0 ? (
+              <tr className="border-t border-line bg-sunken text-muted">
+                <td colSpan={2} className="px-3 py-2 text-left text-[11.5px]">
+                  Excluded
+                  <span className="ml-1.5 text-faint">{sortPivots(pivotOut).join(", ")}</span>
+                </td>
+                <Td>{outStats.trades}</Td>
+                <Td>{pct(outStats.winRate)}</Td>
+                <Td>
+                  <Money v={outStats.net} />
+                </Td>
+                <Td>{signed(outStats.expectancy)}</Td>
+                <Td>{pf(outStats)}</Td>
+                <td className="px-3 py-2 text-right">
+                  <button type="button" onClick={() => setOut([])} className="text-[11px] text-accent">
+                    Include all
+                  </button>
+                </td>
+              </tr>
+            ) : null}
+          </tfoot>
+        </table>
+      </div>
+    </Panel>
   );
 }
 
@@ -1113,9 +1347,13 @@ function pct(v: number | null): string {
 }
 
 function Th({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return <th className={`whitespace-nowrap px-3 py-2 text-right font-medium ${className}`}>{children}</th>;
+  // `text-right` and a passed `text-left` would both apply, and the later rule in the
+  // stylesheet wins — so the default is dropped when the caller asks for left.
+  const align = className.includes("text-left") ? "" : "text-right";
+  return <th className={`whitespace-nowrap px-3 py-2 font-medium ${align} ${className}`}>{children}</th>;
 }
 
 function Td({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return <td className={`tnum whitespace-nowrap px-3 py-1.5 text-right align-top font-mono ${className}`}>{children}</td>;
+  const align = className.includes("text-left") ? "" : "text-right";
+  return <td className={`tnum whitespace-nowrap px-3 py-1.5 align-top font-mono ${align} ${className}`}>{children}</td>;
 }

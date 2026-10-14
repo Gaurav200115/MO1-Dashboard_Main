@@ -53,6 +53,7 @@ export function toTriggerLevel(level: ConfirmedLevel): TriggerLevel {
  * `marked` is every level the overnight scan confirmed — the rule's phrase "that
  * we have marked as important from the OI and pivots" is exactly this set, so it
  * is not re-filtered by skew. Only the two *major* levels carry the threshold.
+ * The one thing taken out of it is the strategy's `excludedPivots`.
  */
 export interface SymbolPlan {
   symbol: string;
@@ -87,8 +88,17 @@ function pickMajor(levels: ConfirmedLevel[], kind: ConfirmedLevel["kind"], minSk
 export function planForStock(stock: SpecialStock, params: StrategyParams): SymbolPlan | null {
   if (stock.levels.length === 0) return null;
 
-  const majorResistance = pickMajor(stock.levels, "resistance", params.resistanceSkew);
-  const majorSupport = pickMajor(stock.levels, "support", params.supportSkew);
+  /*
+   * The major pick runs over every level exactly as before. An excluded pivot
+   * that wins it is then dropped, not replaced — that side simply has no major
+   * level today, and the runner-up is not promoted into its place.
+   */
+  const excluded = new Set(params.excludedPivots ?? []);
+  const tradeable = (level: ConfirmedLevel | null) =>
+    level && !excluded.has(level.pivot) ? level : null;
+
+  const majorResistance = tradeable(pickMajor(stock.levels, "resistance", params.resistanceSkew));
+  const majorSupport = tradeable(pickMajor(stock.levels, "support", params.supportSkew));
 
   // Neither leg of the rule can arm without a major level to anchor on.
   if (!majorResistance && !majorSupport) return null;
@@ -100,7 +110,7 @@ export function planForStock(stock: SpecialStock, params: StrategyParams): Symbo
     close: stock.session.close,
     majorResistance,
     majorSupport,
-    marked: stock.levels,
+    marked: stock.levels.filter((level) => !excluded.has(level.pivot)),
   };
 }
 

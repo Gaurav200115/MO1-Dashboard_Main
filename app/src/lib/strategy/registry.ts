@@ -123,7 +123,7 @@ const SHARED_RISK: StrategyRisk = {
 /** Strategy 1 — level break, pull back to the 21 EMA, long the ATM call. */
 export const BREAKOUT_RETRACE_21EMA: StrategyDefinition = {
   id: "breakout-retrace-21ema",
-  version: 5,
+  version: 6,
   name: "Level Break → 21 EMA Retrace",
   createdAt: "2026-09-16",
 
@@ -138,6 +138,7 @@ export const BREAKOUT_RETRACE_21EMA: StrategyDefinition = {
     "v3: the SL no longer moves at 1:2. Once 1:3 is achieved the SL trails to 550, and from then on it follows one step behind — 2200 hit trails the SL to 1650, 2750 trails it to 2200.",
     "v4: a signal is skipped unless the option's book is tradeable — two-sided, ask within 2% of a fresh print, spread under 2% and under 30% of the stop distance, and the strike carrying at least 3% of its chain's heaviest OI. The 550 stop itself is unchanged.",
     "v5: both strategies end at 1:00 PM — no entries after that. A trade already running is left open and managed by the ordinary rules; 15:15 stays only as the end-of-day backstop.",
+    "v6: stop the long trades that we take for the R3 pivot point, whatever the skew or anything else is. R2, R1 and P are still traded as before; nothing takes R3's place.",
   ],
 
   setups: [
@@ -163,6 +164,14 @@ export const BREAKOUT_RETRACE_21EMA: StrategyDefinition = {
     ...SHARED_PARAMS,
     resistanceSkew: 4,
     supportSkew: 5,
+    /*
+     * v6. Over 21 Sep – 14 Oct (book-gated versions only) the 16 longs taken on
+     * R3 won 3 times and lost ₹6,335 between them, while the 41 longs on every
+     * other level made ₹19,072. R3 sits a full prior-day range above the pivot,
+     * so a long there is buying the end of a move that has already happened.
+     * Not applied to the short: setup C only trades supports, and R3 never is one.
+     */
+    excludedPivots: ["R3"],
   },
 
   risk: SHARED_RISK,
