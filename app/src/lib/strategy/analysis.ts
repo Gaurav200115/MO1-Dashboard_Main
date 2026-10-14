@@ -116,7 +116,12 @@ export interface Filters {
   hold: "" | HoldKey;
   option: "" | "CE" | "PE";
   level: "" | "support" | "resistance";
-  pivot: string;
+  /**
+   * Pivots to leave OUT. An exclusion list rather than a single pick, so any
+   * set of pivots can be dropped and the rest totalled together. A trade with
+   * no recorded pivot is never excluded by it.
+   */
+  pivotOut: string[];
   trailed: "" | "yes" | "no";
   nth: "" | NthKey;
   symbol: string;
@@ -136,7 +141,7 @@ export const EMPTY_FILTERS: Filters = {
   hold: "",
   option: "",
   level: "",
-  pivot: "",
+  pivotOut: [],
   trailed: "",
   nth: "",
   symbol: "",
@@ -184,13 +189,25 @@ export function applyFilters(rows: AnalysedTrade[], f: Filters): AnalysedTrade[]
     if (f.hold && a.hold !== f.hold) return false;
     if (f.option && t.instrument.type !== f.option) return false;
     if (f.level && t.trigger?.level?.kind !== f.level) return false;
-    if (f.pivot && t.trigger?.level?.pivot !== f.pivot) return false;
+    if (f.pivotOut.length && t.trigger?.level?.pivot && f.pivotOut.includes(t.trigger.level.pivot))
+      return false;
     if (f.trailed === "yes" && t.step <= 1) return false;
     if (f.trailed === "no" && t.step > 1) return false;
     if (f.nth && nthKey(a.nth) !== f.nth) return false;
     if (symbol && !t.symbol.includes(symbol)) return false;
     return true;
   });
+}
+
+/** Resistances high to low, then the central pivot, then supports — how a chart stacks them. */
+export const PIVOT_ORDER = ["R3", "R2", "R1", "P", "S1", "S2", "S3"];
+
+export function sortPivots(pivots: Iterable<string>): string[] {
+  const rank = (p: string) => {
+    const i = PIVOT_ORDER.indexOf(p);
+    return i < 0 ? PIVOT_ORDER.length : i;
+  };
+  return [...pivots].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
 }
 
 // ---------------------------------------------------------------------------

@@ -77,6 +77,13 @@ export interface StrategyParams extends LiquidityParams {
   resistanceSkew: number;
   /** Minimum putOI/callOI for a support to count as major. */
   supportSkew: number;
+  /**
+   * Pivots this strategy never trades, whatever their skew or gap. The major
+   * pick is unchanged; if an excluded pivot wins it, that side has no major
+   * level and no other level is promoted. An excluded pivot is also never the
+   * level a setup crosses. Absent means none.
+   */
+  excludedPivots?: PivotLabel[];
   /** IST HH:MM after which no new entry is taken. Open trades keep running. */
   entryCutoffIst: string;
   /** IST HH:MM at which anything still open is closed at market. */
