@@ -16,6 +16,8 @@ export const TRADES = "__trades__";
 export const ROTATION = "__rotation__";
 /** The whole paper-trade record, filtered and broken down. */
 export const ANALYSIS = "__analysis__";
+/** The overnight market-data download (Dhan + NSE -> PostgreSQL on the VPS). */
+export const DOWNLOAD = "__download__";
 
 export default function SectorRail({
   sectors,
@@ -131,6 +133,25 @@ export default function SectorRail({
           }`}
         >
           Trade analysis
+        </button>
+      </div>
+
+      <div className="mb-1 flex flex-col gap-2 border-b border-line pb-3">
+        <h2 className="font-display text-[10px] font-bold uppercase tracking-[0.13em] text-muted">
+          Data
+        </h2>
+        <button
+          type="button"
+          onClick={() => onSelect(DOWNLOAD)}
+          aria-current={active === DOWNLOAD}
+          title="Progress of the overnight market-data download (16:00–06:00 IST)"
+          className={`flex w-full items-center rounded-[5px] px-2 py-1.5 text-left text-[12.5px] ${
+            active === DOWNLOAD
+              ? "bg-accentsoft font-semibold text-accent"
+              : "text-ink2 hover:bg-surface2"
+          }`}
+        >
+          Data download
         </button>
       </div>
 

@@ -1,0 +1,5 @@
+# >>> marketdata (managed by install.sh - re-running it replaces this block)
+# A fresh Dhan token (PIN + TOTP) every day at 15:40 India time, 20 minutes before the 16:00 run.
+CRON_TZ=Asia/Kolkata
+40 15 * * * cd @CODE_DIR@ && MARKETDATA_DATA_DIR=@DATA_DIR@ @DATA_DIR@/venv/bin/python -m marketdata.refresh_token >> @DATA_DIR@/logs/token.log 2>&1
+# <<< marketdata

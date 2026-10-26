@@ -1,0 +1,14 @@
+# /etc/systemd/system/marketdata-backfill.timer
+# Starts the backfill every day at 16:00 India time, and 5 minutes after the VPS boots (if that is
+# inside 16:00-06:00 it carries on where it stopped; outside, it exits at once).
+[Unit]
+Description=Start the market data backfill at 16:00 IST
+
+[Timer]
+OnCalendar=*-*-* 16:00:00 Asia/Kolkata
+OnBootSec=5min
+Persistent=true
+Unit=marketdata-backfill.service
+
+[Install]
+WantedBy=timers.target

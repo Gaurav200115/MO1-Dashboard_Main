@@ -1,0 +1,24 @@
+# Template - install.sh writes it to /etc/systemd/system/marketdata-backfill.service with the
+# @...@ values filled in. One backfill run: started by marketdata-backfill.timer at 16:00 IST; the
+# code stops itself at 06:00 IST (settings.RUN_WINDOW). Restarts after 5 minutes if it fails;
+# a restart outside the window just exits.
+[Unit]
+Description=Market data backfill (Dhan + NSE -> PostgreSQL), 16:00-06:00 IST
+After=network-online.target postgresql-17.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=@RUN_USER@
+WorkingDirectory=@CODE_DIR@
+Environment=MARKETDATA_DATA_DIR=@DATA_DIR@
+ExecStart=@DATA_DIR@/venv/bin/python -m marketdata.backfill
+Restart=on-failure
+RestartSec=300
+# backstop: the window is 14 h and the code stops itself; this only catches a hang
+RuntimeMaxSec=15h
+# keep the MO1 dashboard responsive: lower CPU priority, at most 1 GB of RAM
+Nice=10
+MemoryMax=1G
+StandardOutput=journal
+StandardError=journal

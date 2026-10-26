@@ -19,7 +19,8 @@ import LeaderStrip from "./LeaderStrip";
 import LevelArchive from "./LevelArchive";
 import SectorIndexChart from "./SectorIndexChart";
 import SectorIndexStrip from "./SectorIndexStrip";
-import SectorRail, { ALL, ANALYSIS, ARCHIVE, CURRENT, ROTATION, SPECIAL, TRADES } from "./SectorRail";
+import DataDownload from "./DataDownload";
+import SectorRail, { ALL, ANALYSIS, ARCHIVE, CURRENT, DOWNLOAD, ROTATION, SPECIAL, TRADES } from "./SectorRail";
 import SectorRotation from "./SectorRotation";
 import ThemeToggle from "./ThemeToggle";
 import TodaysSpecial from "./TodaysSpecial";
@@ -128,6 +129,7 @@ export default function Desk({ data, floats }: { data: DeskIndex; floats: FloatT
       next === ARCHIVE ||
       next === TRADES ||
       next === ANALYSIS ||
+      next === DOWNLOAD ||
       next === ROTATION;
     if (!isPanel) {
       setSortKey("chg");
@@ -248,6 +250,8 @@ export default function Desk({ data, floats }: { data: DeskIndex; floats: FloatT
             <TradeBlotter data={tradeData} />
           ) : sector === ANALYSIS ? (
             <TradeAnalysis />
+          ) : sector === DOWNLOAD ? (
+            <DataDownload />
           ) : sector === ARCHIVE ? (
             <LevelArchive active />
           ) : sector === SPECIAL || sector === CURRENT ? (
