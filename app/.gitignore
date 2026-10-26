@@ -17,3 +17,13 @@ out
 # journal. On a hosted box these live on the mounted volume instead — see
 # KITE_RUNTIME_DIR in .env.
 .kite/
+
+# market-data downloader (scripts/marketdata): secrets and runtime files live in /opt/marketdata
+# on the VPS and must never be committed - these rules come after "!.env" on purpose
+scripts/marketdata/.env
+scripts/marketdata/*.env
+scripts/marketdata/logs/
+scripts/marketdata/state/
+scripts/marketdata/progress/
+__pycache__/
+*.pyc
