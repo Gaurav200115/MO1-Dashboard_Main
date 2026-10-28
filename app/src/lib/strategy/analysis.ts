@@ -634,3 +634,138 @@ export function insights(rows: AnalysedTrade[], s: Stats): Insight[] {
 
   return out;
 }
+
+// ---------------------------------------------------------------------------
+// Trailing-stop what-if
+// ---------------------------------------------------------------------------
+
+/**
+ * How far a trade demonstrably ran, in R, or null when the record cannot say.
+ *
+ * A ratchet to `step` S is proof the premium touched S·R — that is the only
+ * thing that moves the ladder. So the peak is bracketed in [S, S+1) and we take
+ * the floor, which makes every figure below slightly conservative rather than
+ * flattering. A trade that never ratcheted peaked somewhere under 2R and the
+ * record is silent about where.
+ *
+ * That silence costs nothing here: a trail that starts at 2R or later never
+ * touches those trades, so they carry their actual result into every sweep.
+ */
+export function peakR(trade: StrategyTrade): number | null {
+  const ladder = trade.ladder ?? [];
+  if (ladder.length === 0) return null;
+  return Math.max(...ladder.map((s) => s.step));
+}
+
+export interface TrailConfig {
+  /** Trailing begins once the peak reaches this multiple of R. */
+  start: number;
+  /** The stop then sits this many R below the highest multiple reached. */
+  gap: number;
+}
+
+export const TRAIL_STARTS = [2, 3, 4, 5, 6, 7, 8, 9, 10];
+export const TRAIL_GAPS = [0.5, 1, 1.5, 2, 3];
+
+/** The rule running today: nothing at 1:2, +1R at 1:3, one rung behind above that. */
+export function liveStopR(peak: number): number {
+  return peak < 3 ? -1 : peak === 3 ? 1 : peak - 1;
+}
+
+export function configStopR(peak: number, cfg: TrailConfig): number {
+  return peak < cfg.start ? -1 : peak - cfg.gap;
+}
+
+export interface TrailOutcome {
+  netR: number;
+  /** Rupees, summed per trade at that trade's own risk. */
+  net: number;
+  /** Trades that never reached 2R, so no rule starting at 2R or later touches them. */
+  untouched: number;
+  /**
+   * Simulated R per row, in the order given. Kept so one configuration can be
+   * compared against another trade by trade — counting differences against the
+   * *actual* fills is useless here, because real fills carry slippage and so
+   * nearly every ratcheting trade differs from every model by a few paise.
+   */
+  perTrade: number[];
+}
+
+/**
+ * Prices one trailing rule over a set of trades.
+ *
+ * Two asymmetries in what the record can support, both handled here:
+ *
+ * A trade that exited on a stop demonstrably travelled from its peak down to
+ * that stop, so any stop the rule puts *above* it was crossed on the way and can
+ * be priced honestly. A trade that ran to the 15:15 flatten never touched a stop
+ * at all, so it only changes if the rule's stop sits above where it finished —
+ * pricing it at a stop it never reached is what inflates a naive sweep.
+ *
+ * What no record can supply is the path *before* the peak. A tighter stop that
+ * an intermediate dip would have clipped looks better here than it was, so a
+ * tight configuration is an optimistic bound and should be read as one.
+ */
+export function simulateTrail(
+  rows: AnalysedTrade[],
+  stopR: (peak: number) => number
+): TrailOutcome {
+  let netR = 0;
+  let net = 0;
+  let untouched = 0;
+  const perTrade: number[] = [];
+
+  for (const row of rows) {
+    const trade = row.trade;
+    const risk = trade.riskPerUnit * trade.qty;
+    const profit = trade.profit ?? 0;
+    const actualR = risk > 0 ? profit / risk : 0;
+    const peak = peakR(trade);
+
+    if (peak === null) {
+      untouched += 1;
+      netR += actualR;
+      net += profit;
+      perTrade.push(actualR);
+      continue;
+    }
+
+    const stop = stopR(peak);
+    const ranToTheClose = trade.sell?.reason === "eod-flatten";
+    const outR = ranToTheClose ? Math.max(stop, actualR) : stop;
+
+    netR += outR;
+    net += outR * risk;
+    perTrade.push(outR);
+  }
+
+  return { netR, net, untouched, perTrade };
+}
+
+export interface TrailRow extends Omit<TrailOutcome, "perTrade"> {
+  start: number;
+  /** Difference against the live rule, in R. */
+  vsLiveR: number;
+  /** Trades this configuration would have exited differently from the live rule. */
+  changedVsLive: number;
+}
+
+/** One row per start multiple, at a fixed gap, plus the live rule for reference. */
+export function sweepTrail(
+  rows: AnalysedTrade[],
+  gap: number,
+  starts: number[] = TRAIL_STARTS
+): { live: TrailOutcome; sweep: TrailRow[] } {
+  const live = simulateTrail(rows, liveStopR);
+  const sweep = starts.map((start) => {
+    const { perTrade, ...outcome } = simulateTrail(rows, (peak) =>
+      configStopR(peak, { start, gap })
+    );
+    let changedVsLive = 0;
+    for (let i = 0; i < perTrade.length; i += 1) {
+      if (Math.abs(perTrade[i] - live.perTrade[i]) > 0.01) changedVsLive += 1;
+    }
+    return { ...outcome, start, vsLiveR: outcome.netR - live.netR, changedVsLive };
+  });
+  return { live, sweep };
+}

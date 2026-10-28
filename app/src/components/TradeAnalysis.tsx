@@ -31,6 +31,8 @@ import {
   slotLabel,
   SLOT_MIN,
   sortPivots,
+  sweepTrail,
+  TRAIL_GAPS,
   stats as statsOf,
   TIME_PRESETS,
   type AnalysedTrade,
@@ -335,6 +337,8 @@ function Results({
         pivotOut={pivotOut}
         setOut={(next) => set({ pivotOut: next })}
       />
+
+      <TrailPanel rows={rows} />
 
       {/* ---------------- curves ---------------- */}
       <div className="grid gap-4 xl:grid-cols-2">
@@ -932,6 +936,107 @@ function MiniTile({
  * footer lines split the same trades: what is still in (and drives every other
  * figure on the page) against what was left out.
  */
+/**
+ * Trailing-stop what-if.
+ *
+ * Re-prices the filtered trades under a different trail, so a configuration can
+ * be judged on this desk's own record rather than on a hunch. It follows the
+ * filters above, so a sweep can be run over one pivot, one setup or one month.
+ *
+ * The caveats are on the panel rather than in a document, because the tight
+ * configurations look best and are the least trustworthy — anyone reading this
+ * table in six months needs that warning next to the number.
+ */
+function TrailPanel({ rows }: { rows: AnalysedTrade[] }) {
+  const [gap, setGap] = useState(1);
+
+  const { live, sweep, traded } = useMemo(() => {
+    const result = sweepTrail(rows, gap);
+    return {
+      ...result,
+      traded: rows.reduce((sum, a) => sum + a.profit, 0),
+    };
+  }, [rows, gap]);
+
+  if (rows.length === 0) return null;
+
+  const best = sweep.reduce((b, r) => (r.netR > b.netR ? r : b), sweep[0]);
+
+  return (
+    <Panel
+      title="Trailing stop — what if"
+      aside="Re-prices the filtered trades under a different trail. Follows every filter above."
+    >
+      <div className="flex flex-wrap items-end gap-4 border-b border-line px-4 py-3">
+        <Select label="Stop sits this far behind the peak" value={String(gap)} onChange={(v) => setGap(Number(v))}>
+          {TRAIL_GAPS.map((g) => (
+            <option key={g} value={g}>
+              {g}R{g === 1 ? "  (today)" : ""}
+            </option>
+          ))}
+        </Select>
+        <div className="flex flex-wrap gap-5 text-[11.5px]">
+          <span className="text-muted">
+            As traded <Money v={traded} />
+          </span>
+          <span className="text-muted">
+            Live rule, modelled <Money v={live.net} />
+          </span>
+          <span className="text-muted">
+            {live.untouched} of {rows.length} never reached 2R, so no start below touches them
+          </span>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse text-[12px]">
+          <thead>
+            <tr className="text-[10px] uppercase tracking-[0.08em] text-muted">
+              <Th className="text-left">Trail starts at</Th>
+              <Th>Net R</Th>
+              <Th>Net P&amp;L</Th>
+              <Th>vs live rule</Th>
+              <Th>Trades changed</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {sweep.map((r) => (
+              <tr
+                key={r.start}
+                className={`border-t border-line ${r.start === best.start ? "bg-sunken" : ""}`}
+              >
+                <Td className="text-left">
+                  <span className="font-semibold">1:{r.start}</span>
+                  {r.start === best.start ? (
+                    <span className="ml-2 text-[10px] uppercase tracking-[0.08em] text-accent">best</span>
+                  ) : null}
+                </Td>
+                <Td>{r.netR.toFixed(2)}</Td>
+                <Td><Money v={r.net} /></Td>
+                <Td className={r.vsLiveR > 0 ? "text-pos" : r.vsLiveR < 0 ? "text-neg" : ""}>
+                  {r.vsLiveR >= 0 ? "+" : "−"}
+                  {Math.abs(r.vsLiveR).toFixed(2)}R
+                </Td>
+                <Td className="text-muted">{r.changedVsLive}</Td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="border-t border-line px-4 py-2.5 text-[10.5px] leading-snug text-faint">
+        <strong className="text-muted">How far a trade ran is known only to 1R</strong>, and only
+        for trades that ratcheted — a ratchet to a rung proves the premium touched it, and the
+        floor is used. Nothing records the path <em>before</em> the peak, so a trade that dipped and
+        recovered would have been stopped out early under a tight trail and is not shown as such
+        here. Every tight configuration is therefore an optimistic bound, and the tighter it is the
+        more it flatters itself. Logging the running high-water mark on each trade is what would
+        settle it properly.
+      </div>
+    </Panel>
+  );
+}
+
 function PivotPanel({
   base,
   included,
