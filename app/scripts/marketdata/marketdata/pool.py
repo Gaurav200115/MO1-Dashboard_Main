@@ -39,15 +39,22 @@ def windows(days, max_span):
     return out
 
 
+SPLIT = " - split"
+
+
 def fetch_split(dhan, path, make_payload, days):
-    """Fetch `days` (sorted trading days) in one call, halving on a timeout.
-    Returns [(days, status, body, seconds, error)] - one entry per call made."""
+    """Fetch `days` (sorted trading days) in one call, halving it when Dhan times out (504) or
+    refuses the range (DH-905 - it refuses 1-minute option requests over 2 calendar days).
+    Returns [(days, status, body, seconds, error)] - one entry per call made; an entry whose error
+    ends in SPLIT was split and its halves follow."""
     single = len(days) == 1
     status, body, took, err = dhan.post(path, make_payload(days[0], days[-1]), retry_504=single)
     time.sleep(S.PAUSE_AFTER_CALL)
-    if status in (None, 504) and not single:
+    refused = status == 400 and "DH-905" in (err or "")
+    if (status in (None, 504) or refused) and not single:
         m = len(days) // 2
-        return ([(days, status, None, took, "timed out - split")]
+        why = "refused (DH-905)" if refused else "timed out"
+        return ([(days, status, None, took, why + SPLIT)]
                 + fetch_split(dhan, path, make_payload, days[:m])
                 + fetch_split(dhan, path, make_payload, days[m:]))
     return [(days, status, body, took, err)]

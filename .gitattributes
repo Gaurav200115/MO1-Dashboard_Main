@@ -1,0 +1,3 @@
+# The market-data downloader runs on the Linux VPS: store it with Linux line endings, whatever
+# the editor on Windows saves (Windows line endings break bash, systemd and cron files).
+app/scripts/marketdata/** text eol=lf
