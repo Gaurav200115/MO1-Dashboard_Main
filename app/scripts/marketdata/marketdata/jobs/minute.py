@@ -36,7 +36,7 @@ def _handle(ctx, dataset, symbol, series, job_days, results, rows_for_day, table
                 db.insert_rows(conn, table, columns, rows)
                 db.mark_done(conn, dataset, symbol, series, d, len(rows))
                 saved += len(rows)
-        elif not (status in (None, 504) and len(days) > 1):   # a split's halves follow in `results`
+        elif not (err or "").endswith(pool.SPLIT):          # a split's halves follow in `results`
             for d in days:
                 db.add_gap(conn, dataset, symbol, series, d, f"HTTP {status} {err}")
         ctx.log(dataset, f"{symbol} {series}", f"{days[0]}..{days[-1]}", status, saved, took, workers, err)

@@ -55,9 +55,10 @@ chown "$RUN_USER": "$DATA_DIR/.env"
 chmod 600 "$DATA_DIR/.env"
 
 # --- systemd: service + timer ---------------------------------------------------------------
-sed -e "s|@RUN_USER@|$RUN_USER|g" -e "s|@CODE_DIR@|$CODE_DIR|g" -e "s|@DATA_DIR@|$DATA_DIR|g" \
+# 's/\r$//' strips Windows line endings, in case the files were saved on Windows
+sed -e 's/\r$//' -e "s|@RUN_USER@|$RUN_USER|g" -e "s|@CODE_DIR@|$CODE_DIR|g" -e "s|@DATA_DIR@|$DATA_DIR|g" \
   "$CODE_DIR/deploy/marketdata-backfill.service.in" > /etc/systemd/system/marketdata-backfill.service
-cp "$CODE_DIR/deploy/marketdata-backfill.timer" /etc/systemd/system/marketdata-backfill.timer
+sed -e 's/\r$//' "$CODE_DIR/deploy/marketdata-backfill.timer" > /etc/systemd/system/marketdata-backfill.timer
 command -v restorecon >/dev/null 2>&1 && restorecon -R "$DATA_DIR" /etc/systemd/system/marketdata-backfill.* || true
 systemctl daemon-reload
 systemctl enable marketdata-backfill.timer >/dev/null
@@ -65,7 +66,7 @@ systemctl start marketdata-backfill.timer
 echo "systemd: timer enabled (16:00 IST daily)"
 
 # --- cron: daily token at 15:40 IST (replaces our block, keeps the user's other lines) --------
-BLOCK="$(sed -e "s|@CODE_DIR@|$CODE_DIR|g" -e "s|@DATA_DIR@|$DATA_DIR|g" "$CODE_DIR/deploy/crontab.in")"
+BLOCK="$(sed -e 's/\r$//' -e "s|@CODE_DIR@|$CODE_DIR|g" -e "s|@DATA_DIR@|$DATA_DIR|g" "$CODE_DIR/deploy/crontab.in")"
 { crontab -u "$RUN_USER" -l 2>/dev/null | sed '/^# >>> marketdata/,/^# <<< marketdata/d'; echo "$BLOCK"; } \
   | crontab -u "$RUN_USER" -
 systemctl enable --now crond >/dev/null 2>&1 || true

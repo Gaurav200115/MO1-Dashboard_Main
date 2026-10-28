@@ -29,7 +29,9 @@ STRIKE_BAND = 3             # ATM-3..ATM+3 = 7 strikes, calls and puts = 14 seri
                             # (Dhan's maximum for stock options)
 OPTION_TYPES = ["CALL", "PUT"]
 INTERVAL = "1"              # minutes
-WINDOW_DAYS = 7             # calendar days per option call; a timed-out call is split
+WINDOW_DAYS = 2             # calendar days per option call. Dhan refuses 1-minute option requests
+                            # over 2 calendar days (DH-905, since 27 Oct 2026); a refused or
+                            # timed-out multi-day call is split automatically
 
 # ---------------- which stocks get options: the most liquid, re-chosen every month ----------------
 # For each month, every F&O stock is ranked on the RANK_DAYS trading days just before that month
