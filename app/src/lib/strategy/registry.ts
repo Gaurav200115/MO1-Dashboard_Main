@@ -123,7 +123,7 @@ const SHARED_RISK: StrategyRisk = {
 /** Strategy 1 — level break, pull back to the 21 EMA, long the ATM call. */
 export const BREAKOUT_RETRACE_21EMA: StrategyDefinition = {
   id: "breakout-retrace-21ema",
-  version: 6,
+  version: 7,
   name: "Level Break → 21 EMA Retrace",
   createdAt: "2026-09-16",
 
@@ -139,6 +139,7 @@ export const BREAKOUT_RETRACE_21EMA: StrategyDefinition = {
     "v4: a signal is skipped unless the option's book is tradeable — two-sided, ask within 2% of a fresh print, spread under 2% and under 30% of the stop distance, and the strike carrying at least 3% of its chain's heaviest OI. The 550 stop itself is unchanged.",
     "v5: both strategies end at 1:00 PM — no entries after that. A trade already running is left open and managed by the ordinary rules; 15:15 stays only as the end-of-day backstop.",
     "v6: stop the long trades that we take for the R3 pivot point, whatever the skew or anything else is. R2, R1 and P are still traded as before; nothing takes R3's place.",
+    "v7: take the R3 trades again. The v6 block is removed, so R3 is traded like any other pivot — it can be the major resistance for setup A and is back among setup B's cross candidates.",
   ],
 
   setups: [
@@ -165,13 +166,10 @@ export const BREAKOUT_RETRACE_21EMA: StrategyDefinition = {
     resistanceSkew: 4,
     supportSkew: 5,
     /*
-     * v6. Over 21 Sep – 14 Oct (book-gated versions only) the 16 longs taken on
-     * R3 won 3 times and lost ₹6,335 between them, while the 41 longs on every
-     * other level made ₹19,072. R3 sits a full prior-day range above the pivot,
-     * so a long there is buying the end of a move that has already happened.
-     * Not applied to the short: setup C only trades supports, and R3 never is one.
+     * v7 removes the v6 R3 block. R3 is traded again exactly as any other
+     * pivot — it can win the major-resistance pick for setup A and it is back
+     * among setup B's cross candidates. No `excludedPivots` means none.
      */
-    excludedPivots: ["R3"],
   },
 
   risk: SHARED_RISK,
