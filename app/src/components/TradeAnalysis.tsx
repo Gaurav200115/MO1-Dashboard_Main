@@ -30,6 +30,7 @@ import {
   slotKey,
   slotLabel,
   SLOT_MIN,
+  compareTrails,
   peakLabel,
   sortPeaks,
   sortPivots,
@@ -1010,6 +1011,10 @@ function TrailPanel({ rows }: { rows: AnalysedTrade[] }) {
     };
   }, [rows, gap]);
 
+  // The head-to-head that is actually on the table, independent of the sweep's
+  // gap selector: today's rule against the ones the exit study put forward.
+  const named = useMemo(() => compareTrails(rows), [rows]);
+
   if (rows.length === 0) return null;
 
   const best = sweep.reduce((b, r) => (r.netR > b.netR ? r : b), sweep[0]);
@@ -1038,6 +1043,41 @@ function TrailPanel({ rows }: { rows: AnalysedTrade[] }) {
             {live.untouched} of {rows.length} never reached 2R, so no start below touches them
           </span>
         </div>
+      </div>
+
+      <div className="overflow-x-auto border-b border-line">
+        <table className="w-full border-collapse text-[12px]">
+          <thead>
+            <tr className="text-[10px] uppercase tracking-[0.08em] text-muted">
+              <Th className="text-left">Rule</Th>
+              <Th className="text-left">Where the stop goes</Th>
+              <Th>Net R</Th>
+              <Th>Net P&amp;L</Th>
+              <Th>vs live rule</Th>
+              <Th>Trades changed</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {named.map((r) => (
+              <tr key={r.key} className={`border-t border-line ${r.key === "live" ? "" : "bg-sunken"}`}>
+                <Td className="text-left font-semibold">{r.label}</Td>
+                <Td className="text-left font-sans text-[11px] text-muted">{r.detail}</Td>
+                <Td>{r.netR.toFixed(2)}</Td>
+                <Td><Money v={r.net} /></Td>
+                <Td className={r.vsLiveR > 0 ? "text-pos" : r.vsLiveR < 0 ? "text-neg" : "text-faint"}>
+                  {r.key === "live"
+                    ? DASH
+                    : `${r.vsLiveR >= 0 ? "+" : "−"}${Math.abs(r.vsLiveR).toFixed(2)}R`}
+                </Td>
+                <Td className="text-muted">{r.key === "live" ? DASH : r.changedVsLive}</Td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="px-4 pt-3 text-[10.5px] uppercase tracking-[0.1em] text-faint">
+        Or sweep where the trail begins
       </div>
 
       <div className="overflow-x-auto">

@@ -783,6 +783,71 @@ export function simulateTrail(
   return { netR, net, untouched, perTrade };
 }
 
+/**
+ * The handful of configurations worth comparing head to head, rather than by
+ * sweeping. A sweep answers "where is the optimum"; this answers the question
+ * actually on the table — is the rule we run worse than the one the exit study
+ * recommended, and by how much, on the trades we have.
+ */
+export interface NamedTrail {
+  key: string;
+  label: string;
+  detail: string;
+  stopR: (peak: number) => number;
+}
+
+export const NAMED_TRAILS: NamedTrail[] = [
+  {
+    key: "live",
+    label: "Live today",
+    detail: "Nothing at 1:2 · 1:3 locks 1R · one step behind above that",
+    stopR: liveStopR,
+  },
+  {
+    key: "breakeven2",
+    label: "Exit study recommendation",
+    detail: "1:2 moves to breakeven · one step behind from 1:3",
+    stopR: (peak) => (peak < 2 ? -1 : peak === 2 ? 0 : peak - 1),
+  },
+  {
+    key: "lock2",
+    label: "Lock a full step at 1:2",
+    detail: "1:2 locks 1R · one step behind all the way up",
+    stopR: (peak) => (peak < 2 ? -1 : peak - 1),
+  },
+];
+
+export interface NamedTrailRow extends Omit<TrailOutcome, "perTrade"> {
+  key: string;
+  label: string;
+  detail: string;
+  vsLiveR: number;
+  changedVsLive: number;
+}
+
+/** Prices every named configuration, with the live rule as the reference point. */
+export function compareTrails(
+  rows: AnalysedTrade[],
+  trails: NamedTrail[] = NAMED_TRAILS
+): NamedTrailRow[] {
+  const live = simulateTrail(rows, liveStopR);
+  return trails.map((trail) => {
+    const { perTrade, ...outcome } = simulateTrail(rows, trail.stopR);
+    let changedVsLive = 0;
+    for (let i = 0; i < perTrade.length; i += 1) {
+      if (Math.abs(perTrade[i] - live.perTrade[i]) > 0.01) changedVsLive += 1;
+    }
+    return {
+      ...outcome,
+      key: trail.key,
+      label: trail.label,
+      detail: trail.detail,
+      vsLiveR: outcome.netR - live.netR,
+      changedVsLive,
+    };
+  });
+}
+
 export interface TrailRow extends Omit<TrailOutcome, "perTrade"> {
   start: number;
   /** Difference against the live rule, in R. */
