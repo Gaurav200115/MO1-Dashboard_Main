@@ -31,6 +31,7 @@ import {
   slotLabel,
   SLOT_MIN,
   compareTrails,
+  peakBreakdown,
   peakLabel,
   sortPeaks,
   sortPivots,
@@ -167,6 +168,7 @@ export default function TradeAnalysis() {
           pivotBase={pivotBase}
           pivots={options.pivots}
           pivotOut={f.pivotOut}
+          peaks={options.peaks}
         />
       )}
     </div>
@@ -183,12 +185,14 @@ function Results({
   pivotBase,
   pivots,
   pivotOut,
+  peaks,
 }: {
   rows: AnalysedTrade[];
   set: (p: Partial<Filters>) => void;
   pivotBase: AnalysedTrade[];
   pivots: string[];
   pivotOut: string[];
+  peaks: string[];
 }) {
   const s = useMemo(() => statsOf(rows), [rows]);
   const dayList = useMemo(() => dayResults(rows), [rows]);
@@ -342,6 +346,8 @@ function Results({
         pivotOut={pivotOut}
         setOut={(next) => set({ pivotOut: next })}
       />
+
+      <PeakPanel rows={rows} onPick={(k) => set({ peakOut: peaks.filter((x) => x !== k) })} />
 
       <TrailPanel rows={rows} />
 
@@ -989,6 +995,86 @@ function MiniTile({
  * footer lines split the same trades: what is still in (and drives every other
  * figure on the page) against what was left out.
  */
+/**
+ * How far trades ran, and how many still ended red.
+ *
+ * The column that earns this panel its place is "still lost": a trade that
+ * reached 2R was 1,100 rupees up at its best, and the live rule does not move
+ * the stop until 1:3, so it can give every paisa back and close red. The
+ * blotter shows only the loss; this shows how it got there.
+ */
+function PeakPanel({
+  rows,
+  onPick,
+}: {
+  rows: AnalysedTrade[];
+  onPick: (key: string) => void;
+}) {
+  const buckets = useMemo(() => peakBreakdown(rows), [rows]);
+  if (buckets.length === 0) return null;
+
+  const ratcheted = buckets.filter((b) => b.key !== "none");
+  const lostAfterRunning = ratcheted.reduce((n, b) => n + b.lost, 0);
+  const handedBack = ratcheted.reduce((n, b) => n + b.givenBack, 0);
+
+  return (
+    <Panel
+      title="How far trades ran"
+      aside="Click a row to filter the page to it"
+    >
+      {ratcheted.length > 0 ? (
+        <div className="border-b border-line px-4 py-2.5 text-[11.5px] text-ink2">
+          <strong className="text-neg">{lostAfterRunning}</strong>{" "}
+          {lostAfterRunning === 1 ? "trade" : "trades"} reached 2R or better and still closed at a
+          loss, handing back <Money v={-handedBack} /> between every trade that ratcheted.
+        </div>
+      ) : null}
+
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse text-[12px]">
+          <thead>
+            <tr className="text-[10px] uppercase tracking-[0.08em] text-muted">
+              <Th className="text-left">Reached</Th>
+              <Th>Trades</Th>
+              <Th>Still lost</Th>
+              <Th>Won</Th>
+              <Th>Net P&amp;L</Th>
+              <Th>Given back</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {buckets.map((b) => (
+              <tr
+                key={b.key}
+                onClick={() => onPick(b.key)}
+                className="cursor-pointer border-t border-line hover:bg-surface2"
+                title={`Show only the trades that reached ${b.label}`}
+              >
+                <Td className="text-left font-semibold">{b.label}</Td>
+                <Td>{b.trades}</Td>
+                <Td className={b.lost > 0 ? "font-semibold text-neg" : "text-faint"}>
+                  {b.lost || DASH}
+                </Td>
+                <Td className={b.won > 0 ? "text-pos" : "text-faint"}>{b.won || DASH}</Td>
+                <Td><Money v={b.net} /></Td>
+                <Td className="text-muted">
+                  {b.key === "none" ? DASH : `₹${grouped(Math.round(b.givenBack))}`}
+                </Td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="border-t border-line px-4 py-2 text-[10.5px] leading-snug text-faint">
+        "Reached" is the highest rung the premium actually touched, taken from the ladder, so it is
+        known to within 1R and only for trades that ratcheted at all. "Given back" is what that rung
+        was worth less what the trade banked.
+      </div>
+    </Panel>
+  );
+}
+
 /**
  * Trailing-stop what-if.
  *

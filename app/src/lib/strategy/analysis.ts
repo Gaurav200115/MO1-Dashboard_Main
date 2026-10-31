@@ -784,6 +784,60 @@ export function simulateTrail(
 }
 
 /**
+ * How many trades reached each rung, and how many of them still ended red.
+ *
+ * The question this answers is narrow and worth having on screen: a trade that
+ * touched 2R was, for a moment, 1,100 rupees up. Under a rule whose stop does
+ * not move until 1:3 it can hand all of that back and close at a loss, and the
+ * blotter shows only the loss. Counting those is the whole point.
+ *
+ * `givenBack` is what the rung was worth less what was actually banked, so it
+ * reads as the cost of the round trip rather than as a profit that never
+ * existed. It is only meaningful where the peak is known at all.
+ */
+export interface PeakBucket {
+  key: string;
+  label: string;
+  trades: number;
+  lost: number;
+  won: number;
+  scratched: number;
+  net: number;
+  /** Rupees between what the peak was worth and what the trade banked. */
+  givenBack: number;
+}
+
+export function peakBreakdown(rows: AnalysedTrade[]): PeakBucket[] {
+  const byKey = new Map<string, AnalysedTrade[]>();
+  for (const row of rows) {
+    const key = peakKey(row.peak);
+    const list = byKey.get(key);
+    if (list) list.push(row);
+    else byKey.set(key, [row]);
+  }
+
+  return sortPeaks(byKey.keys()).map((key) => {
+    const list = byKey.get(key) ?? [];
+    let net = 0;
+    let givenBack = 0;
+    let lost = 0;
+    let won = 0;
+    let scratched = 0;
+    for (const row of list) {
+      net += row.profit;
+      if (row.outcome === "LOSS") lost += 1;
+      else if (row.outcome === "WIN") won += 1;
+      else scratched += 1;
+      if (row.peak !== null) {
+        const risk = row.trade.riskPerUnit * row.trade.qty;
+        givenBack += row.peak * risk - row.profit;
+      }
+    }
+    return { key, label: peakLabel(key), trades: list.length, lost, won, scratched, net, givenBack };
+  });
+}
+
+/**
  * The handful of configurations worth comparing head to head, rather than by
  * sweeping. A sweep answers "where is the optimum"; this answers the question
  * actually on the table — is the rule we run worse than the one the exit study
