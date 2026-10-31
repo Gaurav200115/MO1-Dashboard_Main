@@ -20,7 +20,20 @@ import LevelArchive from "./LevelArchive";
 import SectorIndexChart from "./SectorIndexChart";
 import SectorIndexStrip from "./SectorIndexStrip";
 import DataDownload from "./DataDownload";
-import SectorRail, { ALL, ANALYSIS, ARCHIVE, CURRENT, DOWNLOAD, ROTATION, SPECIAL, TRADES } from "./SectorRail";
+import HistoryMonths from "./HistoryMonths";
+import NiftyVix from "./NiftyVix";
+import SectorRail, {
+  ALL,
+  ANALYSIS,
+  ARCHIVE,
+  CURRENT,
+  DOWNLOAD,
+  HIST_MONTHS,
+  HIST_VIX,
+  ROTATION,
+  SPECIAL,
+  TRADES,
+} from "./SectorRail";
 import SectorRotation from "./SectorRotation";
 import ThemeToggle from "./ThemeToggle";
 import TodaysSpecial from "./TodaysSpecial";
@@ -130,6 +143,8 @@ export default function Desk({ data, floats }: { data: DeskIndex; floats: FloatT
       next === TRADES ||
       next === ANALYSIS ||
       next === DOWNLOAD ||
+      next === HIST_MONTHS ||
+      next === HIST_VIX ||
       next === ROTATION;
     if (!isPanel) {
       setSortKey("chg");
@@ -252,6 +267,10 @@ export default function Desk({ data, floats }: { data: DeskIndex; floats: FloatT
             <TradeAnalysis />
           ) : sector === DOWNLOAD ? (
             <DataDownload />
+          ) : sector === HIST_MONTHS ? (
+            <HistoryMonths />
+          ) : sector === HIST_VIX ? (
+            <NiftyVix />
           ) : sector === ARCHIVE ? (
             <LevelArchive active />
           ) : sector === SPECIAL || sector === CURRENT ? (

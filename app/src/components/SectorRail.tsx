@@ -18,6 +18,10 @@ export const ROTATION = "__rotation__";
 export const ANALYSIS = "__analysis__";
 /** The overnight market-data download (Dhan + NSE -> PostgreSQL on the VPS). */
 export const DOWNLOAD = "__download__";
+/** History analysis: the archive by month — charts, OI and option chains of each month's top 100. */
+export const HIST_MONTHS = "__hist_months__";
+/** History analysis: NIFTY against India VIX. */
+export const HIST_VIX = "__hist_vix__";
 
 export default function SectorRail({
   sectors,
@@ -152,6 +156,38 @@ export default function SectorRail({
           }`}
         >
           Data download
+        </button>
+      </div>
+
+      <div className="mb-1 flex flex-col gap-2 border-b border-line pb-3">
+        <h2 className="font-display text-[10px] font-bold uppercase tracking-[0.13em] text-muted">
+          History analysis
+        </h2>
+        <button
+          type="button"
+          onClick={() => onSelect(HIST_MONTHS)}
+          aria-current={active === HIST_MONTHS}
+          title="Each month's top 100 F&O stocks: spot with India VIX, ATM±3 options, open interest and option chain"
+          className={`flex w-full items-center rounded-[5px] px-2 py-1.5 text-left text-[12.5px] ${
+            active === HIST_MONTHS
+              ? "bg-accentsoft font-semibold text-accent"
+              : "text-ink2 hover:bg-surface2"
+          }`}
+        >
+          Stocks by month
+        </button>
+        <button
+          type="button"
+          onClick={() => onSelect(HIST_VIX)}
+          aria-current={active === HIST_VIX}
+          title="NIFTY spot against India VIX, 1 minute to daily"
+          className={`flex w-full items-center rounded-[5px] px-2 py-1.5 text-left text-[12.5px] ${
+            active === HIST_VIX
+              ? "bg-accentsoft font-semibold text-accent"
+              : "text-ink2 hover:bg-surface2"
+          }`}
+        >
+          NIFTY vs India VIX
         </button>
       </div>
 

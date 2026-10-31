@@ -41,6 +41,12 @@ export interface AnalysedTrade {
   cost: number;
   /** 1-based position among the day's trades (all strategies), by entry. */
   nth: number;
+  /**
+   * How far the premium actually ran, in R, or null when the record cannot say.
+   * See `peakR` — a ratchet proves the rung was touched, and nothing below 2R
+   * leaves a trace at all.
+   */
+  peak: number | null;
   strategyKey: string;
   setupKey: string;
 }
@@ -88,6 +94,7 @@ export function analyse(trades: StrategyTrade[]): AnalysedTrade[] {
       r: risk > 0 ? t.profit / risk : null,
       cost: t.qty * t.buy.price,
       nth: nthOf.get(t._id) ?? 1,
+      peak: peakR(t),
       strategyKey: `${t.strategyId}@${t.strategyVersion}`,
       setupKey: `${t.strategyId}:${t.setup}`,
     });
@@ -122,6 +129,13 @@ export interface Filters {
    * no recorded pivot is never excluded by it.
    */
   pivotOut: string[];
+  /**
+   * How far a trade ran, as bucket keys to leave OUT — "none" for the trades
+   * that never reached 2R, otherwise the R multiple as a string. An exclusion
+   * list for the same reason as `pivotOut`: any set can be dropped and the rest
+   * totalled together.
+   */
+  peakOut: string[];
   trailed: "" | "yes" | "no";
   nth: "" | NthKey;
   symbol: string;
@@ -142,6 +156,7 @@ export const EMPTY_FILTERS: Filters = {
   option: "",
   level: "",
   pivotOut: [],
+  peakOut: [],
   trailed: "",
   nth: "",
   symbol: "",
@@ -191,12 +206,38 @@ export function applyFilters(rows: AnalysedTrade[], f: Filters): AnalysedTrade[]
     if (f.level && t.trigger?.level?.kind !== f.level) return false;
     if (f.pivotOut.length && t.trigger?.level?.pivot && f.pivotOut.includes(t.trigger.level.pivot))
       return false;
+    if (f.peakOut.length && f.peakOut.includes(peakKey(a.peak))) return false;
     if (f.trailed === "yes" && t.step <= 1) return false;
     if (f.trailed === "no" && t.step > 1) return false;
     if (f.nth && nthKey(a.nth) !== f.nth) return false;
     if (symbol && !t.symbol.includes(symbol)) return false;
     return true;
   });
+}
+
+/**
+ * Bucket key for how far a trade ran. "none" is every trade that never reached
+ * 2R — which is most of them, and they are one group rather than many because
+ * the record cannot distinguish a trade that died at breakeven from one that
+ * reached 1.9R.
+ */
+export function peakKey(peak: number | null): string {
+  return peak === null ? "none" : String(peak);
+}
+
+/** "none" first, then ascending — the order a trade passes through them. */
+export function sortPeaks(keys: Iterable<string>): string[] {
+  return [...keys].sort((a, b) => {
+    if (a === b) return 0;
+    if (a === "none") return -1;
+    if (b === "none") return 1;
+    return Number(a) - Number(b);
+  });
+}
+
+/** Chip label for a bucket key. */
+export function peakLabel(key: string): string {
+  return key === "none" ? "< 2R" : `${key}R`;
 }
 
 /** Resistances high to low, then the central pivot, then supports — how a chart stacks them. */

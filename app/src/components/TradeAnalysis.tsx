@@ -30,6 +30,8 @@ import {
   slotKey,
   slotLabel,
   SLOT_MIN,
+  peakLabel,
+  sortPeaks,
   sortPivots,
   sweepTrail,
   TRAIL_GAPS,
@@ -113,14 +115,16 @@ export default function TradeAnalysis() {
     const strategies = new Map<string, { name: string; versions: Set<number> }>();
     const setups = new Map<string, string>();
     const pivots = new Set<string>();
-    for (const { trade: t, setupKey } of all) {
+    const peaks = new Set<string>();
+    for (const { trade: t, setupKey, peak } of all) {
+      peaks.add(peak === null ? "none" : String(peak));
       const s = strategies.get(t.strategyId) ?? { name: t.strategyName, versions: new Set() };
       s.versions.add(t.strategyVersion);
       strategies.set(t.strategyId, s);
       setups.set(setupKey, `${t.setupLabel} (${t.setup})`);
       if (t.trigger?.level?.pivot) pivots.add(t.trigger.level.pivot);
     }
-    return { strategies, setups, pivots: sortPivots(pivots) };
+    return { strategies, setups, pivots: sortPivots(pivots), peaks: sortPeaks(peaks) };
   }, [all]);
 
   if (raw === null) {
@@ -495,6 +499,7 @@ function FilterBar({
     strategies: Map<string, { name: string; versions: Set<number> }>;
     setups: Map<string, string>;
     pivots: string[];
+    peaks: string[];
   };
   shown: number;
   total: number;
@@ -668,6 +673,53 @@ function FilterBar({
               <button
                 type="button"
                 onClick={() => set({ pivotOut: [] })}
+                className="text-[11px] text-accent"
+              >
+                Include all
+              </button>
+            ) : null}
+          </Row>
+        ) : null}
+
+        {options.peaks.length > 0 ? (
+          <Row label="How far it ran">
+            <div className="flex flex-wrap gap-1">
+              {options.peaks.map((k) => {
+                const out = f.peakOut.includes(k);
+                const label = peakLabel(k);
+                const title =
+                  k === "none"
+                    ? "Never reached 2R — the record cannot say how far these got"
+                    : `Premium touched ${k}R (₹${550 * Number(k)}) before it came back`;
+                return (
+                  <button
+                    key={k}
+                    type="button"
+                    aria-pressed={!out}
+                    title={out ? `${label} excluded — click to include it again` : title}
+                    onClick={() =>
+                      set({ peakOut: out ? f.peakOut.filter((x) => x !== k) : [...f.peakOut, k] })
+                    }
+                    className={
+                      out
+                        ? "rounded-[4px] border border-dashed border-line px-2 py-0.5 font-mono text-[11.5px] text-faint line-through"
+                        : chipCls(true)
+                    }
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+            <span className="text-[10.5px] text-faint">
+              {f.peakOut.length === 0
+                ? "How far the premium actually ran, in multiples of the ₹550 risk · click to exclude"
+                : `${f.peakOut.length} excluded`}
+            </span>
+            {f.peakOut.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => set({ peakOut: [] })}
                 className="text-[11px] text-accent"
               >
                 Include all

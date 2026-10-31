@@ -52,7 +52,7 @@ def run(ctx):
         ctx.universe = list(want)
     ctx.fno = {s for s in ctx.universe if s in fno.index}
     ctx.security_id.update({s: eq_id[s] for s in ctx.universe if s in eq_id})
-    for name in S.INDEX_SPOT:
+    for name in list(S.INDEX_SPOT) + ([S.VIX] if "vix_1min" in S.DATASETS else []):
         if name.upper() not in index_id:
             raise SystemExit(f"settings.py INDEX_SPOT: {name} is not an NSE index in Dhan's instrument file")
         ctx.security_id[name] = index_id[name.upper()]

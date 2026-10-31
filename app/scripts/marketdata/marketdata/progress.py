@@ -10,6 +10,7 @@ import os
 import time
 
 from . import db
+from .jobs import minute
 from .config import IST, PROFILE, PROGRESS_DIR, S, window_bounds, window_hours
 
 LABELS = {
@@ -18,6 +19,7 @@ LABELS = {
     "corporate_actions": "Corporate actions",
     "fo_ban": "F&O ban list",
     "spot_1min": "Spot 1-minute",
+    "vix_1min": f"India VIX 1-minute (last {S.VIX_YEARS} years)",
     "futures_1min": "Futures 1-minute (live contracts)",
     "options_1min": "Options 1-minute",
 }
@@ -32,6 +34,7 @@ class Progress:
         self.started = dt.datetime.now(IST)
         self.opt_mark = None      # (monotonic time, options done) when options started this run
         self.band = None
+        self.vix_from = None
 
     def set_plan(self, band, futures_contracts):
         ctx, n = self.ctx, len(self.ctx.sessions)
@@ -43,6 +46,10 @@ class Progress:
             elif name == "spot_1min":
                 syms = list(S.INDEX_SPOT) + [s for s in ctx.universe if s in ctx.security_id]
                 self.plan[name] = (len(syms) * n, syms, "1m")
+            elif name == "vix_1min":
+                days = minute.vix_days(ctx)
+                self.vix_from = days[0]
+                self.plan[name] = (len(days), [S.VIX], "1m")
             elif name == "futures_1min":
                 self.plan[name] = (futures_contracts * n, fno, "FUT:%")
             elif name == "options_1min" and band:
@@ -57,9 +64,10 @@ class Progress:
                 "SELECT count(*) FROM done d JOIN liquidity_rank r ON r.symbol = d.symbol AND r.selected "
                 "AND r.month = date_trunc('month', d.d)::date WHERE d.dataset = %s AND d.d BETWEEN %s AND %s "
                 "AND d.series LIKE %s", (name, self.ctx.start, self.ctx.end, pattern)).fetchone()[0]
+        start = self.vix_from if name == "vix_1min" else self.ctx.start      # VIX has its own range
         return conn.execute(
             "SELECT count(*) FROM done WHERE dataset = %s AND d BETWEEN %s AND %s AND symbol = ANY(%s) "
-            "AND series LIKE %s", (name, self.ctx.start, self.ctx.end, syms, pattern)).fetchone()[0]
+            "AND series LIKE %s", (name, start, self.ctx.end, syms, pattern)).fetchone()[0]
 
     def _secs_per_piece(self, opt_done):
         """Options speed: this run's if it has been going a few minutes, else earlier runs'."""

@@ -14,6 +14,7 @@ ROLLING = "/charts/rollingoption"
 SPOT_WINDOW = 85           # Dhan allows 90 days per intraday call
 OPTION_FIELDS = ["open", "high", "low", "close", "iv", "volume", "strike", "oi", "spot"]   # oi/iv not stored
 SIDE = {"CALL": ("ce", "CE"), "PUT": ("pe", "PE")}
+SPOT_COLUMNS = ["ts", "symbol", "open_paise", "high_paise", "low_paise", "close_paise", "volume"]
 
 
 def _arrays(body, key=None):
@@ -79,26 +80,59 @@ def spot_1min(ctx):
 
     def fetch(job):
         sym, seg, inst, sid, days = job
-        def payload(a, b):           # from 09:00: a 09:15 start time drops the 09:15 bar (measured)
-            return {"securityId": str(sid), "exchangeSegment": seg, "instrument": inst, "interval": S.INTERVAL,
-                    "oi": False, "fromDate": f"{a} 09:00:00", "toDate": f"{b} 15:30:00"}
-        return pool.fetch_split(ctx.dhan, INTRADAY, payload, days)
-
-    def rows_for_day(sym, body, d):
-        block = _arrays(body)
-        if not block:
-            return []
-        by_day, keys = _bars_by_day(block)
-        return [(_ts(ep), sym, paise(o), paise(h), paise(l), paise(c), int(v or 0))
-                for ep, o, h, l, c, v, *_ in by_day.get(d, [])]
+        return pool.fetch_split(ctx.dhan, INTRADAY, _spot_payload(sid, seg, inst), days)
 
     def handle(job, results):
         sym = job[0]
-        _handle(ctx, "spot_1min", sym, "1m", job[4], results, partial(rows_for_day, sym), "spot_1min",
-                ["ts", "symbol", "open_paise", "high_paise", "low_paise", "close_paise", "volume"], S.WORKERS)
+        _handle(ctx, "spot_1min", sym, "1m", job[4], results, partial(_spot_rows, sym), "spot_1min",
+                SPOT_COLUMNS, S.WORKERS)
 
     pool.run(jobs, fetch, handle, S.WORKERS, stop=ctx.time_up, tick=ctx.tick)
     say(f"spot 1-minute: {len(symbols)} symbols, {len(jobs)} calls planned, {time.monotonic() - t0:.0f} s")
+
+
+def _spot_payload(sid, seg, inst):
+    def payload(a, b):               # from 09:00: a 09:15 start time drops the 09:15 bar (measured)
+        return {"securityId": str(sid), "exchangeSegment": seg, "instrument": inst, "interval": S.INTERVAL,
+                "oi": False, "fromDate": f"{a} 09:00:00", "toDate": f"{b} 15:30:00"}
+    return payload
+
+
+def _spot_rows(sym, body, d):
+    block = _arrays(body)
+    if not block:
+        return []
+    by_day, keys = _bars_by_day(block)
+    return [(_ts(ep), sym, paise(o), paise(h), paise(l), paise(c), int(v or 0))
+            for ep, o, h, l, c, v, *_ in by_day.get(d, [])]
+
+
+# ---------------------------------------------------------------- India VIX
+
+def vix_days(ctx):
+    """The days to fetch India VIX for: the last VIX_YEARS years up to the run's last day. Inside the
+    bhavcopy's trading calendar only its trading days; before it every calendar day (a holiday or a
+    weekend comes back empty and is saved as done with 0 bars - it costs no extra calls)."""
+    known = getattr(ctx, "all_sessions", None) or ctx.sessions
+    first = ctx.end - dt.timedelta(days=round(365.25 * S.VIX_YEARS)) + dt.timedelta(days=1)
+    before = [first + dt.timedelta(days=i) for i in range((known[0] - first).days)]
+    return before + [d for d in known if d >= first]
+
+
+def vix_1min(ctx):
+    """India VIX 1-minute -> spot_1min (symbol settings.VIX), done markers as dataset vix_1min."""
+    ctx._done_cache = {}
+    jobs = pool.windows(_todo(ctx, "vix_1min", S.VIX, "1m", vix_days(ctx)), SPOT_WINDOW)
+    payload = _spot_payload(ctx.security_id[S.VIX], "IDX_I", "INDEX")
+    t0 = time.monotonic()
+
+    def handle(days, results):
+        _handle(ctx, "vix_1min", S.VIX, "1m", days, results, partial(_spot_rows, S.VIX), "spot_1min",
+                SPOT_COLUMNS, S.WORKERS)
+
+    pool.run(jobs, lambda days: pool.fetch_split(ctx.dhan, INTRADAY, payload, days), handle, S.WORKERS,
+             stop=ctx.time_up, tick=ctx.tick)
+    say(f"India VIX 1-minute: {len(jobs)} calls planned, {time.monotonic() - t0:.0f} s")
 
 
 # ---------------------------------------------------------------- futures (live contracts only)
