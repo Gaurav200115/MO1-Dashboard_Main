@@ -60,11 +60,14 @@ PAUSE_AFTER_CALL = 1.2      # seconds each worker waits after a call
 # size, strike step) and the NSE F&O bhavcopy (every contract's end of day; it also decides the
 # trading days).
 INDEX_SPOT = ["NIFTY"]      # index spot, 1-minute (NIFTY options are not downloaded)
+VIX = "INDIA VIX"           # India VIX 1-minute (Dhan index ID 21), stored in spot_1min with the
+VIX_YEARS = 5               # spot, over its own longer range: the last 5 years (~20 Dhan calls)
 DATASETS = [
     "cm_bhavcopy",          # NSE stock end of day (official open/high/low/close)
     "corporate_actions",    # NSE corporate actions with price-adjust factors
     "fo_ban",               # NSE F&O ban list
     "spot_1min",            # Dhan 1-minute spot
+    "vix_1min",             # Dhan 1-minute India VIX, the last VIX_YEARS years
     # "futures_1min",       # Dhan 1-minute, live futures only - dropped (futures end of day is in the
                             # F&O bhavcopy, which is always downloaded)
     "options_1min",         # Dhan 1-minute options, ATM band, calls and puts

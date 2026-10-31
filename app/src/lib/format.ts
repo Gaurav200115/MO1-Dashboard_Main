@@ -107,3 +107,13 @@ export function dueState(
     confirmed: !!c.resultsDate,
   };
 }
+
+/** Big counts the Indian way, short enough for an axis: 1.24 Cr, 38.5 L, 12,500. */
+export function fmtCompact(v: number | null | undefined): string {
+  if (v == null) return DASH;
+  const a = Math.abs(v);
+  const s = v < 0 ? "−" : "";
+  if (a >= 1e7) return `${s}${grouped(a / 1e7, 2)} Cr`;
+  if (a >= 1e5) return `${s}${grouped(a / 1e5, 1)} L`;
+  return `${s}${grouped(a)}`;
+}
