@@ -12,7 +12,7 @@ import {
   readCoverage,
   runTrades,
 } from "@/lib/backtest/store";
-import { isKnownSetup, listSetups, mixError, strategiesFor } from "@/lib/backtest/setups";
+import { isKnownSetup, listSetups, strategiesFor } from "@/lib/backtest/setups";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -82,10 +82,6 @@ export async function POST(request: NextRequest) {
     if (!isKnownSetup(id)) {
       return NextResponse.json({ error: `unknown setup ${id}` }, { status: 400 });
     }
-  }
-  const mixed = mixError(ids);
-  if (mixed) {
-    return NextResponse.json({ error: mixed }, { status: 400 });
   }
   if (!DATE.test(from) || !DATE.test(to)) {
     return NextResponse.json({ error: "from/to must be YYYY-MM-DD" }, { status: 400 });

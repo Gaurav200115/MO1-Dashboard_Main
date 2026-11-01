@@ -88,8 +88,6 @@ export interface ArchiveCoverage {
   options: { stocks: number; from: string; to: string } | null;
   spot: { symbols: number; from: string; to: string } | null;
   months: { month: string; stockDays: number; stocks: number }[];
-  /** NIFTY weekly options, for the backtest-only opening-range rule. Absent from older snapshots. */
-  indexOptions?: { symbol: string; from: string; to: string; days: number } | null;
 }
 
 export async function readCoverage(): Promise<{ coverage: ArchiveCoverage; updatedAt: Date } | null> {

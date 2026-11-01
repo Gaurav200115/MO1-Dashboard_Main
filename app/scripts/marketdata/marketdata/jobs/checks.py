@@ -89,30 +89,6 @@ def run(ctx):
         + "".join(f"\n      {g[0]} {g[1]} {g[2]}: {g[3]}" for g in gaps[:20]))
     out("")
 
-    if "index_options_1min" in S.DATASETS:
-        idx_n = (2 * S.INDEX_STRIKE_BAND + 1) * len(S.OPTION_TYPES)
-        out(f"Index options 1-minute: {S.INDEX_EXPIRY_FLAG}{S.EXPIRY_CODE}, ATM+-{S.INDEX_STRIKE_BAND}, "
-            f"{idx_n} series a day")
-        idx = list(S.INDEX_OPTIONS)
-        complete = dict(_q(ctx, """
-            SELECT symbol, count(*) FROM (SELECT symbol, d FROM done WHERE dataset = 'index_options_1min'
-                AND symbol = ANY(%s) AND d BETWEEN %s AND %s GROUP BY 1, 2 HAVING count(*) = %s) x GROUP BY 1""",
-            (idx, *rng, idx_n)))
-        for sym in idx:
-            out(f"   {sym:<12} complete days {complete.get(sym, 0)}/{len(ctx.sessions)}")
-        (total, ok), = _q(ctx, """
-            SELECT count(*), count(*) FILTER (WHERE o.open_paise = f.open_paise) FROM option_1min o
-            JOIN fo_bhavcopy f ON f.symbol = o.symbol AND f.instrument = 'OPTIDX' AND f.expiry_date = o.expiry_date
-             AND f.strike_paise = o.strike_paise AND f.option_type = o.option_type
-             AND f.trade_date = (o.ts AT TIME ZONE 'Asia/Kolkata')::date
-            WHERE o.symbol = ANY(%s) AND o.ts >= %s AND o.ts < %s::date + 1
-              AND (o.ts AT TIME ZONE 'Asia/Kolkata')::time = '09:15'""", (idx, check_from, ctx.end))
-        out(f"   expiry check, last {len(ctx.sessions[-20:])} trading days - 09:15 open equals NSE's official open: "
-            f"{ok}/{total}")
-        gaps = db.gaps(ctx.conn, "index_options_1min")
-        out(f"   strikes Dhan failed on (after the retry pass): {len(gaps)}")
-        out("")
-
     calls = _q(ctx, "SELECT dataset, status, seconds FROM download_log WHERE run_id = %s", (ctx.run_id,))
     opt = [c for c in calls if c[0] == "options_1min"]
     speed = db.get_meta(ctx.conn, f"speed:{ctx.run_id}")

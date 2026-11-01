@@ -54,7 +54,7 @@ def execute(run, conn, db):
     # them visible next to the result rather than implicit in it.
     floors = run.get("gateFloors") or S.GATE_FLOORS
     _, payload = fingerprint(setup_ids, start, end, floors,
-                             data_revision(conn, start, end, setup_ids))
+                             data_revision(conn, start, end))
     results.record_conditions(db, run_id, payload)
 
     log(f"run {run_id}: setups {describe(setup_ids)} from {start} to {end}")

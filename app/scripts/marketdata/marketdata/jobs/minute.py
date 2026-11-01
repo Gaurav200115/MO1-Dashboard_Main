@@ -193,54 +193,10 @@ def _offset_int(label):
     return 0 if label == "ATM" else int(label[3:])
 
 
-def _option_payload(sid, offset, opt, a, b, instrument="OPTSTK", flag=S.EXPIRY_FLAG):
-    return {"exchangeSegment": "NSE_FNO", "interval": S.INTERVAL, "securityId": sid, "instrument": instrument,
-            "expiryFlag": flag, "expiryCode": S.EXPIRY_CODE, "strike": offset, "drvOptionType": opt,
+def _option_payload(sid, offset, opt, a, b):
+    return {"exchangeSegment": "NSE_FNO", "interval": S.INTERVAL, "securityId": sid, "instrument": "OPTSTK",
+            "expiryFlag": S.EXPIRY_FLAG, "expiryCode": S.EXPIRY_CODE, "strike": offset, "drvOptionType": opt,
             "requiredData": OPTION_FIELDS, "fromDate": str(a), "toDate": str(b)}
-
-
-OPTION_COLUMNS = ["ts", "symbol", "expiry_date", "strike_paise", "option_type", "strike_offset", "open_paise",
-                  "high_paise", "low_paise", "close_paise", "volume", "spot_paise"]
-
-
-def _expiry_of(ctx, instrument, symbols, flag, code):
-    """{(symbol, day): expiry} of the series Dhan serves for each symbol and day, from that day's F&O
-    bhavcopy. MONTH keeps only the last expiry of each month; WEEK keeps them all."""
-    exp_rows = ctx.conn.execute(
-        "SELECT symbol, trade_date, array_agg(DISTINCT expiry_date ORDER BY expiry_date) FROM fo_bhavcopy "
-        "WHERE instrument = %s AND symbol = ANY(%s) AND trade_date BETWEEN %s AND %s GROUP BY 1, 2",
-        (instrument, sorted(symbols), ctx.start, ctx.end)).fetchall()
-    expiry_of = {}
-    for sym, d, exps in exp_rows:
-        if flag == "MONTH":
-            last = {}
-            for e in exps:
-                last[(e.year, e.month)] = e
-            exps = sorted(last.values())
-        later = [e for e in exps if e >= d]           # the expiring contract counts on its expiry day
-        if len(later) >= code:
-            expiry_of[(sym, d)] = later[code - 1]
-    return expiry_of
-
-
-def _option_rows(expiry_of, sym, opt, offset):
-    """rows_for_day for one option series: its bars for day d, or None when d has no known expiry."""
-    key, kind = SIDE[opt]
-    off = _offset_int(offset)
-
-    def rows_for_day(body, d):
-        block = _arrays(body, key)
-        if not block:
-            return []
-        expiry = expiry_of.get((sym, d))
-        if expiry is None:
-            return None
-        by_day, keys = _bars_by_day(block)
-        i = {k: n + 1 for n, k in enumerate(keys)}
-        return [(_ts(b[0]), sym, expiry, paise(b[i["strike"]]), kind, off, paise(b[i["open"]]),
-                 paise(b[i["high"]]), paise(b[i["low"]]), paise(b[i["close"]]), int(b[i["volume"]] or 0),
-                 paise(b[i["spot"]])) for b in by_day.get(d, [])]
-    return rows_for_day
 
 
 def strike_band(ctx):
@@ -275,7 +231,22 @@ def options_1min(ctx):
     ctx._done_cache = {}
     band = strike_band(ctx)
     flag, code = S.EXPIRY_FLAG, S.EXPIRY_CODE
-    expiry_of = _expiry_of(ctx, "OPTSTK", ctx.option_days, flag, code)
+
+    # expiry of the series Dhan serves for each stock and day, from that day's F&O bhavcopy
+    exp_rows = ctx.conn.execute(
+        "SELECT symbol, trade_date, array_agg(DISTINCT expiry_date ORDER BY expiry_date) FROM fo_bhavcopy "
+        "WHERE instrument = 'OPTSTK' AND symbol = ANY(%s) AND trade_date BETWEEN %s AND %s GROUP BY 1, 2",
+        (sorted(ctx.option_days), ctx.start, ctx.end)).fetchall()
+    expiry_of = {}
+    for sym, d, exps in exp_rows:
+        if flag == "MONTH":
+            last = {}
+            for e in exps:
+                last[(e.year, e.month)] = e
+            exps = sorted(last.values())
+        later = [e for e in exps if e >= d]           # the expiring contract counts on its expiry day
+        if len(later) >= code:
+            expiry_of[(sym, d)] = later[code - 1]
 
     jobs = []                                         # only the months a stock was among the most liquid
     for sym, sym_days in sorted(ctx.option_days.items()):
@@ -299,8 +270,24 @@ def options_1min(ctx):
 
     def handle(job, results):
         sym, offset, opt, series, days = job
-        _handle(ctx, "options_1min", sym, series, days, results, _option_rows(expiry_of, sym, opt, offset),
-                "option_1min", OPTION_COLUMNS, S.WORKERS)
+        key, kind = SIDE[opt]
+        off = _offset_int(offset)
+
+        def rows_for_day(body, d):
+            block = _arrays(body, key)
+            if not block:
+                return []
+            expiry = expiry_of.get((sym, d))
+            if expiry is None:
+                return None
+            by_day, keys = _bars_by_day(block)
+            i = {k: n + 1 for n, k in enumerate(keys)}
+            return [(_ts(b[0]), sym, expiry, paise(b[i["strike"]]), kind, off, paise(b[i["open"]]),
+                     paise(b[i["high"]]), paise(b[i["low"]]), paise(b[i["close"]]), int(b[i["volume"]] or 0),
+                     paise(b[i["spot"]])) for b in by_day.get(d, [])]
+        _handle(ctx, "options_1min", sym, series, days, results, rows_for_day, "option_1min",
+                ["ts", "symbol", "expiry_date", "strike_paise", "option_type", "strike_offset", "open_paise",
+                 "high_paise", "low_paise", "close_paise", "volume", "spot_paise"], S.WORKERS)
         starts[days[0]] -= 1
         handled[0] += len(days)
 
@@ -318,45 +305,3 @@ def options_1min(ctx):
         ctx.conn.commit()
     say(f"options: {len(jobs)} jobs planned, {handled[0]} series-days fetched, {took / 60:.1f} min"
         + (f", {took / handled[0]:.2f} s per series-day" if handled[0] else ""))
-
-
-# ---------------------------------------------------------------- index options (NIFTY weekly)
-
-def index_options_1min(ctx):
-    """NIFTY weekly options -> option_1min (symbol NIFTY), every trading day of the range.
-
-    For the NIFTY opening-range backtest only. Done markers go under their own dataset name, so
-    the stock-option counts (14 series a stock-day, chosen by liquidity) are not disturbed. No
-    speed is recorded: an index call takes far longer than a stock one (15-19 s against ~0.1 s,
-    measured), and mixing the two would wreck the stock options' ETA."""
-    ctx._done_cache = {}
-    missing = [s for s in S.INDEX_OPTIONS if s not in ctx.security_id]
-    if missing:
-        raise SystemExit(f"settings.py INDEX_OPTIONS: {missing} must also be in INDEX_SPOT")
-    flag, code, band = S.INDEX_EXPIRY_FLAG, S.EXPIRY_CODE, S.INDEX_STRIKE_BAND
-    expiry_of = _expiry_of(ctx, "OPTIDX", S.INDEX_OPTIONS, flag, code)
-
-    jobs = []
-    for sym in S.INDEX_OPTIONS:
-        for offset in _offsets(band):
-            for opt in S.OPTION_TYPES:
-                series = f"{flag}{code}:{offset}:{opt}"
-                for days in pool.windows(_todo(ctx, "index_options_1min", sym, series), S.WINDOW_DAYS):
-                    jobs.append((sym, offset, opt, series, days))
-    jobs.sort(key=lambda j: (j[4][0], j[0]))
-    say(f"index options: {'/'.join(S.INDEX_OPTIONS)} {flag}{code} x ATM+-{band} x {'/'.join(S.OPTION_TYPES)}, "
-        f"{len(jobs)} jobs planned, {sum(len(j[4]) for j in jobs)} series-days left")
-    t0 = time.monotonic()
-
-    def fetch(job):
-        sym, offset, opt, _, days = job
-        payload = partial(_option_payload, ctx.security_id[sym], offset, opt, instrument="OPTIDX", flag=flag)
-        return pool.fetch_split(ctx.dhan, ROLLING, payload, days)
-
-    def handle(job, results):
-        sym, offset, opt, series, days = job
-        _handle(ctx, "index_options_1min", sym, series, days, results, _option_rows(expiry_of, sym, opt, offset),
-                "option_1min", OPTION_COLUMNS, S.WORKERS)
-
-    pool.run(jobs, fetch, handle, S.WORKERS, stop=ctx.time_up, tick=ctx.tick)
-    say(f"index options: {len(jobs)} jobs, {(time.monotonic() - t0) / 60:.1f} min")

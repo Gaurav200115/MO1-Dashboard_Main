@@ -329,49 +329,6 @@ def atm_strike_at(by_strike, band, minute):
     return strike, bar
 
 
-# ---------------- index options (the NIFTY opening-range rule) ----------------
-
-# 11 strikes x CE/PE - the downloader's INDEX_STRIKE_BAND = 5. Index options are
-# in option_1min beside the stock ones, with their own done markers.
-INDEX_DATASET = "index_options_1min"
-INDEX_SERIES_PER_DAY = 22
-INDEX_SYMBOLS = ["NIFTY"]
-
-
-def index_coverage(conn, day, symbol):
-    """How many of the index's option series were downloaded for `day`."""
-    row = conn.execute(
-        "SELECT count(*) FROM done WHERE dataset = %s AND d = %s AND symbol = %s",
-        (INDEX_DATASET, day, symbol)).fetchone()
-    return row[0] if row else 0
-
-
-def index_entry_expiry(conn, day, symbol):
-    """The weekly expiry stored for `day` - the nearest on or after it, which is
-    what the downloader asked Dhan for (WEEK, expiry code 1). Read from that
-    day's own rows rather than the whole table, which is both cheaper and
-    exactly the contract that was archived."""
-    start = dt.datetime.combine(day, dt.time(0, 0), tzinfo=IST)
-    row = conn.execute(
-        "SELECT min(expiry_date) FROM option_1min WHERE symbol = %s AND ts >= %s AND ts < %s",
-        (symbol, start, start + dt.timedelta(days=1))).fetchone()
-    return row[0] if row and row[0] else None
-
-
-def index_lot_size(conn, day, symbol, expiry):
-    """The contract's lot size as of `day`, from the F&O bhavcopy.
-
-    NSE revises index lot sizes (NIFTY went from 75 to 65), so a fixed number
-    would misprice every trade on one side of the change. The bhavcopy carries
-    it from 2024-07-08 on.
-    """
-    row = conn.execute(
-        "SELECT lot_size FROM fo_bhavcopy WHERE symbol = %s AND instrument = 'OPTIDX' "
-        "AND expiry_date = %s AND trade_date <= %s AND lot_size IS NOT NULL "
-        "ORDER BY trade_date DESC LIMIT 1", (symbol, expiry, day)).fetchone()
-    return int(row[0]) if row and row[0] else None
-
-
 def archive_coverage(conn):
     """What the archive holds, for the dashboard to show beside the date pickers.
 
@@ -383,21 +340,12 @@ def archive_coverage(conn):
     Option minute data is the binding constraint: spot and the NSE files cover
     all ~200 stocks, options only the ~100 most liquid, chosen afresh each month.
     """
-    out = {"options": None, "spot": None, "months": [], "indexOptions": None}
+    out = {"options": None, "spot": None, "months": []}
 
     row = conn.execute(
-        "SELECT count(DISTINCT symbol), min(ts)::date, max(ts)::date FROM option_1min "
-        "WHERE symbol <> ALL(%s)", (INDEX_SYMBOLS,)).fetchone()
+        "SELECT count(DISTINCT symbol), min(ts)::date, max(ts)::date FROM option_1min").fetchone()
     if row and row[0]:
         out["options"] = {"stocks": row[0], "from": str(row[1]), "to": str(row[2])}
-
-    row = conn.execute(
-        "SELECT min(d), max(d), count(*) FROM ("
-        "  SELECT d FROM done WHERE dataset = %s GROUP BY d HAVING count(*) >= %s) x",
-        (INDEX_DATASET, INDEX_SERIES_PER_DAY)).fetchone()
-    if row and row[2]:
-        out["indexOptions"] = {"symbol": INDEX_SYMBOLS[0], "from": str(row[0]),
-                               "to": str(row[1]), "days": row[2]}
 
     row = conn.execute(
         "SELECT count(DISTINCT symbol), min(ts)::date, max(ts)::date FROM spot_1min").fetchone()
