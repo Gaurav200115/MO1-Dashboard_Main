@@ -18,7 +18,29 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]                   # the code folder
-DATA_DIR = Path(os.environ.get("BACKTEST_DATA_DIR") or ROOT)
+INSTALLED = Path("/opt/backtest")
+
+
+def _data_dir():
+    """Where .env and logs live.
+
+    BACKTEST_DATA_DIR wins, which is how the systemd unit points the worker at
+    its folder. Failing that, the installed location if it is actually there -
+    without this, running run.py by hand on the VPS looks in the code folder,
+    finds no .env and reports DATABASE_URL as unset while it sits in
+    /opt/backtest all along. The CLI is meant to be run by hand, so it has to
+    find what install.sh created without being told. Last, the code folder, for
+    a local checkout with no install.
+    """
+    named = os.environ.get("BACKTEST_DATA_DIR")
+    if named:
+        return Path(named)
+    if (INSTALLED / ".env").exists():
+        return INSTALLED
+    return ROOT
+
+
+DATA_DIR = _data_dir()
 LOGS = DATA_DIR / "logs"
 IST = dt.timezone(dt.timedelta(hours=5, minutes=30))
 
@@ -56,7 +78,11 @@ ENV = _load_env()
 def need(key):
     value = ENV.get(key)
     if not value:
-        raise SystemExit(f"{key} is not set - add it to {DATA_DIR / '.env'}")
+        where = DATA_DIR / ".env"
+        hint = "" if where.exists() else (
+            f"\n  ({where} does not exist. If the data folder is somewhere else, "
+            f"put BACKTEST_DATA_DIR=<that folder> in front of the command.)")
+        raise SystemExit(f"{key} is not set - add it to {where}{hint}")
     return value
 
 
