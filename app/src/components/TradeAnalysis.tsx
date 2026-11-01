@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { RefreshCw, X } from "lucide-react";
+import type { BacktestRun } from "@/lib/backtest/store";
 import { DASH, fmtPrice, grouped } from "@/lib/format";
 import { istClock, istDate } from "@/lib/strategy/ist";
 import {
@@ -30,6 +31,8 @@ import {
   slotKey,
   slotLabel,
   SLOT_MIN,
+  compareTrails,
+  peakBreakdown,
   peakLabel,
   sortPeaks,
   sortPivots,
@@ -80,24 +83,50 @@ const CALENDAR_MONTHS = 6;
  * against the next. Every filter combines with AND, and every breakdown row is
  * itself a filter: click it to narrow to that slice.
  */
-export default function TradeAnalysis() {
+export default function TradeAnalysis({
+  runId = null,
+  onClearRun,
+}: {
+  /**
+   * A backtest run to read instead of the live record. Backtest trades are
+   * stored in the same shape as live ones, which is the whole reason this page
+   * can show them at all — every filter, breakdown and panel below works
+   * unchanged. What must not happen is the two being confused for each other,
+   * so a run is always announced in a banner and never silently mixed in.
+   */
+  runId?: string | null;
+  onClearRun?: () => void;
+} = {}) {
   const [raw, setRaw] = useState<StrategyTrade[] | null>(null);
+  const [run, setRun] = useState<BacktestRun | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [f, setF] = useState<Filters>(EMPTY_FILTERS);
 
   const load = useCallback(() => {
     setLoading(true);
-    fetch("/api/trades?range=1")
+    const url = runId ? `/api/backtest?run=${encodeURIComponent(runId)}` : "/api/trades?range=1";
+    fetch(url, { cache: "no-store" })
       .then(async (response) => {
-        const payload = (await response.json()) as { trades?: StrategyTrade[]; error?: string };
+        const payload = (await response.json()) as {
+          trades?: StrategyTrade[];
+          run?: BacktestRun;
+          error?: string;
+        };
         if (!response.ok || payload.error) throw new Error(payload.error ?? `HTTP ${response.status}`);
         setRaw(payload.trades ?? []);
+        setRun(payload.run ?? null);
         setError(null);
       })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : "Could not load trades"))
       .finally(() => setLoading(false));
-  }, []);
+  }, [runId]);
+
+  // A different run (or back to live) is a different dataset, not a refresh.
+  useEffect(() => {
+    setRaw(null);
+    setF(EMPTY_FILTERS);
+  }, [runId]);
 
   useEffect(load, [load]);
 
@@ -129,7 +158,7 @@ export default function TradeAnalysis() {
 
   if (raw === null) {
     return (
-      <Panel title="Trade analysis">
+      <Panel title={runId ? "Backtest" : "Trade analysis"}>
         <p className="px-4 py-4 text-[12px] text-muted">{error ? error : "Loading the trade record…"}</p>
       </Panel>
     );
@@ -137,6 +166,8 @@ export default function TradeAnalysis() {
 
   return (
     <div className="flex flex-col gap-4">
+      {run ? <BacktestBanner run={run} onClear={onClearRun} /> : null}
+
       <FilterBar
         f={f}
         set={set}
@@ -166,6 +197,7 @@ export default function TradeAnalysis() {
           pivotBase={pivotBase}
           pivots={options.pivots}
           pivotOut={f.pivotOut}
+          peaks={options.peaks}
         />
       )}
     </div>
@@ -182,12 +214,14 @@ function Results({
   pivotBase,
   pivots,
   pivotOut,
+  peaks,
 }: {
   rows: AnalysedTrade[];
   set: (p: Partial<Filters>) => void;
   pivotBase: AnalysedTrade[];
   pivots: string[];
   pivotOut: string[];
+  peaks: string[];
 }) {
   const s = useMemo(() => statsOf(rows), [rows]);
   const dayList = useMemo(() => dayResults(rows), [rows]);
@@ -341,6 +375,8 @@ function Results({
         pivotOut={pivotOut}
         setOut={(next) => set({ pivotOut: next })}
       />
+
+      <PeakPanel rows={rows} onPick={(k) => set({ peakOut: peaks.filter((x) => x !== k) })} />
 
       <TrailPanel rows={rows} />
 
@@ -898,6 +934,60 @@ function Select({
 // Pieces
 // ---------------------------------------------------------------------------
 
+/**
+ * Says plainly that these are not live trades.
+ *
+ * The page is identical either way, which is the point and also the risk: a
+ * backtest read as the live record is the most expensive mistake this screen
+ * could cause. The banner is not dismissible, and it carries the two numbers
+ * that decide how much weight the run deserves — how many of its trades rested
+ * on the approximated book gate, and what the result looks like without them.
+ */
+function BacktestBanner({ run, onClear }: { run: BacktestRun; onClear?: () => void }) {
+  const approx = run.gateCounts?.approx ?? 0;
+  const ex = run.summaryExApprox;
+  const net = run.summary?.net ?? 0;
+
+  return (
+    <section className="rounded-md border border-alert bg-alertsoft px-4 py-3">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <h2 className="font-display text-[11px] font-bold uppercase tracking-[0.13em] text-alert">
+          Backtest, not live
+        </h2>
+        <span className="font-mono text-[11.5px] text-ink2">
+          {run.from} → {run.to} · {run.strategies?.map((s) => `v${s.version}`).join(", ")}
+        </span>
+        {onClear ? (
+          <button
+            type="button"
+            onClick={onClear}
+            className="ml-auto rounded-[4px] border border-line bg-surface px-2 py-0.5 text-[11.5px] text-ink2 hover:bg-surface2"
+          >
+            Back to live trades
+          </button>
+        ) : null}
+      </div>
+      <p className="mt-1 max-w-[86ch] text-[11.5px] leading-snug text-ink2">
+        Replayed from the archive on the VPS. Entries are filled at the entry minute&rsquo;s close
+        rather than at an ask, which flatters every trade by about half a spread.
+        {approx > 0 && ex ? (
+          <>
+            {" "}
+            <strong className="font-semibold">{approx}</strong> of these trades rested on the
+            approximated book gate; without them the run is {ex.trades} trades at{" "}
+            <strong className="font-semibold">
+              {ex.net < 0 ? "−" : "+"}₹{Math.abs(Math.round(ex.net)).toLocaleString("en-IN")}
+            </strong>{" "}
+            against {net < 0 ? "−" : "+"}₹
+            {Math.abs(Math.round(net)).toLocaleString("en-IN")} with them. If those two are far
+            apart, the result rests on the approximation rather than on the rule.
+          </>
+        ) : null}
+      </p>
+    </section>
+  );
+}
+
 function Panel({
   title,
   aside,
@@ -989,6 +1079,86 @@ function MiniTile({
  * figure on the page) against what was left out.
  */
 /**
+ * How far trades ran, and how many still ended red.
+ *
+ * The column that earns this panel its place is "still lost": a trade that
+ * reached 2R was 1,100 rupees up at its best, and the live rule does not move
+ * the stop until 1:3, so it can give every paisa back and close red. The
+ * blotter shows only the loss; this shows how it got there.
+ */
+function PeakPanel({
+  rows,
+  onPick,
+}: {
+  rows: AnalysedTrade[];
+  onPick: (key: string) => void;
+}) {
+  const buckets = useMemo(() => peakBreakdown(rows), [rows]);
+  if (buckets.length === 0) return null;
+
+  const ratcheted = buckets.filter((b) => b.key !== "none");
+  const lostAfterRunning = ratcheted.reduce((n, b) => n + b.lost, 0);
+  const handedBack = ratcheted.reduce((n, b) => n + b.givenBack, 0);
+
+  return (
+    <Panel
+      title="How far trades ran"
+      aside="Click a row to filter the page to it"
+    >
+      {ratcheted.length > 0 ? (
+        <div className="border-b border-line px-4 py-2.5 text-[11.5px] text-ink2">
+          <strong className="text-neg">{lostAfterRunning}</strong>{" "}
+          {lostAfterRunning === 1 ? "trade" : "trades"} reached 2R or better and still closed at a
+          loss, handing back <Money v={-handedBack} /> between every trade that ratcheted.
+        </div>
+      ) : null}
+
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse text-[12px]">
+          <thead>
+            <tr className="text-[10px] uppercase tracking-[0.08em] text-muted">
+              <Th className="text-left">Reached</Th>
+              <Th>Trades</Th>
+              <Th>Still lost</Th>
+              <Th>Won</Th>
+              <Th>Net P&amp;L</Th>
+              <Th>Given back</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {buckets.map((b) => (
+              <tr
+                key={b.key}
+                onClick={() => onPick(b.key)}
+                className="cursor-pointer border-t border-line hover:bg-surface2"
+                title={`Show only the trades that reached ${b.label}`}
+              >
+                <Td className="text-left font-semibold">{b.label}</Td>
+                <Td>{b.trades}</Td>
+                <Td className={b.lost > 0 ? "font-semibold text-neg" : "text-faint"}>
+                  {b.lost || DASH}
+                </Td>
+                <Td className={b.won > 0 ? "text-pos" : "text-faint"}>{b.won || DASH}</Td>
+                <Td><Money v={b.net} /></Td>
+                <Td className="text-muted">
+                  {b.key === "none" ? DASH : `₹${grouped(Math.round(b.givenBack))}`}
+                </Td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="border-t border-line px-4 py-2 text-[10.5px] leading-snug text-faint">
+        "Reached" is the highest rung the premium actually touched, taken from the ladder, so it is
+        known to within 1R and only for trades that ratcheted at all. "Given back" is what that rung
+        was worth less what the trade banked.
+      </div>
+    </Panel>
+  );
+}
+
+/**
  * Trailing-stop what-if.
  *
  * Re-prices the filtered trades under a different trail, so a configuration can
@@ -1009,6 +1179,10 @@ function TrailPanel({ rows }: { rows: AnalysedTrade[] }) {
       traded: rows.reduce((sum, a) => sum + a.profit, 0),
     };
   }, [rows, gap]);
+
+  // The head-to-head that is actually on the table, independent of the sweep's
+  // gap selector: today's rule against the ones the exit study put forward.
+  const named = useMemo(() => compareTrails(rows), [rows]);
 
   if (rows.length === 0) return null;
 
@@ -1038,6 +1212,41 @@ function TrailPanel({ rows }: { rows: AnalysedTrade[] }) {
             {live.untouched} of {rows.length} never reached 2R, so no start below touches them
           </span>
         </div>
+      </div>
+
+      <div className="overflow-x-auto border-b border-line">
+        <table className="w-full border-collapse text-[12px]">
+          <thead>
+            <tr className="text-[10px] uppercase tracking-[0.08em] text-muted">
+              <Th className="text-left">Rule</Th>
+              <Th className="text-left">Where the stop goes</Th>
+              <Th>Net R</Th>
+              <Th>Net P&amp;L</Th>
+              <Th>vs live rule</Th>
+              <Th>Trades changed</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {named.map((r) => (
+              <tr key={r.key} className={`border-t border-line ${r.key === "live" ? "" : "bg-sunken"}`}>
+                <Td className="text-left font-semibold">{r.label}</Td>
+                <Td className="text-left font-sans text-[11px] text-muted">{r.detail}</Td>
+                <Td>{r.netR.toFixed(2)}</Td>
+                <Td><Money v={r.net} /></Td>
+                <Td className={r.vsLiveR > 0 ? "text-pos" : r.vsLiveR < 0 ? "text-neg" : "text-faint"}>
+                  {r.key === "live"
+                    ? DASH
+                    : `${r.vsLiveR >= 0 ? "+" : "−"}${Math.abs(r.vsLiveR).toFixed(2)}R`}
+                </Td>
+                <Td className="text-muted">{r.key === "live" ? DASH : r.changedVsLive}</Td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="px-4 pt-3 text-[10.5px] uppercase tracking-[0.1em] text-faint">
+        Or sweep where the trail begins
       </div>
 
       <div className="overflow-x-auto">

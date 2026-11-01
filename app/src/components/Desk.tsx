@@ -26,6 +26,7 @@ import SectorRail, {
   ALL,
   ANALYSIS,
   ARCHIVE,
+  BACKTEST,
   CURRENT,
   DOWNLOAD,
   HIST_MONTHS,
@@ -37,6 +38,7 @@ import SectorRail, {
 import SectorRotation from "./SectorRotation";
 import ThemeToggle from "./ThemeToggle";
 import TodaysSpecial from "./TodaysSpecial";
+import Backtest from "./Backtest";
 import TradeAnalysis from "./TradeAnalysis";
 import TradeBlotter from "./TradeBlotter";
 
@@ -47,6 +49,12 @@ export default function Desk({ data, floats }: { data: DeskIndex; floats: FloatT
   const [sortDir, setSortDir] = useState<1 | -1>(-1);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState<string | null>(null);
+  /**
+   * A backtest run being read on the Trade analysis page. Held here rather than
+   * inside that component so opening a run from the Backtest panel can switch
+   * the view and load it in one step.
+   */
+  const [backtestRun, setBacktestRun] = useState<string | null>(null);
 
   const { quotes, feed } = useQuotes();
   const { report } = useEod();
@@ -264,7 +272,14 @@ export default function Desk({ data, floats }: { data: DeskIndex; floats: FloatT
           ) : sector === TRADES ? (
             <TradeBlotter data={tradeData} />
           ) : sector === ANALYSIS ? (
-            <TradeAnalysis />
+            <TradeAnalysis runId={backtestRun} onClearRun={() => setBacktestRun(null)} />
+          ) : sector === BACKTEST ? (
+            <Backtest
+              onOpenRun={(runId) => {
+                setBacktestRun(runId);
+                setSector(ANALYSIS);
+              }}
+            />
           ) : sector === DOWNLOAD ? (
             <DataDownload />
           ) : sector === HIST_MONTHS ? (

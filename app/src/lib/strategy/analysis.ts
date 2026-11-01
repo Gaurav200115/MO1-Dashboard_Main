@@ -467,6 +467,7 @@ export const EXIT_LABELS: Record<string, string> = {
   "eod-flatten": "End-of-day flatten",
   manual: "Manual",
   "no-quote": "No quote",
+  "out-of-band": "Ran past the archive",
 };
 
 export const DOW_LABELS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -781,6 +782,125 @@ export function simulateTrail(
   }
 
   return { netR, net, untouched, perTrade };
+}
+
+/**
+ * How many trades reached each rung, and how many of them still ended red.
+ *
+ * The question this answers is narrow and worth having on screen: a trade that
+ * touched 2R was, for a moment, 1,100 rupees up. Under a rule whose stop does
+ * not move until 1:3 it can hand all of that back and close at a loss, and the
+ * blotter shows only the loss. Counting those is the whole point.
+ *
+ * `givenBack` is what the rung was worth less what was actually banked, so it
+ * reads as the cost of the round trip rather than as a profit that never
+ * existed. It is only meaningful where the peak is known at all.
+ */
+export interface PeakBucket {
+  key: string;
+  label: string;
+  trades: number;
+  lost: number;
+  won: number;
+  scratched: number;
+  net: number;
+  /** Rupees between what the peak was worth and what the trade banked. */
+  givenBack: number;
+}
+
+export function peakBreakdown(rows: AnalysedTrade[]): PeakBucket[] {
+  const byKey = new Map<string, AnalysedTrade[]>();
+  for (const row of rows) {
+    const key = peakKey(row.peak);
+    const list = byKey.get(key);
+    if (list) list.push(row);
+    else byKey.set(key, [row]);
+  }
+
+  return sortPeaks(byKey.keys()).map((key) => {
+    const list = byKey.get(key) ?? [];
+    let net = 0;
+    let givenBack = 0;
+    let lost = 0;
+    let won = 0;
+    let scratched = 0;
+    for (const row of list) {
+      net += row.profit;
+      if (row.outcome === "LOSS") lost += 1;
+      else if (row.outcome === "WIN") won += 1;
+      else scratched += 1;
+      if (row.peak !== null) {
+        const risk = row.trade.riskPerUnit * row.trade.qty;
+        givenBack += row.peak * risk - row.profit;
+      }
+    }
+    return { key, label: peakLabel(key), trades: list.length, lost, won, scratched, net, givenBack };
+  });
+}
+
+/**
+ * The handful of configurations worth comparing head to head, rather than by
+ * sweeping. A sweep answers "where is the optimum"; this answers the question
+ * actually on the table — is the rule we run worse than the one the exit study
+ * recommended, and by how much, on the trades we have.
+ */
+export interface NamedTrail {
+  key: string;
+  label: string;
+  detail: string;
+  stopR: (peak: number) => number;
+}
+
+export const NAMED_TRAILS: NamedTrail[] = [
+  {
+    key: "live",
+    label: "Live today",
+    detail: "Nothing at 1:2 · 1:3 locks 1R · one step behind above that",
+    stopR: liveStopR,
+  },
+  {
+    key: "breakeven2",
+    label: "Exit study recommendation",
+    detail: "1:2 moves to breakeven · one step behind from 1:3",
+    stopR: (peak) => (peak < 2 ? -1 : peak === 2 ? 0 : peak - 1),
+  },
+  {
+    key: "lock2",
+    label: "Lock a full step at 1:2",
+    detail: "1:2 locks 1R · one step behind all the way up",
+    stopR: (peak) => (peak < 2 ? -1 : peak - 1),
+  },
+];
+
+export interface NamedTrailRow extends Omit<TrailOutcome, "perTrade"> {
+  key: string;
+  label: string;
+  detail: string;
+  vsLiveR: number;
+  changedVsLive: number;
+}
+
+/** Prices every named configuration, with the live rule as the reference point. */
+export function compareTrails(
+  rows: AnalysedTrade[],
+  trails: NamedTrail[] = NAMED_TRAILS
+): NamedTrailRow[] {
+  const live = simulateTrail(rows, liveStopR);
+  return trails.map((trail) => {
+    const { perTrade, ...outcome } = simulateTrail(rows, trail.stopR);
+    let changedVsLive = 0;
+    for (let i = 0; i < perTrade.length; i += 1) {
+      if (Math.abs(perTrade[i] - live.perTrade[i]) > 0.01) changedVsLive += 1;
+    }
+    return {
+      ...outcome,
+      key: trail.key,
+      label: trail.label,
+      detail: trail.detail,
+      vsLiveR: outcome.netR - live.netR,
+      changedVsLive,
+    };
+  });
 }
 
 export interface TrailRow extends Omit<TrailOutcome, "perTrade"> {

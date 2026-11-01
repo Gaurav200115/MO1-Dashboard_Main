@@ -1,0 +1,26 @@
+# Template - install.sh writes it to /etc/systemd/system/backtest-worker.service with the
+# @...@ values filled in. Long-running: polls MongoDB for queued runs and replays them one at a
+# time. Deliberately a separate service from marketdata-backfill, so a three-month backtest
+# cannot delay the nightly download and a download failure cannot stop a backtest.
+[Unit]
+Description=Strategy backtest worker (replays queued runs from the market-data archive)
+After=network-online.target postgresql-17.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=@RUN_USER@
+WorkingDirectory=@CODE_DIR@
+Environment=BACKTEST_DATA_DIR=@DATA_DIR@
+ExecStart=@DATA_DIR@/venv/bin/python -m backtest.worker
+Restart=always
+RestartSec=30
+# keep the MO1 dashboard and the nightly download responsive: the replay is
+# PostgreSQL-bound and should always yield to them
+Nice=15
+MemoryMax=1G
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
