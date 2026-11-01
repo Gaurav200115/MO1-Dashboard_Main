@@ -21,6 +21,7 @@ LABELS = {
     "spot_1min": "Spot 1-minute",
     "vix_1min": f"India VIX 1-minute (last {S.VIX_YEARS} years)",
     "futures_1min": "Futures 1-minute (live contracts)",
+    "index_options_1min": "NIFTY options 1-minute (weekly)",
     "options_1min": "Options 1-minute",
 }
 
@@ -52,6 +53,10 @@ class Progress:
                 self.plan[name] = (len(days), [S.VIX], "1m")
             elif name == "futures_1min":
                 self.plan[name] = (futures_contracts * n, fno, "FUT:%")
+            elif name == "index_options_1min":
+                series = (2 * S.INDEX_STRIKE_BAND + 1) * len(S.OPTION_TYPES)
+                self.plan[name] = (len(S.INDEX_OPTIONS) * series * n, list(S.INDEX_OPTIONS),
+                                   f"{S.INDEX_EXPIRY_FLAG}{S.EXPIRY_CODE}:%")
             elif name == "options_1min" and band:
                 series = (2 * band + 1) * len(S.OPTION_TYPES)
                 pieces = sum(len(days) for days in ctx.option_days.values()) * series

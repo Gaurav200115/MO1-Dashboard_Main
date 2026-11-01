@@ -13,6 +13,8 @@ Every command that replays takes --setups, defaulting to all of them:
     --setups B        the long support-hold-and-cross, on its own
     --setups C        the short, on its own
     --setups A B C    all three, sharing the desk's three-position cap
+    --setups ORB      the NIFTY 15-minute opening range - backtest only, never
+                      live, and always in a run of its own
 
 `levels` and `session` print and store nothing. `now` and `queue` write to Mongo.
 """
@@ -27,9 +29,10 @@ from backtest.runner import data_revision, fingerprint, replay_session, run_rang
 from backtest.strategies import (ALL_SETUPS, SETUPS, STRATEGIES, check_against_registry,
                                  describe, selection)
 
-# Every leg by default - that is what the desk runs. Narrow it with --setups
-# to find out which leg is carrying the result.
-DEFAULT_SETUPS = ALL_SETUPS
+# Every leg the desk runs, by default. Narrow it with --setups to find out which
+# leg is carrying the result. Standalone rules (ORB) are only ever asked for.
+DEFAULT_SETUPS = [s for s, meta in SETUPS.items()
+                  if not STRATEGIES[meta["strategy"]].get("standalone")]
 
 
 def _results():
@@ -104,6 +107,16 @@ def cmd_coverage(args):
                 "  GROUP BY symbol, d HAVING count(*) >= %s) x "
                 "GROUP BY m ORDER BY m", (archive.OPTION_SERIES_PER_DAY,)):
             print(f"    {month:%Y-%m}   {days:>6,} stock-days   {symbols:>3} stocks")
+
+        print("\nNIFTY OPTIONS (index_options_1min) - for the opening-range rule\n")
+        row = conn.execute(
+            "SELECT min(d), max(d), count(*) FROM ("
+            "  SELECT d FROM done WHERE dataset = %s GROUP BY d HAVING count(*) >= %s) x",
+            (archive.INDEX_DATASET, archive.INDEX_SERIES_PER_DAY)).fetchone()
+        if not row or not row[2]:
+            print("  none yet - add index_options_1min to the downloader's DATASETS")
+        else:
+            print(f"  {row[2]} complete days, {row[0]} to {row[1]}")
 
         print("\nSPOT (spot_1min)\n")
         row = conn.execute(
@@ -229,7 +242,7 @@ def cmd_session(args):
 # ---------------- a range ----------------
 
 def _prepare(conn, args):
-    revision = data_revision(conn, args.start, args.end)
+    revision = data_revision(conn, args.start, args.end, args.setups)
     run_id, payload = fingerprint(args.setups, args.start, args.end,
                                   S.GATE_FLOORS, revision)
     return run_id, payload
