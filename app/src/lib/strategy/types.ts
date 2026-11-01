@@ -198,7 +198,16 @@ export type ExitReason =
   | "trail-stop"
   | "eod-flatten"
   | "manual"
-  | "no-quote";
+  | "no-quote"
+  /**
+   * Backtest only. The archive stores ATM±3 each minute, so a position that
+   * runs far enough stops being in the data — the contract is still live, but
+   * we can no longer see it. The trade is closed at its last known price and
+   * counted, rather than discarded or guessed at. Kept countable under its own
+   * name because such a trade was ended by the edge of the archive and not by
+   * the rule, and a run full of them needs reading with that in mind.
+   */
+  | "out-of-band";
 
 /** One ratchet of the trailing ladder. */
 export interface LadderStep {

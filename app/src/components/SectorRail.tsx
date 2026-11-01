@@ -16,6 +16,8 @@ export const TRADES = "__trades__";
 export const ROTATION = "__rotation__";
 /** The whole paper-trade record, filtered and broken down. */
 export const ANALYSIS = "__analysis__";
+/** Replays of the rules over the archive, and the runs already stored. */
+export const BACKTEST = "__backtest__";
 /** The overnight market-data download (Dhan + NSE -> PostgreSQL on the VPS). */
 export const DOWNLOAD = "__download__";
 /** History analysis: the archive by month — charts, OI and option chains of each month's top 100. */
@@ -137,6 +139,19 @@ export default function SectorRail({
           }`}
         >
           Trade analysis
+        </button>
+        <button
+          type="button"
+          onClick={() => onSelect(BACKTEST)}
+          aria-current={active === BACKTEST}
+          title="Replay the rules over the archived minute data on the VPS, and the runs already stored"
+          className={`flex w-full items-center rounded-[5px] px-2 py-1.5 text-left text-[12.5px] ${
+            active === BACKTEST
+              ? "bg-accentsoft font-semibold text-accent"
+              : "text-ink2 hover:bg-surface2"
+          }`}
+        >
+          Backtest
         </button>
       </div>
 

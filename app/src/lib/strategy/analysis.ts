@@ -467,6 +467,7 @@ export const EXIT_LABELS: Record<string, string> = {
   "eod-flatten": "End-of-day flatten",
   manual: "Manual",
   "no-quote": "No quote",
+  "out-of-band": "Ran past the archive",
 };
 
 export const DOW_LABELS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
