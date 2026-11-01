@@ -92,7 +92,7 @@ def cmd_coverage(args):
         print("OPTIONS (option_1min) - the binding constraint\n")
         row = conn.execute(
             "SELECT count(DISTINCT symbol), min(ts)::date, max(ts)::date, count(*) "
-            "FROM option_1min").fetchone()
+            "FROM option_1min WHERE symbol <> ALL(%s)", (archive.INDEX_SYMBOLS,)).fetchone()
         if not row or not row[0]:
             print("  EMPTY - no option minute data at all. Nothing is backtestable yet.")
         else:
