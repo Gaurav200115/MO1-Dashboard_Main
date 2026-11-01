@@ -64,7 +64,10 @@ def _level_doc(level):
 def trade_document(position, run_id):
     """One closed position as a `strategy_trades`-shaped document."""
     strategy = STRATEGIES[position.strategy_id]
-    side = strategy["sides"][position.setup]
+    # From the contract rather than the setup: every rule buys its option, so a
+    # call is a long and a put a short - and the NIFTY opening-range leg trades
+    # either, depending on which edge broke.
+    side = "LONG" if position.option_type == "CE" else "SHORT"
     context = position.context
 
     return {

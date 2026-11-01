@@ -11,6 +11,7 @@ Downloads NIFTY 200 market data into PostgreSQL (TimescaleDB) on the VPS, every 
 | Corporate actions, F&O ban list | NSE | every day |
 | Spot, 1-minute | Dhan | all 200 + NIFTY |
 | Options, 1-minute, monthly expiry, ATM±3, calls + puts | Dhan | the 100 most liquid F&O stocks, re-chosen every month |
+| NIFTY options, 1-minute, weekly expiry, ATM±5, calls + puts | Dhan | NIFTY, every day (for the opening-range backtest) |
 
 - **Code** lives here and is deployed with the dashboard. **Secrets and runtime files** live in
   `/opt/marketdata` on the VPS (`.env`, Dhan token, logs, `progress/progress.json`) - never in git.

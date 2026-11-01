@@ -25,9 +25,10 @@ STEPS = {
     "spot_1min": minute.spot_1min,
     "vix_1min": minute.vix_1min,
     "futures_1min": minute.futures_1min,
+    "index_options_1min": minute.index_options_1min,
     "options_1min": minute.options_1min,
 }
-DHAN_STEPS = ("spot_1min", "vix_1min", "futures_1min", "options_1min")
+DHAN_STEPS = ("spot_1min", "vix_1min", "futures_1min", "index_options_1min", "options_1min")
 LOCK_ID = 73217        # only one backfill at a time (timer, service and a manual run cannot overlap)
 MARGIN = dt.timedelta(minutes=3)   # stop taking new work this long before the window closes
 
