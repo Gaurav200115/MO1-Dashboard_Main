@@ -34,8 +34,11 @@ def minute_band_state(band, minute, strike):
     return "inside" if low <= strike <= high else "outside"
 
 
-def step_position(position, by_strike, band, minute, flatten_at, risk):
+def step_position(position, by_strike, band, minute, flatten_at, risk, apply=apply_bar):
     """Advances one open position by a single minute. Returns it if it closed.
+
+    `apply` is the exit rule for one minute of the contract - the rupee ladder by
+    default; the NIFTY opening-range rule passes its own points-based stop.
 
     One minute at a time rather than straight to the exit, because the desk's
     3-position cap is shared across every running strategy: a signal at 11:04
@@ -61,20 +64,20 @@ def step_position(position, by_strike, band, minute, flatten_at, risk):
 
     position.last_price, position.last_at = bar["close"], minute
 
-    verdict = apply_bar(position, bar, risk, minute)
+    verdict = apply(position, bar, risk, minute)
     if verdict["action"] == "exit":
         return close_position(position, verdict["price"], minute, verdict["reason"])
     return None
 
 
-def manage_position(position, by_strike, band, minutes, flatten_at, risk):
+def manage_position(position, by_strike, band, minutes, flatten_at, risk, apply=apply_bar):
     """Runs one position to its exit. The single-position case of `step_position`.
 
     A position always closes: on its stop, its trailing stop, the edge of the
     archive, or the flatten.
     """
     for minute in minutes:
-        closed = step_position(position, by_strike, band, minute, flatten_at, risk)
+        closed = step_position(position, by_strike, band, minute, flatten_at, risk, apply)
         if closed is not None:
             return closed
 
