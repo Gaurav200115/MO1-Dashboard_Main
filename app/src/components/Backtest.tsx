@@ -73,18 +73,20 @@ export default function Backtest({ onOpenRun }: { onOpenRun?: (runId: string) =>
     return () => clearInterval(id);
   }, [load, working]);
 
-  // Default to every leg, which is what the desk runs. One leg at a time is how
-  // you find out which of them is carrying the result — but note the cap is
-  // desk-wide, so a single leg on its own gets all three slots and had more
-  // room than it really had.
+  // Default to every leg the desk runs. One leg at a time is how you find out
+  // which of them is carrying the result — but note the cap is desk-wide, so a
+  // single leg on its own gets all three slots and had more room than it really
+  // had. Backtest-only rules are never picked for you.
   useEffect(() => {
     if (reply?.setups && picked.length === 0) {
-      setPicked(reply.setups.map((s) => s.setup));
+      setPicked(reply.setups.filter((s) => !s.standalone).map((s) => s.setup));
     }
   }, [reply, picked.length]);
 
   const coverage = reply?.coverage?.coverage ?? null;
-  const options = coverage?.options ?? null;
+  // A standalone NIFTY run reads NIFTY's options, so its dates are bounded by those.
+  const nifty = (reply?.setups ?? []).some((s) => s.standalone && picked.includes(s.setup));
+  const options = (nifty ? coverage?.indexOptions : coverage?.options) ?? null;
 
   useEffect(() => {
     if (options && !from && !to) {
@@ -191,7 +193,8 @@ function Ask({
   note: string | null;
   onRun: () => void;
 }) {
-  const options = coverage?.options ?? null;
+  const nifty = setups.some((s) => s.standalone && picked.includes(s.setup));
+  const options = (nifty ? coverage?.indexOptions : coverage?.options) ?? null;
   const ready = picked.length > 0 && !!from && !!to && from <= to && !busy;
 
   return (
@@ -212,9 +215,16 @@ function Ask({
                 checked={picked.includes(s.setup)}
                 onChange={(e) =>
                   onPick(
-                    e.target.checked
-                      ? [...picked, s.setup]
-                      : picked.filter((id) => id !== s.setup)
+                    !e.target.checked
+                      ? picked.filter((id) => id !== s.setup)
+                      : s.standalone
+                        ? [s.setup]
+                        : [
+                            ...picked.filter(
+                              (id) => !setups.find((o) => o.setup === id)?.standalone
+                            ),
+                            s.setup,
+                          ]
                   )
                 }
               />
@@ -222,12 +232,21 @@ function Ask({
               {s.label}
               <span
                 className={`rounded-[3px] border px-1 py-px font-mono text-[9.5px] uppercase ${
-                  s.side === "LONG" ? "border-pos text-pos" : "border-neg text-neg"
+                  s.side === "LONG"
+                    ? "border-pos text-pos"
+                    : s.side === "SHORT"
+                      ? "border-neg text-neg"
+                      : "border-linestrong text-muted"
                 }`}
               >
-                {s.side === "LONG" ? "long · CE" : "short · PE"}
+                {s.side === "LONG" ? "long · CE" : s.side === "SHORT" ? "short · PE" : "CE or PE"}
               </span>
               <span className="font-mono text-[11px] text-faint">v{s.version}</span>
+              {s.backtestOnly ? (
+                <span className="rounded-[3px] border border-accent px-1 py-px font-mono text-[9.5px] uppercase text-accent">
+                  backtest only · own run
+                </span>
+              ) : null}
             </label>
           ))}
         </fieldset>
@@ -269,8 +288,12 @@ function Ask({
         </button>
       </div>
 
-      <Coverage coverage={coverage} outOfRange={outOfRange} />
-      {picked.length === 1 ? (
+      {nifty ? (
+        <IndexCoverage coverage={coverage} outOfRange={outOfRange} />
+      ) : (
+        <Coverage coverage={coverage} outOfRange={outOfRange} />
+      )}
+      {picked.length === 1 && !nifty ? (
         <p className="mt-2 text-[11.5px] text-muted">
           One leg on its own gets all three position slots. Run together, the legs compete for
           them and a stock already traded by one cannot be taken by another the same day — so the
@@ -339,6 +362,34 @@ function Coverage({
         </p>
       ) : null}
     </div>
+  );
+}
+
+/** What the archive holds for the NIFTY opening-range rule: NIFTY's own weekly options. */
+function IndexCoverage({
+  coverage,
+  outOfRange,
+}: {
+  coverage: ArchiveCoverage | null;
+  outOfRange: boolean;
+}) {
+  const o = coverage?.indexOptions ?? null;
+  if (!o) {
+    return (
+      <p className="text-[11.5px] text-muted">
+        No NIFTY option data has been reported yet. The downloader fetches it nightly as{" "}
+        <code className="font-mono text-[11px]">index_options_1min</code>; this line fills in once
+        the worker has seen it.
+      </p>
+    );
+  }
+  return (
+    <p className={`text-[11.5px] ${outOfRange ? "text-neg" : "text-muted"}`}>
+      NIFTY weekly options cover <strong className="font-semibold text-ink2">{fmt(o.days)}</strong>{" "}
+      days from <span className="font-mono">{o.from}</span> to{" "}
+      <span className="font-mono">{o.to}</span>
+      {outOfRange ? " — the dates picked fall outside this." : ""}
+    </p>
   );
 }
 

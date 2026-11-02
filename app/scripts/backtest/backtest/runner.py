@@ -26,14 +26,14 @@ import json
 import math
 from collections import defaultdict
 
-from . import db
+from . import db, orb
 from .config import S, ist_time
 from .fills import step_position
 from .gate import CLEAR, assess, fill_price
 from .levels import chain_window, plan_for_stock
 from .position import open_position
 from .signals import Ema, evaluate_symbol, initial_state
-from .strategies import SETUPS, STRATEGIES, option_type, selection
+from .strategies import NIFTY_ORB_15M, SETUPS, STRATEGIES, option_type, selection
 
 # bars.ts: the seed takes the last emaPeriod * 4 settled bars.
 SEED_BAR_MULTIPLE = 4
@@ -168,7 +168,13 @@ def replay_session(conn, day, strategies, floors, log=None, setups=None):
     Narrowing it is how a run replays setup A on its own: the state machine still
     tracks all three phases, because a break that happened while a leg was not
     selected is still a break, but only the selected legs can produce a trade.
+
+    The NIFTY opening-range rule is a different instrument on its own book and
+    has a replay of its own; `selection` guarantees it never arrives mixed in.
     """
+    if strategies[0]["id"] == NIFTY_ORB_15M["id"]:
+        return orb.replay_session(conn, day, strategies[0], log=log)
+
     notes = {"signals": 0, "rejected": defaultdict(int), "skipped": defaultdict(int),
              "bySetup": defaultdict(int), "symbols": 0, "incomplete": 0}
 
@@ -375,12 +381,15 @@ def fingerprint(setup_ids, start, end, floors, data_revision):
     return run_key(setup_ids, start, end), payload
 
 
-def data_revision(conn, start, end):
+def data_revision(conn, start, end, setup_ids=()):
     """Changes whenever the archive under this range changes, so a run made
-    before a gap was backfilled is not silently reused afterwards."""
+    before a gap was backfilled is not silently reused afterwards. Counted on
+    the option data the run actually reads - NIFTY's for the opening-range rule."""
+    index = any(SETUPS[s]["strategy"] == NIFTY_ORB_15M["id"] for s in setup_ids)
+    dataset = db.INDEX_DATASET if index else "options_1min"
     row = conn.execute(
         "SELECT count(*), coalesce(max(finished_at), 'epoch') FROM done "
-        "WHERE dataset = 'options_1min' AND d BETWEEN %s AND %s", (start, end)).fetchone()
+        "WHERE dataset = %s AND d BETWEEN %s AND %s", (dataset, start, end)).fetchone()
     return f"{row[0]}@{row[1]:%Y%m%d%H%M%S}" if row else "0@epoch"
 
 

@@ -70,7 +70,51 @@ BREAKDOWN_RETRACE_21EMA = {
     "risk": dict(SHARED_RISK),
 }
 
-STRATEGIES = {s["id"]: s for s in (BREAKOUT_RETRACE_21EMA, BREAKDOWN_RETRACE_21EMA)}
+# ---------------- backtest-only rules ----------------
+#
+# Not mirrored from registry.ts, because the live desk does not run them and
+# must not: they exist here and nowhere else. `check_against_registry` names the
+# two mirrored constants explicitly, so a rule here is never compared with - or
+# confused for - one the desk trades.
+#
+# NIFTY 15-minute opening range, as Gaurav specified it (2026-11-01):
+#   - the high and low of 09:15-09:29, watched from 09:30
+#   - a 1-minute NIFTY close above the high buys the ATM call; below the low,
+#     the ATM put
+#   - one trade a day: the first break taken, nothing after it
+#   - stop 15 premium points under the fill; at +15 the stop moves to +5, and
+#     every further +5 moves it up another 5 (+20 -> +10, +25 -> +15 ...)
+#   - anything still open at 13:00 is closed at 13:00
+NIFTY_ORB_15M = {
+    "id": "nifty-orb-15m",
+    "version": 1,
+    "name": "NIFTY 15-min Opening Range Breakout",
+    "backtestOnly": True,
+    "standalone": True,
+    "setups": ["ORB"],
+    "setupLabels": {"ORB": "NIFTY opening range break"},
+    # One leg that trades either way: the side is decided by which edge breaks.
+    "sides": {"ORB": "BOTH"},
+    "params": {
+        "symbol": "NIFTY",
+        "rangeStartIst": "09:15",
+        "rangeEndIst": "09:30",          # exclusive: the range is the 09:15-09:29 minutes
+        "breakOn": "1-minute close",
+        "entryCutoffIst": "13:00",
+        "flattenIst": "13:00",
+        "maxTradesPerDay": 1,
+    },
+    "risk": {
+        "lots": 1,
+        "moneyness": "ATM",
+        "stopPoints": 15,
+        "trailStartPoints": 15,
+        "trailLockPoints": 5,
+        "trailStepPoints": 5,
+    },
+}
+
+STRATEGIES = {s["id"]: s for s in (BREAKOUT_RETRACE_21EMA, BREAKDOWN_RETRACE_21EMA, NIFTY_ORB_15M)}
 
 
 # ---------------- setups as the unit of a run ----------------
@@ -86,16 +130,19 @@ STRATEGIES = {s["id"]: s for s in (BREAKOUT_RETRACE_21EMA, BREAKDOWN_RETRACE_21E
 # changes is that a run can replay one leg at a time.
 
 
+_OPTION = {"LONG": "CE", "SHORT": "PE", "BOTH": "CE/PE"}
+
+
 def _setup_index():
     out = {}
-    for strategy in (BREAKOUT_RETRACE_21EMA, BREAKDOWN_RETRACE_21EMA):
+    for strategy in (BREAKOUT_RETRACE_21EMA, BREAKDOWN_RETRACE_21EMA, NIFTY_ORB_15M):
         for setup in strategy["setups"]:
             out[setup] = {
                 "setup": setup,
                 "strategy": strategy["id"],
                 "label": strategy["setupLabels"][setup],
                 "side": strategy["sides"][setup],
-                "option": "CE" if strategy["sides"][setup] == "LONG" else "PE",
+                "option": _OPTION[strategy["sides"][setup]],
                 "version": strategy["version"],
             }
     return out
@@ -118,6 +165,13 @@ def selection(setup_ids):
         if setup not in SETUPS:
             raise SystemExit(f"unknown setup {setup!r} - one of {ALL_SETUPS}")
         chosen.setdefault(SETUPS[setup]["strategy"], set()).add(setup)
+    # A standalone rule trades a different instrument on its own book. Mixed into
+    # a run with the stock legs, the desk's shared three-position cap would decide
+    # between them, which is a question nobody asked.
+    for sid in chosen:
+        if STRATEGIES[sid].get("standalone") and len(chosen) > 1:
+            raise SystemExit(f"setup {', '.join(sorted(chosen[sid]))} runs on its own - "
+                             f"replay it in a run of its own")
     return sorted(chosen), chosen
 
 

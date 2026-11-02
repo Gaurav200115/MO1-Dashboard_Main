@@ -45,6 +45,16 @@ OPTION_STOCKS = 100
 MIN_ATM_OI_LOTS = 500
 RANK_DAYS = 20              # the extra bhavcopy days before the range are downloaded for the first month
 
+# ---------------- index options (for the NIFTY opening-range backtest only) ----------------
+# Every trading day of the range, no liquidity ranking. Stored in option_1min beside the stock
+# options (symbol NIFTY), with their own done markers (dataset index_options_1min), so the
+# stock-option counts, progress and report are unchanged.
+INDEX_OPTIONS = ["NIFTY"]   # must also be in INDEX_SPOT (that is where the Dhan ID comes from)
+INDEX_EXPIRY_FLAG = "WEEK"  # NIFTY options expire weekly; expiry code 1 = the nearest, the
+                            # expiring contract included on its expiry day (measured, Stage 1)
+INDEX_STRIKE_BAND = 5       # ATM-5..ATM+5 = 11 strikes x CE/PE = 22 series a day. Dhan serves up to
+                            # ATM+-10 for index options; +-5 (250 NIFTY points) was measured in Stage 1
+
 # ---------------- failed pieces ----------------
 MAX_ATTEMPTS = 6            # tries per failed piece (about 3 nights: one in the run + one retry pass);
                             # after that it shows as "gave up" on the dashboard and is not retried
@@ -59,7 +69,7 @@ PAUSE_AFTER_CALL = 1.2      # seconds each worker waits after a call
 # Always run first, whatever this list says: the stock list (NIFTY 200 + Dhan IDs, F&O flag, lot
 # size, strike step) and the NSE F&O bhavcopy (every contract's end of day; it also decides the
 # trading days).
-INDEX_SPOT = ["NIFTY"]      # index spot, 1-minute (NIFTY options are not downloaded)
+INDEX_SPOT = ["NIFTY"]      # index spot, 1-minute (NIFTY options: INDEX_OPTIONS above)
 VIX = "INDIA VIX"           # India VIX 1-minute (Dhan index ID 21), stored in spot_1min with the
 VIX_YEARS = 5               # spot, over its own longer range: the last 5 years (~20 Dhan calls)
 DATASETS = [
@@ -70,5 +80,7 @@ DATASETS = [
     "vix_1min",             # Dhan 1-minute India VIX, the last VIX_YEARS years
     # "futures_1min",       # Dhan 1-minute, live futures only - dropped (futures end of day is in the
                             # F&O bhavcopy, which is always downloaded)
+    "index_options_1min",   # Dhan 1-minute NIFTY weekly options, ATM+-INDEX_STRIKE_BAND, calls and
+                            # puts (~1-2 h for a year; before the stock options so it lands first)
     "options_1min",         # Dhan 1-minute options, ATM band, calls and puts
 ]

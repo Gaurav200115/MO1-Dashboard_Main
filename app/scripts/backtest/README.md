@@ -110,6 +110,25 @@ source of truth: `check_against_registry()` re-parses the TypeScript and reports
 worker refuses to start on drift, and `run.py check` prints it. A backtest of a rule the desk is
 not running is worse than no backtest, because it looks like evidence.
 
+## Backtest-only rule: the NIFTY opening range (`--setups ORB`)
+
+`backtest/orb.py`, defined as `NIFTY_ORB_15M` in `strategies.py`. **Not live**: it has no
+counterpart in registry.ts, the drift check never looks at it, and the desk never trades it.
+
+- The range is NIFTY's 09:15–09:29 high and low. From 09:30 the first 1-minute **close** above
+  the high buys the ATM call, below the low the ATM put. **One trade a day** — the first break.
+- Stop 15 **premium** points under the fill. At +15 it moves to +5, and each further +5 lifts it
+  another 5 (+20 → +10, +25 → +15 …). Anything open at 13:00 is closed at 13:00.
+- Priced on NIFTY weekly options (nearest expiry, ATM±5), which the downloader stores as its own
+  dataset `index_options_1min`. Lot size per contract from the F&O bhavcopy (NIFTY's changed).
+- Always a run of its own. It is a different instrument on its own book, so mixing it with the
+  stock legs would let their shared three-position cap decide between them.
+
+```
+python run.py session --day 2026-10-15 --setups ORB
+python run.py now --from 2026-01-01 --to 2026-10-31 --setups ORB
+```
+
 ## Tests
 
 No database and no network — the pure parts of the engine, plus one whole session replayed against
@@ -120,9 +139,10 @@ python tests/test_core.py        the rule: ladder, EMA, levels, all three setups
 python tests/test_fills.py       stops, the flatten, and the edge of the archive
 python tests/test_session.py     one session end to end, the gate, run identity
 python tests/test_strategies.py  every leg: A, B and C apart and together, and the shared cap
+python tests/test_orb.py         the NIFTY opening range: the break, the points trail, 13:00
 ```
 
-185 checks. `test_strategies.py` is the one that keeps the pair honest: each rule can be
+226 checks. `test_strategies.py` is the one that keeps the pair honest: each rule can be
 correct on its own and the two still wrong together. Give the long rule three slots and the
 short rule three more and the replay runs six positions where the desk runs three, on twice
 the risk, with every figure downstream of it inflated.
