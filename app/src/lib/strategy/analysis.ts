@@ -49,6 +49,12 @@ export interface AnalysedTrade {
   peak: number | null;
   strategyKey: string;
   setupKey: string;
+  /**
+   * Your tags on this trade, lower-cased, or empty. Attached here rather than
+   * looked up at each use so that filtering, bucketing and the breakdowns all
+   * see tags the same way every other dimension is seen.
+   */
+  tags: string[];
 }
 
 export function holdKey(sec: number): HoldKey {
@@ -60,7 +66,11 @@ export function holdKey(sec: number): HoldKey {
   return "gt60m";
 }
 
-export function analyse(trades: StrategyTrade[]): AnalysedTrade[] {
+export function analyse(
+  trades: StrategyTrade[],
+  /** Trade id -> tags. Left out, every trade is simply untagged. */
+  tagsById: Record<string, string[]> = {}
+): AnalysedTrade[] {
   // Position within the day is counted over every trade taken that day,
   // open or closed — the 4th entry is the 4th entry whatever became of it.
   const byDay = new Map<string, StrategyTrade[]>();
@@ -97,6 +107,7 @@ export function analyse(trades: StrategyTrade[]): AnalysedTrade[] {
       peak: peakR(t),
       strategyKey: `${t.strategyId}@${t.strategyVersion}`,
       setupKey: `${t.strategyId}:${t.setup}`,
+      tags: tagsById[t._id] ?? [],
     });
   }
   return out.sort((a, b) => a.trade.buy.at - b.trade.buy.at);
@@ -139,6 +150,14 @@ export interface Filters {
   trailed: "" | "yes" | "no";
   nth: "" | NthKey;
   symbol: string;
+  /**
+   * Tags a trade must carry — ALL of them, not any. Narrowing is what a filter
+   * is for, and "bad fill AND gave it back" is a question worth being able to
+   * ask; "bad fill OR gave it back" is answered by looking at two rows of the
+   * tag breakdown. UNTAGGED selects the trades with no tags at all, which is
+   * how you find what you have not looked at yet.
+   */
+  tags: string[];
 }
 
 export const EMPTY_FILTERS: Filters = {
@@ -160,6 +179,7 @@ export const EMPTY_FILTERS: Filters = {
   trailed: "",
   nth: "",
   symbol: "",
+  tags: [],
 };
 
 /** Filter keys other than the date range — what "Clear filters" resets. */
@@ -211,6 +231,13 @@ export function applyFilters(rows: AnalysedTrade[], f: Filters): AnalysedTrade[]
     if (f.trailed === "no" && t.step > 1) return false;
     if (f.nth && nthKey(a.nth) !== f.nth) return false;
     if (symbol && !t.symbol.includes(symbol)) return false;
+    if (f.tags.length) {
+      if (f.tags.includes(UNTAGGED)) {
+        if (a.tags.length > 0) return false;
+      } else if (!f.tags.every((tag) => a.tags.includes(tag))) {
+        return false;
+      }
+    }
     return true;
   });
 }
@@ -469,6 +496,44 @@ export const EXIT_LABELS: Record<string, string> = {
   "no-quote": "No quote",
   "out-of-band": "Ran past the archive",
 };
+
+/** The pseudo-tag for "nothing on this trade", so it can be picked like any other. */
+export const UNTAGGED = "__untagged__";
+
+/**
+ * One row per tag, plus a row for the untagged.
+ *
+ * Not a `breakdown` call, because a trade can carry several tags and belongs in
+ * every one of their rows — the totals deliberately do not sum to the sample.
+ * That is the right shape for the question being asked ("how do the trades I
+ * called a bad fill behave") and the wrong shape for a pie chart, which is why
+ * there isn't one.
+ */
+export function tagBreakdown(rows: AnalysedTrade[]): Bucket[] {
+  const groups = new Map<string, AnalysedTrade[]>();
+  const untagged: AnalysedTrade[] = [];
+
+  for (const a of rows) {
+    if (a.tags.length === 0) {
+      untagged.push(a);
+      continue;
+    }
+    for (const tag of a.tags) {
+      const list = groups.get(tag);
+      if (list) list.push(a);
+      else groups.set(tag, [a]);
+    }
+  }
+
+  const out = [...groups.entries()]
+    .map(([key, g]) => ({ key, label: key, stats: stats(g) }))
+    .sort((a, b) => b.stats.trades - a.stats.trades || a.key.localeCompare(b.key));
+
+  if (untagged.length) {
+    out.push({ key: UNTAGGED, label: "not tagged", stats: stats(untagged) });
+  }
+  return out;
+}
 
 export const DOW_LABELS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 

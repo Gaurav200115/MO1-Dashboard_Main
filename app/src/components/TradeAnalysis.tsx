@@ -1,9 +1,12 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { RefreshCw, X } from "lucide-react";
 import type { BacktestRun } from "@/lib/backtest/store";
+import type { TradeNotes } from "@/lib/useTradeNotes";
+import { useTradeNotes } from "@/lib/useTradeNotes";
+import { TagChips, TradeTagger } from "./TradeTags";
 import { DASH, fmtPrice, grouped } from "@/lib/format";
 import { istClock, istDate } from "@/lib/strategy/ist";
 import {
@@ -17,6 +20,8 @@ import {
   EMPTY_FILTERS,
   EXIT_LABELS,
   fmtDay,
+  tagBreakdown,
+  UNTAGGED,
   fmtHold,
   HOLD_LABELS,
   insights as buildInsights,
@@ -99,6 +104,12 @@ export default function TradeAnalysis({
 } = {}) {
   const [raw, setRaw] = useState<StrategyTrade[] | null>(null);
   const [run, setRun] = useState<BacktestRun | null>(null);
+  /*
+   * A backtest run's notes are scoped to that run, so switching runs does not
+   * drag the previous one's tags along. Live trades pass no run id and get the
+   * whole set.
+   */
+  const notes = useTradeNotes(true, runId);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [f, setF] = useState<Filters>(EMPTY_FILTERS);
@@ -132,7 +143,13 @@ export default function TradeAnalysis({
 
   const set = useCallback((patch: Partial<Filters>) => setF((cur) => ({ ...cur, ...patch })), []);
 
-  const all = useMemo(() => analyse(raw ?? []), [raw]);
+  const tagsById = useMemo(() => {
+    const out: Record<string, string[]> = {};
+    for (const [id, note] of Object.entries(notes.notes)) out[id] = note.tags;
+    return out;
+  }, [notes.notes]);
+
+  const all = useMemo(() => analyse(raw ?? [], tagsById), [raw, tagsById]);
   const rows = useMemo(() => applyFilters(all, f), [all, f]);
   // Every other filter applied, pivots not excluded — so the pivot panel can
   // still show an excluded pivot's figures and let it be switched back on.
@@ -145,15 +162,23 @@ export default function TradeAnalysis({
     const setups = new Map<string, string>();
     const pivots = new Set<string>();
     const peaks = new Set<string>();
-    for (const { trade: t, setupKey, peak } of all) {
+    const tagsUsed = new Set<string>();
+    for (const { trade: t, setupKey, peak, tags } of all) {
       peaks.add(peak === null ? "none" : String(peak));
+      for (const tag of tags) tagsUsed.add(tag);
       const s = strategies.get(t.strategyId) ?? { name: t.strategyName, versions: new Set() };
       s.versions.add(t.strategyVersion);
       strategies.set(t.strategyId, s);
       setups.set(setupKey, `${t.setupLabel} (${t.setup})`);
       if (t.trigger?.level?.pivot) pivots.add(t.trigger.level.pivot);
     }
-    return { strategies, setups, pivots: sortPivots(pivots), peaks: sortPeaks(peaks) };
+    return {
+      strategies,
+      setups,
+      pivots: sortPivots(pivots),
+      peaks: sortPeaks(peaks),
+      tags: [...tagsUsed].sort(),
+    };
   }, [all]);
 
   if (raw === null) {
@@ -198,6 +223,8 @@ export default function TradeAnalysis({
           pivots={options.pivots}
           pivotOut={f.pivotOut}
           peaks={options.peaks}
+          tagStore={notes}
+          runId={runId}
         />
       )}
     </div>
@@ -215,6 +242,8 @@ function Results({
   pivots,
   pivotOut,
   peaks,
+  tagStore,
+  runId,
 }: {
   rows: AnalysedTrade[];
   set: (p: Partial<Filters>) => void;
@@ -222,7 +251,11 @@ function Results({
   pivots: string[];
   pivotOut: string[];
   peaks: string[];
+  /** Not `notes` — this component already has one, and it means insights. */
+  tagStore: TradeNotes;
+  runId: string | null;
 }) {
+  const [tagging, setTagging] = useState<string | null>(null);
   const s = useMemo(() => statsOf(rows), [rows]);
   const dayList = useMemo(() => dayResults(rows), [rows]);
   const notes = useMemo(() => buildInsights(rows, s), [rows, s]);
@@ -257,6 +290,7 @@ function Results({
       level: breakdown(rows, (a) => a.trade.trigger?.level?.kind ?? null, (k) => (k === "support" ? "Off a support" : "Off a resistance"), ["support", "resistance"]),
       trailed: breakdown(rows, (a) => (a.trade.step > 1 ? "yes" : "no"), (k) => (k === "yes" ? "Reached the trail" : "Never trailed"), ["yes", "no"]),
       symbol: breakdown(rows, (a) => a.trade.symbol, (k) => k),
+      tags: tagBreakdown(rows),
     };
   }, [rows]);
 
@@ -447,6 +481,15 @@ function Results({
         <Breakdown title="Trigger level" buckets={b.level} onPick={(k) => set({ level: k as Filters["level"] })} />
       </div>
 
+      {b.tags.length > 0 ? (
+        <Breakdown
+          title="Your tags"
+          aside="A trade counts in every tag it carries, so these do not sum to the sample"
+          buckets={b.tags}
+          onPick={(k) => set({ tags: [k] })}
+        />
+      ) : null}
+
       <Breakdown
         title="Symbols"
         aside={b.symbol.length > 20 ? "Top 10 and bottom 10 by net P&L" : "Best to worst by net P&L"}
@@ -474,11 +517,17 @@ function Results({
                 <Th className="text-left">Exit</Th>
                 <Th>R</Th>
                 <Th>P&amp;L</Th>
+                <Th className="text-left">Tags</Th>
               </tr>
             </thead>
             <tbody>
               {recent.map((a) => (
-                <tr key={a.id} className="border-t border-line hover:bg-surface2">
+                <Fragment key={a.id}>
+                <tr
+                  className="cursor-pointer border-t border-line hover:bg-surface2"
+                  onClick={() => setTagging((cur) => (cur === a.id ? null : a.id))}
+                  title="Click to tag this trade or leave a note"
+                >
                   <Td className="text-left font-sans text-ink2">{fmtDay(a.date)}</Td>
                   <Td className="text-left">{istClock(a.trade.buy.at)}</Td>
                   <td className="px-3 py-1.5 align-top">
@@ -503,7 +552,34 @@ function Results({
                   <Td>
                     <Money v={a.profit} />
                   </Td>
+                  <td className="px-3 py-1.5 align-top">
+                    <TagChips note={tagStore.notes[a.id]} />
+                  </td>
                 </tr>
+
+                {tagging === a.id ? (
+                  <tr className="border-t border-line bg-sunken">
+                    <td colSpan={12} className="px-4 py-3">
+                      <TradeTagger
+                        target={{
+                          id: a.id,
+                          source: runId ? "backtest" : "live",
+                          runId: runId ?? null,
+                          tradingDate: a.date,
+                          symbol: a.trade.symbol,
+                        }}
+                        note={tagStore.notes[a.id]}
+                        tags={tagStore.tags}
+                        onSave={tagStore.save}
+                        disabled={!tagStore.configured}
+                      />
+                      {tagStore.error ? (
+                        <p className="mt-1 text-[10.5px] text-neg">{tagStore.error}</p>
+                      ) : null}
+                    </td>
+                  </tr>
+                ) : null}
+                </Fragment>
               ))}
             </tbody>
           </table>
@@ -536,6 +612,7 @@ function FilterBar({
     setups: Map<string, string>;
     pivots: string[];
     peaks: string[];
+    tags: string[];
   };
   shown: number;
   total: number;
@@ -712,6 +789,63 @@ function FilterBar({
                 className="text-[11px] text-accent"
               >
                 Include all
+              </button>
+            ) : null}
+          </Row>
+        ) : null}
+
+        {options.tags.length > 0 ? (
+          <Row label="Tags">
+            <div className="flex flex-wrap gap-1">
+              {options.tags.map((tag) => {
+                const on = f.tags.includes(tag);
+                return (
+                  <button
+                    key={tag}
+                    type="button"
+                    aria-pressed={on}
+                    title={
+                      on
+                        ? `Showing only trades tagged "${tag}"`
+                        : `Narrow to trades tagged "${tag}"`
+                    }
+                    onClick={() =>
+                      set({
+                        tags: on
+                          ? f.tags.filter((x) => x !== tag)
+                          : [...f.tags.filter((x) => x !== UNTAGGED), tag],
+                      })
+                    }
+                    className={chipCls(on)}
+                  >
+                    {tag}
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                aria-pressed={f.tags.includes(UNTAGGED)}
+                title="The trades you have not tagged at all"
+                onClick={() =>
+                  set({ tags: f.tags.includes(UNTAGGED) ? [] : [UNTAGGED] })
+                }
+                className={chipCls(f.tags.includes(UNTAGGED))}
+              >
+                not tagged
+              </button>
+            </div>
+            <span className="text-[10.5px] text-faint">
+              {f.tags.length > 1
+                ? "Trades carrying all of these"
+                : "Click a tag to narrow to it"}
+            </span>
+            {f.tags.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => set({ tags: [] })}
+                className="text-[11px] text-accent"
+              >
+                Clear
               </button>
             ) : null}
           </Row>
