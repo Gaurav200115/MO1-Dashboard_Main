@@ -10,6 +10,9 @@ import type {
   StrategyTrade,
 } from "@/lib/strategy/types";
 import type { TradesResult } from "@/lib/useTrades";
+import type { TradeNotes } from "@/lib/useTradeNotes";
+import { useTradeNotes } from "@/lib/useTradeNotes";
+import { TagChips, TradeTagger } from "./TradeTags";
 
 /**
  * The blotter: every paper trade the strategy engine took, by day.
@@ -62,6 +65,12 @@ function peakDeployed(trades: StrategyTrade[]): number {
 }
 
 export default function TradeBlotter({ data }: { data: TradesResult }) {
+  /*
+   * Tags live in their own collection and are loaded once for the day, not per
+   * row: a hook inside TradeRow would be a request per trade, and the row would
+   * then have to re-fetch every time the blotter polls.
+   */
+  const notes = useTradeNotes(true);
   const { trades, days, strategies, engines, date, loading, error, configured, select } = data;
   const [expanded, setExpanded] = useState<string | null>(null);
 
@@ -181,6 +190,7 @@ export default function TradeBlotter({ data }: { data: TradesResult }) {
                   <TradeRow
                     key={trade._id}
                     trade={trade}
+                    notes={notes}
                     expanded={expanded === trade._id}
                     onToggle={() =>
                       setExpanded((current) => (current === trade._id ? null : trade._id))
@@ -229,10 +239,12 @@ export default function TradeBlotter({ data }: { data: TradesResult }) {
 
 function TradeRow({
   trade,
+  notes,
   expanded,
   onToggle,
 }: {
   trade: StrategyTrade;
+  notes: TradeNotes;
   expanded: boolean;
   onToggle: () => void;
 }) {
@@ -268,6 +280,7 @@ function TradeRow({
               {trade.side}
             </span>
           </button>
+          <TagChips note={notes.notes[trade._id]} />
         </td>
 
         <td className="px-3 py-1.5 text-left align-top">
@@ -320,7 +333,7 @@ function TradeRow({
       {expanded ? (
         <tr className="bg-sunken">
           <td colSpan={11} className="px-4 py-3">
-            <Detail trade={trade} />
+            <Detail trade={trade} notes={notes} />
           </td>
         </tr>
       ) : null}
@@ -328,10 +341,11 @@ function TradeRow({
   );
 }
 
-function Detail({ trade }: { trade: StrategyTrade }) {
+function Detail({ trade, notes }: { trade: StrategyTrade; notes: TradeNotes }) {
   const { trigger } = trade;
   const short = trade.side === "SHORT";
   return (
+    <div className="flex flex-col gap-3">
     <div className="flex flex-wrap gap-x-10 gap-y-3 text-[11.5px]">
       <Field label="Trigger">
         {trigger.level.kind === "support" ? "Support" : "Resistance"} {trigger.level.pivot} at{" "}
@@ -381,6 +395,25 @@ function Detail({ trade }: { trade: StrategyTrade }) {
       <Field label="Record">
         <code className="font-mono text-[10.5px] text-faint">{trade._id}</code>
       </Field>
+    </div>
+
+    <div className="border-t border-line pt-3">
+      <TradeTagger
+        target={{
+          id: trade._id,
+          source: "live",
+          tradingDate: trade.tradingDate,
+          symbol: trade.symbol,
+        }}
+        note={notes.notes[trade._id]}
+        tags={notes.tags}
+        onSave={notes.save}
+        disabled={!notes.configured}
+      />
+      {notes.error ? (
+        <p className="mt-1 text-[10.5px] text-neg">{notes.error}</p>
+      ) : null}
+    </div>
     </div>
   );
 }

@@ -13,6 +13,7 @@ import {
   runTrades,
 } from "@/lib/backtest/store";
 import { isKnownSetup, listSetups, mixError, strategiesFor } from "@/lib/backtest/setups";
+import { deleteRunNotes } from "@/lib/strategy/notes";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -132,7 +133,9 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: "run is required" }, { status: 400 });
   }
   try {
-    await deleteRun(id);
+    // The notes live in their own collection, so without this they would
+    // outlive the run and attach themselves to nothing.
+    await Promise.all([deleteRun(id), deleteRunNotes(id)]);
     return ok({ deleted: id });
   } catch (err) {
     return NextResponse.json(
