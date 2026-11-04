@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Tag, X } from "lucide-react";
 import type { TradeNote } from "@/lib/strategy/notes";
-import { STARTER_TAGS } from "@/lib/strategy/notes";
+import { STARTER_TAGS } from "@/lib/strategy/noteTags";
 import type { NoteTarget, TagCount } from "@/lib/useTradeNotes";
 
 /**
