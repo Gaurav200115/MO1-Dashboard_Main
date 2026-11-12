@@ -47,6 +47,11 @@ export interface AnalysedTrade {
    * leaves a trace at all.
    */
   peak: number | null;
+  /**
+   * Skew band of the level the rule's skew gate was applied to, or null when the
+   * record carries no such level. See `skewKey`.
+   */
+  skew: string | null;
   strategyKey: string;
   setupKey: string;
   /**
@@ -105,6 +110,7 @@ export function analyse(
       cost: t.qty * t.buy.price,
       nth: nthOf.get(t._id) ?? 1,
       peak: peakR(t),
+      skew: skewKey(t),
       strategyKey: `${t.strategyId}@${t.strategyVersion}`,
       setupKey: `${t.strategyId}:${t.setup}`,
       tags: tagsById[t._id] ?? [],
@@ -147,6 +153,13 @@ export interface Filters {
    * totalled together.
    */
   peakOut: string[];
+  /**
+   * Skew bands to leave OUT, as `skewKey` values. An exclusion list like
+   * `pivotOut`, so "10x and above" is the low bands switched off and "only
+   * 5-10x" is the rest switched off. A trade with no recorded skew level is
+   * never excluded by it.
+   */
+  skewOut: string[];
   trailed: "" | "yes" | "no";
   nth: "" | NthKey;
   symbol: string;
@@ -176,6 +189,7 @@ export const EMPTY_FILTERS: Filters = {
   level: "",
   pivotOut: [],
   peakOut: [],
+  skewOut: [],
   trailed: "",
   nth: "",
   symbol: "",
@@ -227,6 +241,7 @@ export function applyFilters(rows: AnalysedTrade[], f: Filters): AnalysedTrade[]
     if (f.pivotOut.length && t.trigger?.level?.pivot && f.pivotOut.includes(t.trigger.level.pivot))
       return false;
     if (f.peakOut.length && f.peakOut.includes(peakKey(a.peak))) return false;
+    if (f.skewOut.length && a.skew !== null && f.skewOut.includes(a.skew)) return false;
     if (f.trailed === "yes" && t.step <= 1) return false;
     if (f.trailed === "no" && t.step > 1) return false;
     if (f.nth && nthKey(a.nth) !== f.nth) return false;
@@ -265,6 +280,46 @@ export function sortPeaks(keys: Iterable<string>): string[] {
 /** Chip label for a bucket key. */
 export function peakLabel(key: string): string {
   return key === "none" ? "< 2R" : `${key}R`;
+}
+
+/** Width of a skew band, and the floor of the last one — everything at or above it is one band. */
+export const SKEW_STEP = 5;
+export const SKEW_TOP = 30;
+/** Key for a level where one side of the chain had no open interest at all. */
+export const SKEW_ONE_SIDED = "one-sided";
+
+/**
+ * Skew band of a trade: the option-chain skew of the level the rule's skew gate
+ * was applied to, floored to a multiple of SKEW_STEP ("5" is 5x up to 10x).
+ *
+ * That level is `basis` when the trade has one — setup B triggers on another
+ * level but is gated on the major support it holds above — and the trigger level
+ * otherwise, which for A and C is the major level that was broken. Using the
+ * trigger level for B would read the skew of a level nothing ever gated on.
+ *
+ * A null skew on a recorded level means one side had no open interest, so the
+ * skew is unbounded rather than unknown; it gets a band of its own.
+ */
+export function skewKey(trade: StrategyTrade): string | null {
+  const level = trade.trigger?.basis ?? trade.trigger?.level ?? null;
+  if (!level) return null;
+  if (level.skew === null) return SKEW_ONE_SIDED;
+  return String(Math.min(SKEW_TOP, Math.floor(level.skew / SKEW_STEP) * SKEW_STEP));
+}
+
+/** Ascending, with the one-sided band last — it is the most skewed of all. */
+export function sortSkews(keys: Iterable<string>): string[] {
+  const rank = (k: string) => (k === SKEW_ONE_SIDED ? Infinity : Number(k));
+  return [...keys].sort((a, b) => rank(a) - rank(b));
+}
+
+/** Chip label for a skew band. */
+export function skewLabel(key: string): string {
+  if (key === SKEW_ONE_SIDED) return "One-sided";
+  const lo = Number(key);
+  if (lo >= SKEW_TOP) return `${lo}x+`;
+  if (lo === 0) return `<${SKEW_STEP}x`;
+  return `${lo}–${lo + SKEW_STEP}x`;
 }
 
 /** Resistances high to low, then the central pivot, then supports — how a chart stacks them. */

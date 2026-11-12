@@ -80,13 +80,22 @@ check("which loses more than one R", round(p.profit), -1250)
 # ---------------- the ladder ----------------
 
 p = run({
-    minute(10, 1): bar(minute(10, 1), 100.0, 104.5, 99.5, 104.4),   # 1:2 touched
-    minute(10, 2): bar(minute(10, 2), 104.4, 106.7, 104.0, 106.6),  # 1:3 touched -> stop to +1R
-    minute(10, 3): bar(minute(10, 3), 106.6, 106.8, 102.0, 102.1),  # back through +1R
+    minute(10, 1): bar(minute(10, 1), 100.0, 104.5, 99.5, 104.4),   # 1:2 touched -> stop to +1R
+    minute(10, 2): bar(minute(10, 2), 104.4, 106.7, 104.0, 106.6),  # 1:3 touched -> stop to +2R
+    minute(10, 3): bar(minute(10, 3), 106.6, 106.8, 104.0, 104.1),  # back through +2R
 })
 check("a trade stopped above its entry is a trail-stop", p.exit_reason, "trail-stop")
-check("locked in one R", round(p.profit), 550)
+check("locked in two R", round(p.profit), 1100)
 check("after reaching rung 3", p.step, 3)
+
+# v8: a trade that touches 1:2 and then rolls over banks a profit where it used
+# to give back the whole R. This is the case the change exists for.
+p = run({
+    minute(10, 1): bar(minute(10, 1), 100.0, 104.5, 99.5, 104.4),   # 1:2 touched
+    minute(10, 2): bar(minute(10, 2), 104.4, 104.5, 101.0, 101.1),  # straight back down
+})
+check("touching 1:2 then rolling over is now a win", p.exit_reason, "trail-stop")
+check("banking one R instead of losing one", round(p.profit), 550)
 
 # The stop is tested before the ladder on the same minute.
 p = run({minute(10, 1): bar(minute(10, 1), 100.0, 110.0, 97.0, 98.0)})

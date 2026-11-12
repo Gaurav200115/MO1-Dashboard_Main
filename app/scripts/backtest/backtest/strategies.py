@@ -43,14 +43,15 @@ SHARED_RISK = {
     "lots": 1,
     "moneyness": "ATM",
     "rewardMultiple": 2,
-    "trailStartMultiple": 3,
+    # The stop first moves at 1:2, to +1R, then one checkpoint behind.
+    "trailStartMultiple": 2,
     "trailLockMultiple": 1,
     "trail": "ladder",
 }
 
 BREAKOUT_RETRACE_21EMA = {
     "id": "breakout-retrace-21ema",
-    "version": 7,
+    "version": 8,
     "name": "Level Break -> 21 EMA Retrace",
     "setups": ["A", "B"],
     "setupLabels": {"A": "Break & retrace", "B": "Support hold & level cross"},
@@ -61,7 +62,7 @@ BREAKOUT_RETRACE_21EMA = {
 
 BREAKDOWN_RETRACE_21EMA = {
     "id": "breakdown-retrace-21ema",
-    "version": 3,
+    "version": 4,
     "name": "Support Break -> 21 EMA Retrace (Short)",
     "setups": ["C"],
     "setupLabels": {"C": "Breakdown & retrace"},

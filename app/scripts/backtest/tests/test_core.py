@@ -44,21 +44,31 @@ check("short rule buys a put", S.option_type(S.BREAKDOWN_RETRACE_21EMA, "C"), "P
 
 
 # ---------------- the ladder ----------------
-# The spec, verbatim from registry.ts:
-#   +1100 (1:2)  stop stays at -550
-#   +1650 (1:3)  stop -> +550
+# The spec, verbatim from registry.ts (v8 - the stop now first moves at 1:2):
+#   +1100 (1:2)  stop -> +550      the first move
+#   +1650 (1:3)  stop -> +1100
 #   +2200 (1:4)  stop -> +1650
 #   +2750 (1:5)  stop -> +2200
 
 R = RISK["rupeesPerTrade"]
 check("rung 1 opens at -1R, target 2R", rung_levels(1, RISK), (-1, 2))
-check("1:2 reached - stop does not move", rung_levels(2, RISK), (-1, 3))
-check("1:3 reached - stop to +1R", rung_levels(3, RISK), (1, 4))
+check("1:2 reached - stop to +1R", rung_levels(2, RISK), (1, 3))
+check("1:3 reached - stop to +2R", rung_levels(3, RISK), (2, 4))
 check("1:4 reached - stop to +3R", rung_levels(4, RISK), (3, 5))
 check("1:5 reached - stop to +4R", rung_levels(5, RISK), (4, 6))
-check("locked rupees at 1:3", rung_levels(3, RISK)[0] * R, 550)
+check("locked rupees at 1:2", rung_levels(2, RISK)[0] * R, 550)
+check("locked rupees at 1:3", rung_levels(3, RISK)[0] * R, 1100)
 check("locked rupees at 1:4", rung_levels(4, RISK)[0] * R, 1650)
 check("locked rupees at 1:5", rung_levels(5, RISK)[0] * R, 2200)
+
+# The whole point of v8: once 1:2 is touched the trade can no longer lose.
+check("a trade that reaches 1:2 cannot end red",
+      all(rung_levels(step, RISK)[0] > 0 for step in range(2, 12)), True)
+
+# The gap settles at one R and stays there - no rung gives back more than that.
+check("the stop follows one checkpoint behind, the whole way",
+      [rung_levels(step, RISK)[1] - rung_levels(step, RISK)[0] for step in range(2, 8)],
+      [2, 2, 2, 2, 2, 2])
 
 # Sizing: 550 on a 250-unit lot is 2.20 of premium.
 sz = size_trade(100.0, 250, RISK)
@@ -86,7 +96,7 @@ check("holds below the first target", evaluate(pos, 104.0, RISK, 0)["action"], "
 
 v = evaluate(pos, 104.4, RISK, 0)                       # 1:2 touched
 check("1:2 ratchets the rung", v["action"], "trail")
-check("1:2 leaves the stop alone", round(v["advance"]["stop"], 2), 97.80)
+check("1:2 moves the stop to +1R", round(v["advance"]["stop"], 2), 102.20)
 pos.step, pos.stop, pos.target = v["advance"]["step"], v["advance"]["stop"], v["advance"]["target"]
 
 check("stopped at the original stop is a stop, not a trail-stop",
@@ -94,10 +104,10 @@ check("stopped at the original stop is a stop, not a trail-stop",
 
 v = evaluate(pos, 106.6, RISK, 0)                       # 1:3 touched
 check("1:3 ratchets", v["action"], "trail")
-close_to("1:3 moves the stop to +1R", v["advance"]["stop"], 102.2)
+close_to("1:3 moves the stop to +2R", v["advance"]["stop"], 104.4)
 pos.step, pos.stop, pos.target = v["advance"]["step"], v["advance"]["stop"], v["advance"]["target"]
 check("a trade stopped above its entry is a trail-stop",
-      evaluate(pos, 102.2, RISK, 0)["reason"], "trail-stop")
+      evaluate(pos, 104.4, RISK, 0)["reason"], "trail-stop")
 
 # A gap can clear more than one rung between two reads.
 fast = P(100.0, 2.2)
