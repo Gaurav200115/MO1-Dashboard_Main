@@ -41,6 +41,9 @@ import {
   peakLabel,
   sortPeaks,
   sortPivots,
+  sortSkews,
+  skewLabel,
+  SKEW_ONE_SIDED,
   sweepTrail,
   TRAIL_GAPS,
   stats as statsOf,
@@ -162,9 +165,11 @@ export default function TradeAnalysis({
     const setups = new Map<string, string>();
     const pivots = new Set<string>();
     const peaks = new Set<string>();
+    const skews = new Set<string>();
     const tagsUsed = new Set<string>();
-    for (const { trade: t, setupKey, peak, tags } of all) {
+    for (const { trade: t, setupKey, peak, skew, tags } of all) {
       peaks.add(peak === null ? "none" : String(peak));
+      if (skew !== null) skews.add(skew);
       for (const tag of tags) tagsUsed.add(tag);
       const s = strategies.get(t.strategyId) ?? { name: t.strategyName, versions: new Set() };
       s.versions.add(t.strategyVersion);
@@ -177,6 +182,7 @@ export default function TradeAnalysis({
       setups,
       pivots: sortPivots(pivots),
       peaks: sortPeaks(peaks),
+      skews: sortSkews(skews),
       tags: [...tagsUsed].sort(),
     };
   }, [all]);
@@ -612,6 +618,7 @@ function FilterBar({
     setups: Map<string, string>;
     pivots: string[];
     peaks: string[];
+    skews: string[];
     tags: string[];
   };
   shown: number;
@@ -786,6 +793,53 @@ function FilterBar({
               <button
                 type="button"
                 onClick={() => set({ pivotOut: [] })}
+                className="text-[11px] text-accent"
+              >
+                Include all
+              </button>
+            ) : null}
+          </Row>
+        ) : null}
+
+        {options.skews.length > 0 ? (
+          <Row label="Skew">
+            <div className="flex flex-wrap gap-1">
+              {options.skews.map((k) => {
+                const out = f.skewOut.includes(k);
+                const label = skewLabel(k);
+                const title =
+                  k === SKEW_ONE_SIDED
+                    ? "One side of the chain had no open interest at that strike — the skew is unbounded"
+                    : `Option-chain skew of ${label} on the major level the trade was gated on`;
+                return (
+                  <button
+                    key={k}
+                    type="button"
+                    aria-pressed={!out}
+                    title={out ? `${label} excluded — click to include it again` : title}
+                    onClick={() =>
+                      set({ skewOut: out ? f.skewOut.filter((x) => x !== k) : [...f.skewOut, k] })
+                    }
+                    className={
+                      out
+                        ? "rounded-[4px] border border-dashed border-line px-2 py-0.5 font-mono text-[11.5px] text-faint line-through"
+                        : chipCls(true)
+                    }
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+            <span className="text-[10.5px] text-faint">
+              {f.skewOut.length === 0
+                ? "Skew of the major level (resistance for A, support for B and C) · click to exclude"
+                : `${f.skewOut.length} excluded`}
+            </span>
+            {f.skewOut.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => set({ skewOut: [] })}
                 className="text-[11px] text-accent"
               >
                 Include all
