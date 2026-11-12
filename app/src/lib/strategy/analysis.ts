@@ -3,7 +3,8 @@
  * side, result, entry time, hold time, strategy, setup, exit, level… and then
  * slice the survivors every way that answers "where does the edge live?".
  *
- * Pure and client-safe (imports only ist.ts and types), because the panel
+ * Pure and client-safe (imports only ist.ts, the rule definitions and types),
+ * because the panel
  * filters in the browser. A season of this desk's trades is hundreds of rows,
  * not millions; re-deriving on every filter change is cheaper than a round
  * trip, and keeps one definition of "win rate" for every view.
@@ -13,6 +14,8 @@
  */
 
 import { istDate, istMinutes } from "./ist";
+import { rungLevels } from "./position";
+import { BREAKOUT_RETRACE_21EMA } from "./registry";
 import type { StrategyTrade } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -47,11 +50,6 @@ export interface AnalysedTrade {
    * leaves a trace at all.
    */
   peak: number | null;
-  /**
-   * Skew band of the level the rule's skew gate was applied to, or null when the
-   * record carries no such level. See `skewKey`.
-   */
-  skew: string | null;
   strategyKey: string;
   setupKey: string;
   /**
@@ -110,7 +108,6 @@ export function analyse(
       cost: t.qty * t.buy.price,
       nth: nthOf.get(t._id) ?? 1,
       peak: peakR(t),
-      skew: skewKey(t),
       strategyKey: `${t.strategyId}@${t.strategyVersion}`,
       setupKey: `${t.strategyId}:${t.setup}`,
       tags: tagsById[t._id] ?? [],
@@ -153,13 +150,6 @@ export interface Filters {
    * totalled together.
    */
   peakOut: string[];
-  /**
-   * Skew bands to leave OUT, as `skewKey` values. An exclusion list like
-   * `pivotOut`, so "10x and above" is the low bands switched off and "only
-   * 5-10x" is the rest switched off. A trade with no recorded skew level is
-   * never excluded by it.
-   */
-  skewOut: string[];
   trailed: "" | "yes" | "no";
   nth: "" | NthKey;
   symbol: string;
@@ -189,7 +179,6 @@ export const EMPTY_FILTERS: Filters = {
   level: "",
   pivotOut: [],
   peakOut: [],
-  skewOut: [],
   trailed: "",
   nth: "",
   symbol: "",
@@ -241,7 +230,6 @@ export function applyFilters(rows: AnalysedTrade[], f: Filters): AnalysedTrade[]
     if (f.pivotOut.length && t.trigger?.level?.pivot && f.pivotOut.includes(t.trigger.level.pivot))
       return false;
     if (f.peakOut.length && f.peakOut.includes(peakKey(a.peak))) return false;
-    if (f.skewOut.length && a.skew !== null && f.skewOut.includes(a.skew)) return false;
     if (f.trailed === "yes" && t.step <= 1) return false;
     if (f.trailed === "no" && t.step > 1) return false;
     if (f.nth && nthKey(a.nth) !== f.nth) return false;
@@ -280,46 +268,6 @@ export function sortPeaks(keys: Iterable<string>): string[] {
 /** Chip label for a bucket key. */
 export function peakLabel(key: string): string {
   return key === "none" ? "< 2R" : `${key}R`;
-}
-
-/** Width of a skew band, and the floor of the last one — everything at or above it is one band. */
-export const SKEW_STEP = 5;
-export const SKEW_TOP = 30;
-/** Key for a level where one side of the chain had no open interest at all. */
-export const SKEW_ONE_SIDED = "one-sided";
-
-/**
- * Skew band of a trade: the option-chain skew of the level the rule's skew gate
- * was applied to, floored to a multiple of SKEW_STEP ("5" is 5x up to 10x).
- *
- * That level is `basis` when the trade has one — setup B triggers on another
- * level but is gated on the major support it holds above — and the trigger level
- * otherwise, which for A and C is the major level that was broken. Using the
- * trigger level for B would read the skew of a level nothing ever gated on.
- *
- * A null skew on a recorded level means one side had no open interest, so the
- * skew is unbounded rather than unknown; it gets a band of its own.
- */
-export function skewKey(trade: StrategyTrade): string | null {
-  const level = trade.trigger?.basis ?? trade.trigger?.level ?? null;
-  if (!level) return null;
-  if (level.skew === null) return SKEW_ONE_SIDED;
-  return String(Math.min(SKEW_TOP, Math.floor(level.skew / SKEW_STEP) * SKEW_STEP));
-}
-
-/** Ascending, with the one-sided band last — it is the most skewed of all. */
-export function sortSkews(keys: Iterable<string>): string[] {
-  const rank = (k: string) => (k === SKEW_ONE_SIDED ? Infinity : Number(k));
-  return [...keys].sort((a, b) => rank(a) - rank(b));
-}
-
-/** Chip label for a skew band. */
-export function skewLabel(key: string): string {
-  if (key === SKEW_ONE_SIDED) return "One-sided";
-  const lo = Number(key);
-  if (lo >= SKEW_TOP) return `${lo}x+`;
-  if (lo === 0) return `<${SKEW_STEP}x`;
-  return `${lo}–${lo + SKEW_STEP}x`;
 }
 
 /** Resistances high to low, then the central pivot, then supports — how a chart stacks them. */
@@ -831,7 +779,21 @@ export const TRAIL_GAPS = [0.5, 1, 1.5, 2, 3];
 
 /** The rule running today: nothing at 1:2, +1R at 1:3, one rung behind above that. */
 export function liveStopR(peak: number): number {
-  return peak < 3 ? -1 : peak === 3 ? 1 : peak - 1;
+  /*
+   * Derived from the live rule rather than restated.
+   *
+   * This used to hard-code "nothing until 1:3, then +1R", and when the rule
+   * moved to 1:2 the panel would have gone on comparing every alternative
+   * against a rule the desk had stopped running - silently, and in the one
+   * place whose whole job is to say whether an alternative beats what we do.
+   * Reading it off the definition makes that impossible.
+   *
+   * `peak` is the highest rung touched, and `rungLevels` indexes rungs rather
+   * than R multiples: rung n sits at (reward + n - 2) R, so the rung for a
+   * given peak is peak - reward + 2.
+   */
+  const risk = BREAKOUT_RETRACE_21EMA.risk;
+  return rungLevels(peak - risk.rewardMultiple + 2, risk).stopR;
 }
 
 export function configStopR(peak: number, cfg: TrailConfig): number {
@@ -975,7 +937,7 @@ export const NAMED_TRAILS: NamedTrail[] = [
   {
     key: "live",
     label: "Live today",
-    detail: "Nothing at 1:2 · 1:3 locks 1R · one step behind above that",
+    detail: "1:2 locks 1R · one step behind above that",
     stopR: liveStopR,
   },
   {
@@ -985,10 +947,16 @@ export const NAMED_TRAILS: NamedTrail[] = [
     stopR: (peak) => (peak < 2 ? -1 : peak === 2 ? 0 : peak - 1),
   },
   {
-    key: "lock2",
-    label: "Lock a full step at 1:2",
-    detail: "1:2 locks 1R · one step behind all the way up",
-    stopR: (peak) => (peak < 2 ? -1 : peak - 1),
+    /*
+     * What the desk ran until v8. Kept so the change can be judged against the
+     * record rather than taken on faith - and it takes the slot of the old
+     * "lock a full step at 1:2" row, which v8 turned into a duplicate of Live
+     * today.
+     */
+    key: "prev",
+    label: "Previous rule (v7 / v3)",
+    detail: "Nothing at 1:2 · 1:3 locks 1R · one step behind above that",
+    stopR: (peak) => (peak < 3 ? -1 : peak === 3 ? 1 : peak - 1),
   },
 ];
 
