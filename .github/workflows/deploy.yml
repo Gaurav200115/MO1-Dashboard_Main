@@ -22,14 +22,18 @@ concurrency:
 jobs:
   build:
     name: Build check
-    runs-on: ubuntu-latest
+    # Pinned rather than ubuntu-latest, which GitHub is moving to Ubuntu 26.04
+    # (Oct-Nov 2026). Move both jobs to ubuntu-26.04 deliberately when ready.
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: app
     steps:
-      - uses: actions/checkout@v4
+      # v7 of both actions runs on Node 24; v4 ran on Node 20, which GitHub
+      # removed from the runners in September 2026.
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -42,7 +46,7 @@ jobs:
     name: Deploy
     needs: build
     if: github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Set up SSH
         run: |
