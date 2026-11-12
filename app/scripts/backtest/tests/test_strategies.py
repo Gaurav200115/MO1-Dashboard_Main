@@ -118,7 +118,7 @@ if positions:
     p = positions[0]
     check("on setup C", p.setup, "C")
     check("under the short rule", p.strategy_id, "breakdown-retrace-21ema")
-    check("at the version in the registry", p.strategy_version, 3)
+    check("at the version in the registry", p.strategy_version, 4)
     check("and it BUYS A PUT", p.option_type, "PE")
     check("entered where the roll-over confirmed", p.entry_at, minute(9, 26))
     check("on the at-the-money strike", p.strike, 970.0)

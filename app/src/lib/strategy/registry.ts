@@ -106,16 +106,22 @@ const SHARED_RISK: StrategyRisk = {
   moneyness: "ATM",
   rewardMultiple: 2,
   /*
-   * The stop does not move at 1:2 any more. It first moves at 1:3, straight to
-   * +1R, which leaves a 1100 gap; from 1:4 on it follows one checkpoint behind
-   * and the gap settles at 550.
+   * The stop first moves at 1:2, straight to +1R, and follows one checkpoint
+   * behind from there — so the gap is 550 the whole way up and a trade that has
+   * touched 1:2 can no longer end in a loss.
    *
-   *   +1100 (1:2)  stop stays at -550
-   *   +1650 (1:3)  stop -> +550
+   *   +1100 (1:2)  stop -> +550      the first move
+   *   +1650 (1:3)  stop -> +1100
    *   +2200 (1:4)  stop -> +1650
    *   +2750 (1:5)  stop -> +2200
+   *
+   * This was 1:3 / +1R until v8. The trade-off it accepts, in both directions:
+   * protecting at 1:2 cannot be free, because the same move that stops a winner
+   * giving back two R also ends the trades that dip after 1:2 and would have
+   * run. The exit study measured 7 trades that reached 2R and still closed red,
+   * which is what this is aimed at.
    */
-  trailStartMultiple: 3,
+  trailStartMultiple: 2,
   trailLockMultiple: 1,
   trail: "ladder",
 };
@@ -123,7 +129,7 @@ const SHARED_RISK: StrategyRisk = {
 /** Strategy 1 — level break, pull back to the 21 EMA, long the ATM call. */
 export const BREAKOUT_RETRACE_21EMA: StrategyDefinition = {
   id: "breakout-retrace-21ema",
-  version: 7,
+  version: 8,
   name: "Level Break → 21 EMA Retrace",
   createdAt: "2026-09-16",
 
@@ -140,6 +146,7 @@ export const BREAKOUT_RETRACE_21EMA: StrategyDefinition = {
     "v5: both strategies end at 1:00 PM — no entries after that. A trade already running is left open and managed by the ordinary rules; 15:15 stays only as the end-of-day backstop.",
     "v6: stop the long trades that we take for the R3 pivot point, whatever the skew or anything else is. R2, R1 and P are still traded as before; nothing takes R3's place.",
     "v7: take the R3 trades again. The v6 block is removed, so R3 is traded like any other pivot — it can be the major resistance for setup A and is back among setup B's cross candidates.",
+    "v8: the SL starts trailing at 1:2 instead of 1:3. Once 1:2 is achieved the SL moves to 550, and from then on it follows one step behind — 1650 trails it to 1100, 2200 to 1650, 2750 to 2200.",
   ],
 
   setups: [
@@ -178,7 +185,7 @@ export const BREAKOUT_RETRACE_21EMA: StrategyDefinition = {
 /** Strategy 2 — the short. Break the major support, rally to the 21 EMA, roll over. */
 export const BREAKDOWN_RETRACE_21EMA: StrategyDefinition = {
   id: "breakdown-retrace-21ema",
-  version: 3,
+  version: 4,
   name: "Support Break → 21 EMA Retrace (Short)",
   createdAt: "2026-09-16",
 
@@ -191,6 +198,7 @@ export const BREAKDOWN_RETRACE_21EMA: StrategyDefinition = {
     "The SL does not move at 1:2. Once 1:3 is achieved the SL trails to 550, and from then on it follows one step behind.",
     "v2: a signal is skipped unless the option's book is tradeable — same checks as the long rule. The 550 stop itself is unchanged.",
     "v3: ends at 1:00 PM — no entries after that. A trade already running is left open and managed by the ordinary rules; 15:15 stays only as the end-of-day backstop.",
+    "v4: the SL starts trailing at 1:2 instead of 1:3. Once 1:2 is achieved the SL moves to 550, and from then on it follows one step behind — same ladder as the long rule.",
   ],
 
   setups: [

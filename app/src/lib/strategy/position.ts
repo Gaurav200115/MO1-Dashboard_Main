@@ -72,12 +72,12 @@ export function profitAt(trade: Pick<StrategyTrade, "buy" | "qty">, premium: num
  * Stop and target in R-units for a given rung.
  *
  * Rung 1 is the opening position: stop one R below the fill, target at the
- * configured reward multiple. On the 550 / 1:2 / start-at-1:3 defaults this
+ * configured reward multiple. On the 550 / 1:2 / start-at-1:2 defaults this
  * produces exactly the specified ladder:
  *
- *   +1100 (1:2)  stop stays at -550   the checkpoint passes, nothing moves
- *   +1650 (1:3)  stop -> +550         the first move, a 1100 gap
- *   +2200 (1:4)  stop -> +1650        one checkpoint behind from here on
+ *   +1100 (1:2)  stop -> +550         the first move
+ *   +1650 (1:3)  stop -> +1100        one checkpoint behind from here on
+ *   +2200 (1:4)  stop -> +1650
  *   +2750 (1:5)  stop -> +2200
  */
 export function rungLevels(step: number, risk: StrategyRisk): { stopR: number; targetR: number } {
@@ -89,14 +89,16 @@ export function rungLevels(step: number, risk: StrategyRisk): { stopR: number; t
   const reached = reward + step - 2;
 
   /*
-   * Three regimes, and the discontinuity between the first two is deliberate.
+   * Three regimes. Below the trail start the stop does not move at all. At the
+   * start multiple it jumps to the lock, and above that it follows one
+   * checkpoint behind.
    *
-   * Below the trail start the stop does not move at all — reaching 1:2 is
-   * progress, not a reason to tighten, and moving the stop there is what turns a
-   * trade that was going to run into a scratch. At the start multiple the stop
-   * jumps straight to the lock, which on the 1:3 / 1R default leaves a two-unit
-   * gap. After that it follows one checkpoint behind, so the gap closes to a
-   * single unit and stays there.
+   * On the current 1:2 / +1R settings the first two collapse into the third —
+   * the lock and "one behind" are the same number at 1:2 — so the ladder reads
+   * as a single rule. That is a property of these parameters, not of the shape:
+   * the start and the lock are still independent, and a configuration that
+   * locks breakeven at 1:2, or waits until 1:4, still works. Keeping the three
+   * regimes is what lets a backtest sweep them.
    */
   const stopR = reached < start ? -1 : reached === start ? lock : reached - 1;
   return { stopR, targetR: reached + 1 };
