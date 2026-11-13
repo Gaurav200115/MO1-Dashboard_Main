@@ -27,13 +27,15 @@ import math
 from collections import defaultdict
 
 from . import db, orb
+from .adr import adr_pct
 from .config import S, ist_time
 from .fills import step_position
 from .gate import CLEAR, assess, fill_price
 from .levels import chain_window, plan_for_stock
 from .position import open_position
 from .signals import Ema, evaluate_symbol, initial_state
-from .strategies import NIFTY_ORB_15M, SETUPS, STRATEGIES, option_type, selection
+from .strategies import (NIFTY_ORB_15M, SETUPS, STRATEGIES, leg_of, option_type, selection,
+                         setup_for_leg)
 
 # bars.ts: the seed takes the last emaPeriod * 4 settled bars.
 SEED_BAR_MULTIPLE = 4
@@ -130,6 +132,16 @@ def _session_plans(conn, day, prev, strategies, universe):
                                   strategy["params"])
             if plan is not None:
                 plans[strategy["id"]][symbol] = plan
+
+    # The ADR variant's band, set once per stock before the open from the 14
+    # sessions ending on `prev`. Only that variant's plans carry it.
+    for strategy in strategies:
+        params = strategy["params"]
+        if params.get("entryBasis") != "adr" or not plans[strategy["id"]]:
+            continue
+        history = db.daily_history(conn, prev, list(plans[strategy["id"]]), params["adrPeriod"])
+        for symbol, plan in plans[strategy["id"]].items():
+            plan.adr_pct = adr_pct(history.get(symbol, []), params["adrPeriod"])
     return plans
 
 
@@ -197,6 +209,14 @@ def replay_session(conn, day, strategies, floors, log=None, setups=None):
     notes["incomplete"] = sum(1 for s in symbols
                               if coverage.get(s, 0) < db.OPTION_SERIES_PER_DAY)
 
+    # A stock without 14 sessions of history has no ADR, so its retrace legs
+    # cannot arm under the ADR rule. Counted, not hidden.
+    for strategy in strategies:
+        if strategy["params"].get("entryBasis") == "adr":
+            missing = sum(1 for plan in plans[strategy["id"]].values() if plan.adr_pct is None)
+            if missing:
+                notes["skipped"]["no 14-session ADR - retrace legs could not arm"] += missing
+
     period = strategies[0]["params"]["emaPeriod"]
     interval = strategies[0]["params"]["emaIntervalMinutes"]
     seeds = _seed_closes(conn, day, prev, symbols, period, interval)
@@ -259,7 +279,11 @@ def replay_session(conn, day, strategies, floors, log=None, setups=None):
 
         for strategy in strategies:
             sid = strategy["id"]
-            allowed = set(setups[sid]) if setups else set(strategy["setups"])
+            # The state machine knows legs A, B and C. A setup like "A-ADR" is
+            # leg A run under its own strategy's ruler, so it is passed as "A"
+            # and the signal is named back to "A-ADR" below.
+            allowed = {leg_of(strategy, s)
+                       for s in (setups[sid] if setups else strategy["setups"])}
             for symbol in symbols:
                 state = states.get((sid, symbol))
                 bar = bar_at[symbol].get(minute)
@@ -272,6 +296,7 @@ def replay_session(conn, day, strategies, floors, log=None, setups=None):
                     clock.value, clock.last_bar_close, minute, entries_open, allowed)
                 if signal is None:
                     continue
+                signal.setup = setup_for_leg(strategy, signal.setup)
 
                 notes["signals"] += 1
                 notes["bySetup"][signal.setup] += 1

@@ -30,6 +30,14 @@ export interface SetupOption {
   backtestOnly?: boolean;
   /** Replayed in a run of its own, never mixed with the desk's legs. */
   standalone?: boolean;
+  /**
+   * Which book the leg trades on. A run holds exactly one: the desk's own legs
+   * ("desk"), the ADR variant of them ("adr"), or NIFTY's opening range
+   * ("nifty"). Mirrors `book_of` in backtest/strategies.py.
+   */
+  book: string;
+  /** A short label shown beside the leg, e.g. what a variant changes. */
+  tag?: string;
 }
 
 /**
@@ -53,6 +61,68 @@ const BACKTEST_ONLY: SetupOption[] = [
       "then +5 for every further +5. Flat at 13:00.",
     backtestOnly: true,
     standalone: true,
+    book: "nifty",
+  },
+
+  /*
+   * The ADR variant of the desk's three legs (2026-11-13). The live rules
+   * measure the retrace in a fixed percent of price — within 0.4% of the 21 EMA
+   * to arm, a 0.2% turn to enter. These measure both in the stock's own
+   * 14-session average daily range: zone 0.15 ADR, turn 0.075 ADR, calibrated
+   * so the median stock (ADR 2.72%) behaves as the live rule does. Everything
+   * else is the live long v8 / short v4, including the SL trail — at 1:2 the SL
+   * moves to +1R, then one step behind.
+   *
+   * Python: `BREAKOUT_RETRACE_21EMA_ADR` / `BREAKDOWN_RETRACE_21EMA_ADR` in
+   * backtest/strategies.py; tests/test_adr.py checks these three entries match.
+   */
+  {
+    setup: "A-ADR",
+    strategy: "breakout-retrace-21ema-adr",
+    strategyName: "Level Break → 21 EMA Retrace [ADR, SL 1:2→1]",
+    version: 1,
+    label: "Break & retrace",
+    side: "LONG",
+    option: "CE",
+    description:
+      "Setup A with the retrace measured in the stock's 14-session ADR: arms within 0.15 ADR " +
+      "of the 21 EMA, enters on a 0.075 ADR turn off the low. SL trails from 1:2 to +1R, then " +
+      "one step behind.",
+    backtestOnly: true,
+    book: "adr",
+    tag: "ADR · SL 1:2→1",
+  },
+  {
+    setup: "B-ADR",
+    strategy: "breakout-retrace-21ema-adr",
+    strategyName: "Level Break → 21 EMA Retrace [ADR, SL 1:2→1]",
+    version: 1,
+    label: "Support hold & level cross",
+    side: "LONG",
+    option: "CE",
+    description:
+      "Setup B unchanged — it has no retracement % to scale. In the ADR run so the three legs " +
+      "share the three-position cap as they do live. SL trails from 1:2 to +1R, then one step " +
+      "behind.",
+    backtestOnly: true,
+    book: "adr",
+    tag: "ADR · SL 1:2→1",
+  },
+  {
+    setup: "C-ADR",
+    strategy: "breakdown-retrace-21ema-adr",
+    strategyName: "Support Break → 21 EMA Retrace (Short) [ADR, SL 1:2→1]",
+    version: 1,
+    label: "Breakdown & retrace",
+    side: "SHORT",
+    option: "PE",
+    description:
+      "Setup C with the retrace measured in the stock's 14-session ADR: arms within 0.15 ADR " +
+      "of the 21 EMA, enters on a 0.075 ADR turn off the rally high. SL trails from 1:2 to " +
+      "+1R, then one step behind.",
+    backtestOnly: true,
+    book: "adr",
+    tag: "ADR · SL 1:2→1",
   },
 ];
 
@@ -69,6 +139,7 @@ export function listSetups(): SetupOption[] {
         side: setup.side,
         option: setup.side === "LONG" ? "CE" : "PE",
         description: setup.description,
+        book: "desk",
       });
     }
   }
@@ -82,6 +153,12 @@ export function mixError(setupIds: string[]): string | null {
   const alone = all.find((s) => s.standalone && setupIds.includes(s.setup));
   if (alone && new Set(setupIds).size > 1) {
     return `${alone.setup} runs on its own — replay it in a run of its own`;
+  }
+  const books = new Set(
+    setupIds.map((id) => all.find((s) => s.setup === id)?.book).filter(Boolean)
+  );
+  if (books.size > 1) {
+    return "the ADR legs are an alternative to A, B and C, not an addition — replay them in a run of their own";
   }
   return null;
 }

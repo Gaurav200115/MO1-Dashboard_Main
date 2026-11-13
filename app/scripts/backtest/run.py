@@ -15,6 +15,10 @@ Every command that replays takes --setups, defaulting to all of them:
     --setups A B C    all three, sharing the desk's three-position cap
     --setups ORB      the NIFTY 15-minute opening range - backtest only, never
                       live, and always in a run of its own
+    --setups A-ADR B-ADR C-ADR
+                      the same three legs with the retrace measured in each
+                      stock's 14-session average daily range instead of a fixed
+                      percent - backtest only, and never mixed with A, B or C
 
 `levels` and `session` print and store nothing. `now` and `queue` write to Mongo.
 """
@@ -30,9 +34,10 @@ from backtest.strategies import (ALL_SETUPS, SETUPS, STRATEGIES, check_against_r
                                  describe, selection)
 
 # Every leg the desk runs, by default. Narrow it with --setups to find out which
-# leg is carrying the result. Standalone rules (ORB) are only ever asked for.
+# leg is carrying the result. Backtest-only rules (ORB, the ADR legs) are only
+# ever asked for.
 DEFAULT_SETUPS = [s for s, meta in SETUPS.items()
-                  if not STRATEGIES[meta["strategy"]].get("standalone")]
+                  if not STRATEGIES[meta["strategy"]].get("backtestOnly")]
 
 
 def _results():

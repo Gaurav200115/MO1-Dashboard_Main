@@ -68,6 +68,10 @@ class SymbolPlan:
     major_resistance: ConfirmedLevel | None
     major_support: ConfirmedLevel | None
     marked: list
+    # Backtest-only ADR variant: the 14-session average daily range, percent of
+    # price. Set by the runner on that variant's plans and nowhere else; the live
+    # mirror's plans leave it None and never read it.
+    adr_pct: float | None = None
 
 
 def fib_pivots(high, low, close):
