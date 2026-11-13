@@ -115,7 +115,121 @@ NIFTY_ORB_15M = {
     },
 }
 
-STRATEGIES = {s["id"]: s for s in (BREAKOUT_RETRACE_21EMA, BREAKDOWN_RETRACE_21EMA, NIFTY_ORB_15M)}
+# ADR-scaled retrace, as Gaurav specified it (2026-11-13). Backtest only: if it
+# shows a good result it goes live as a version change of the two live rules,
+# and not before.
+#
+#   - The live rules measure the retrace in a fixed percent of price: within
+#     0.4% of the 21 EMA to arm, a 0.2% turn off the extreme to enter. Here both
+#     are measured in the stock's own 14-session average daily range instead -
+#     zone 0.15 ADR, turn 0.075 ADR - calibrated so the median stock behaves as
+#     the live rule does (adr.py has the measurement). The minimum pullback and
+#     the closed-bar kill line ride on the same two numbers, exactly as live.
+#   - Everything else is the live long v8 / short v4 as they stood that day:
+#     same levels, same skews, same 13:00 cutoff, same book gate, same 550 risk,
+#     and the same SL trail - at 1:2 the SL moves to +1R, then one step behind
+#     (the "SL 1:2->1" in the tag).
+#   - Setup B has no retracement percent, so B-ADR is B unchanged. It is in
+#     the run so the three legs share the desk's three-position cap as they do
+#     live; without it A-ADR and C-ADR would get slots B would have taken.
+#
+# Written out in full rather than derived from SHARED_PARAMS / SHARED_RISK,
+# because a released version is frozen: if the live rule moves on, this must not
+# move with it under the same version number. tests/test_adr.py fails when the
+# two stop matching, so the change is a decision rather than an accident.
+ADR_TAG = "ADR, SL 1:2->1"
+
+ADR_PARAMS = {
+    "emaPeriod": 21,
+    "emaIntervalMinutes": 5,
+    "entryBasis": "adr",
+    "adrPeriod": 14,
+    "adrZoneMultiple": 0.15,
+    "adrTurnMultiple": 0.075,
+    "entryCutoffIst": "13:00",
+    "flattenIst": "15:15",
+    "maxOpenTrades": MAX_OPEN_POSITIONS,
+    "maxTradesPerDay": 15,
+    "maxTradesPerSymbolPerDay": 1,
+    "maxSpreadPct": 2.0,
+    "maxSpreadOfRiskPct": 30,
+    "maxAskOverLastPct": 2.0,
+    "staleQuoteSec": 120,
+    "minStrikeOiShare": 3,
+    "resistanceSkew": 4,
+    "supportSkew": 5,
+}
+
+ADR_RISK = {
+    "rupeesPerTrade": 550,
+    "lots": 1,
+    "moneyness": "ATM",
+    "rewardMultiple": 2,
+    "trailStartMultiple": 2,
+    "trailLockMultiple": 1,
+    "trail": "ladder",
+}
+
+BREAKOUT_RETRACE_21EMA_ADR = {
+    "id": "breakout-retrace-21ema-adr",
+    "version": 1,
+    "name": f"Level Break -> 21 EMA Retrace [{ADR_TAG}]",
+    "backtestOnly": True,
+    # An alternative to the desk's legs, not an addition to them: a run holds
+    # one book or the other, never both watching the same stocks.
+    "book": "adr",
+    "setups": ["A-ADR", "B-ADR"],
+    "setupLabels": {"A-ADR": f"Break & retrace [{ADR_TAG}]",
+                    "B-ADR": f"Support hold & level cross [{ADR_TAG}]"},
+    "sides": {"A-ADR": "LONG", "B-ADR": "LONG"},
+    # Which leg of the state machine each setup is.
+    "legs": {"A-ADR": "A", "B-ADR": "B"},
+    "params": dict(ADR_PARAMS),
+    "risk": dict(ADR_RISK),
+}
+
+BREAKDOWN_RETRACE_21EMA_ADR = {
+    "id": "breakdown-retrace-21ema-adr",
+    "version": 1,
+    "name": f"Support Break -> 21 EMA Retrace (Short) [{ADR_TAG}]",
+    "backtestOnly": True,
+    "book": "adr",
+    "setups": ["C-ADR"],
+    "setupLabels": {"C-ADR": f"Breakdown & retrace [{ADR_TAG}]"},
+    "sides": {"C-ADR": "SHORT"},
+    "legs": {"C-ADR": "C"},
+    "params": dict(ADR_PARAMS),
+    "risk": dict(ADR_RISK),
+}
+
+ALL_STRATEGIES = (BREAKOUT_RETRACE_21EMA, BREAKDOWN_RETRACE_21EMA, NIFTY_ORB_15M,
+                  BREAKOUT_RETRACE_21EMA_ADR, BREAKDOWN_RETRACE_21EMA_ADR)
+STRATEGIES = {s["id"]: s for s in ALL_STRATEGIES}
+
+
+def leg_of(strategy, setup):
+    """The state-machine leg a setup runs: "A-ADR" is leg A measured with the ADR ruler."""
+    return strategy.get("legs", {}).get(setup, setup)
+
+
+def setup_for_leg(strategy, leg):
+    """The inverse of leg_of, within one strategy: leg "A" of the ADR rule is "A-ADR"."""
+    for setup, mapped in strategy.get("legs", {}).items():
+        if mapped == leg:
+            return setup
+    return leg
+
+
+def book_of(strategy):
+    """Which book a strategy trades on. A run holds exactly one.
+
+    The desk's legs share one book. The ADR variant is a second version of that
+    same book - mixing the two would have both versions watching the same stocks
+    and competing for the same three slots, which measures neither.
+    """
+    if strategy.get("standalone"):
+        return strategy["id"]
+    return strategy.get("book", "desk")
 
 
 # ---------------- setups as the unit of a run ----------------
@@ -136,7 +250,7 @@ _OPTION = {"LONG": "CE", "SHORT": "PE", "BOTH": "CE/PE"}
 
 def _setup_index():
     out = {}
-    for strategy in (BREAKOUT_RETRACE_21EMA, BREAKDOWN_RETRACE_21EMA, NIFTY_ORB_15M):
+    for strategy in ALL_STRATEGIES:
         for setup in strategy["setups"]:
             out[setup] = {
                 "setup": setup,
@@ -173,6 +287,11 @@ def selection(setup_ids):
         if STRATEGIES[sid].get("standalone") and len(chosen) > 1:
             raise SystemExit(f"setup {', '.join(sorted(chosen[sid]))} runs on its own - "
                              f"replay it in a run of its own")
+    # The ADR legs are another version of the desk's legs, so the two never
+    # share a run.
+    if len({book_of(STRATEGIES[sid]) for sid in chosen}) > 1:
+        raise SystemExit("the ADR legs (A-ADR, B-ADR, C-ADR) are an alternative to A, B and C, "
+                         "not an addition - replay them in a run of their own")
     return sorted(chosen), chosen
 
 

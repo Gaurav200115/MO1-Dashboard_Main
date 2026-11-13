@@ -48,6 +48,9 @@ class Stock:
     strike_oi: float = 500_000.0
     chain_max_oi: float = 1_000_000.0
     strikes: tuple = field(default=tuple(range(900, 1121, 10)))
+    # Previous sessions' (high, low, close), oldest first, for the ADR variant's
+    # average daily range. Left out, the stock has 14 sessions shaped like `ohlc`.
+    history: tuple | None = None
 
 
 class Result:
@@ -120,6 +123,17 @@ class FakeArchive:
         if "FROM corporate_actions" in q:
             return Result([])
 
+        if "FROM cm_bhavcopy" in q and "ORDER BY symbol, trade_date" in q:
+            # The ADR history: one row per previous session, the newest on `upto`.
+            symbols, _, upto = params
+            rows = []
+            for symbol in symbols:
+                stock = self.stocks[symbol]
+                hist = stock.history if stock.history is not None else (stock.ohlc,) * 14
+                for back, hlc in enumerate(reversed(hist)):
+                    rows.append((symbol, upto - dt.timedelta(days=back),
+                                 *(int(round(v * 100)) for v in hlc)))
+            return Result(sorted(rows))
         if "FROM cm_bhavcopy" in q:
             return Result([(s.symbol, *(int(round(v * 100)) for v in s.ohlc))
                            for s in self.stocks.values()])

@@ -129,6 +129,38 @@ python run.py session --day 2026-10-15 --setups ORB
 python run.py now --from 2026-01-01 --to 2026-10-31 --setups ORB
 ```
 
+## Backtest-only rule: ADR-scaled retrace (`--setups A-ADR B-ADR C-ADR`)
+
+`backtest/adr.py`, defined as `BREAKOUT_RETRACE_21EMA_ADR` / `BREAKDOWN_RETRACE_21EMA_ADR` in
+`strategies.py`, tagged **ADR, SL 1:2→1**. **Not live**: if it beats the live rule it goes live as
+a version change of the two live rules, and not before.
+
+- The live rules arm when price comes within **0.4%** of the 21 EMA and enter on a **0.2%** turn
+  off the pullback's extreme. Here both are measured in the stock's own **14-session average
+  daily range** instead: zone **0.15 ADR**, turn **0.075 ADR**. The minimum pullback and the
+  closed-bar kill line ride on the same two numbers, exactly as they do live.
+- ADR% = mean of (high − low) / close over the 14 sessions ending the day before, from
+  `cm_bhavcopy`; in rupees it is that percent of the previous close. Fixed before 09:15, so no
+  look-ahead. A stock with under 14 sessions has no ADR: its A and C legs cannot arm, counted
+  under `skipped`.
+- Calibrated so the median stock behaves as live: the median 14-session ADR across the desk's 186
+  stocks (Mongo `daily_levels`, 7 Sep – 13 Nov 2026) is **2.716%**, so 0.4% = 0.147 ADR and 0.2%
+  = 0.074 ADR, rounded to 0.15 / 0.075.
+- Everything else is the live long v8 / short v4 as of 2026-11-13 — levels, skews, 13:00
+  cutoff, book gate, ₹550 risk, and the SL trail (at 1:2 the SL moves to +1R, then one step
+  behind). **B-ADR is setup B unchanged** — it has no retracement % — and is in the run so the
+  three legs share the three-position cap as they do live.
+- An alternative to A, B and C, not an addition: a run holds one or the other, never both.
+
+```
+python run.py session --day 2026-10-15 --setups A-ADR B-ADR C-ADR
+python run.py now --from 2026-01-01 --to 2026-10-31 --setups A B C
+python run.py now --from 2026-01-01 --to 2026-10-31 --setups A-ADR B-ADR C-ADR
+```
+
+Compare the last two: same dates, same cap, only the entry ruler differs. Each ADR trade stores
+the band it used under `trigger.adr` (`pct`, `rupees`, `zone`, `turn`).
+
 ## Tests
 
 No database and no network — the pure parts of the engine, plus one whole session replayed against
@@ -140,9 +172,10 @@ python tests/test_fills.py       stops, the flatten, and the edge of the archive
 python tests/test_session.py     one session end to end, the gate, run identity
 python tests/test_strategies.py  every leg: A, B and C apart and together, and the shared cap
 python tests/test_orb.py         the NIFTY opening range: the break, the points trail, 13:00
+python tests/test_adr.py         the ADR variant: the band, live vs ADR on one path, A/B/C-ADR
 ```
 
-226 checks. `test_strategies.py` is the one that keeps the pair honest: each rule can be
+304 checks. `test_strategies.py` is the one that keeps the pair honest: each rule can be
 correct on its own and the two still wrong together. Give the long rule three slots and the
 short rule three more and the replay runs six positions where the desk runs three, on twice
 the risk, with every figure downstream of it inflated.

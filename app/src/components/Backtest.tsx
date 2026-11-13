@@ -76,10 +76,10 @@ export default function Backtest({ onOpenRun }: { onOpenRun?: (runId: string) =>
   // Default to every leg the desk runs. One leg at a time is how you find out
   // which of them is carrying the result — but note the cap is desk-wide, so a
   // single leg on its own gets all three slots and had more room than it really
-  // had. Backtest-only rules are never picked for you.
+  // had. Backtest-only rules (ORB, the ADR legs) are never picked for you.
   useEffect(() => {
     if (reply?.setups && picked.length === 0) {
-      setPicked(reply.setups.filter((s) => !s.standalone).map((s) => s.setup));
+      setPicked(reply.setups.filter((s) => !s.backtestOnly).map((s) => s.setup));
     }
   }, [reply, picked.length]);
 
@@ -217,14 +217,14 @@ function Ask({
                   onPick(
                     !e.target.checked
                       ? picked.filter((id) => id !== s.setup)
-                      : s.standalone
-                        ? [s.setup]
-                        : [
-                            ...picked.filter(
-                              (id) => !setups.find((o) => o.setup === id)?.standalone
-                            ),
-                            s.setup,
-                          ]
+                      : // A run holds one book: ticking a leg drops any picked
+                        // leg from another book (desk / ADR / NIFTY).
+                        [
+                          ...picked.filter(
+                            (id) => setups.find((o) => o.setup === id)?.book === s.book
+                          ),
+                          s.setup,
+                        ]
                   )
                 }
               />
@@ -242,6 +242,11 @@ function Ask({
                 {s.side === "LONG" ? "long · CE" : s.side === "SHORT" ? "short · PE" : "CE or PE"}
               </span>
               <span className="font-mono text-[11px] text-faint">v{s.version}</span>
+              {s.tag ? (
+                <span className="rounded-[3px] border border-accent px-1 py-px font-mono text-[9.5px] font-semibold text-accent">
+                  {s.tag}
+                </span>
+              ) : null}
               {s.backtestOnly ? (
                 <span className="rounded-[3px] border border-accent px-1 py-px font-mono text-[9.5px] uppercase text-accent">
                   backtest only · own run

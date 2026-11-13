@@ -11,10 +11,18 @@ difference between those two is the whole setup.
 The replay feeds this one 1-minute close at a time, where the live engine feeds
 it a tick. That difference is a stated limit of the backtest, not a change to
 the rule: the machine itself is identical.
+
+Every distance the retrace legs measure - the zone around the EMA, the minimum
+pullback, the entry turn, the line a closed bar kills the setup at - is asked of
+a *ruler* (adr.py). The live rule's ruler is a fixed percent of price and
+reproduces the original arithmetic exactly; the backtest-only ADR variant's
+ruler is a rupee distance set from the stock's own daily range. The machine
+itself is the same for both.
 """
 import math
 from dataclasses import dataclass, field
 
+from .adr import ruler
 from .levels import cross_candidates
 
 
@@ -68,6 +76,7 @@ class Signal:
     retracement: dict | None  # setups A and C: the pullback entered off. None for B.
     crossed_at: object
     at: object
+    adr: dict | None = None   # ADR variant only: the stock's ADR and the bands it set.
 
 
 @dataclass
@@ -114,21 +123,16 @@ def initial_state(plan):
     )
 
 
-def _retraced(state, ltp, params):
+def _retraced(state, ltp, rule):
     """Did price actually come back down to the EMA, as opposed to the EMA rising to
-    meet a price that never moved? Measured against the high since the break."""
-    if state.high_since_cross <= 0:
-        return False
-    pullback = (state.high_since_cross - ltp) / state.high_since_cross * 100
-    return pullback >= params["entryReboundPct"]
+    meet a price that never moved? Measured against the high since the break,
+    and held to the same size as the entry turn."""
+    return rule.pulled_back(state.high_since_cross, ltp)
 
 
-def _rallied(state, ltp, params):
+def _rallied(state, ltp, rule):
     """The short's mirror of _retraced."""
-    if state.low_since_break <= 0:
-        return False
-    rally = (ltp - state.low_since_break) / state.low_since_break * 100
-    return rally >= params["entryReboundPct"]
+    return rule.rallied(state.low_since_break, ltp)
 
 
 def _can_trade(state, params):
@@ -149,6 +153,12 @@ def evaluate_symbol(plan, state, params, ltp, ema, last_bar_close, at, entries_o
     state.last_ltp = ltp
     state.note = None
 
+    # The ruler the retrace legs measure with. `ready` is only ever False for the
+    # ADR variant on a stock with under 14 sessions of history: it still tracks
+    # its levels, but its A and C legs cannot arm, because there is no band to
+    # arm them against.
+    rule = ruler(plan, params)
+
     # --- Setup A: break the major resistance, then retrace to the EMA ---------
     resistance = plan.major_resistance
     if "A" in setups and resistance and state.phase_a != "spent":
@@ -168,8 +178,8 @@ def evaluate_symbol(plan, state, params, ltp, ema, last_bar_close, at, entries_o
             # arming it. The rule wants a pullback the EMA holds; price closing
             # through it is the pullback failing, and re-requiring a fresh break
             # is what stops one dead break from arming all afternoon.
-            broke = (ema is not None and last_bar_close is not None
-                     and last_bar_close < ema * (1 - params["emaZonePct"] / 100))
+            broke = (rule.ready and ema is not None and last_bar_close is not None
+                     and rule.closed_below_zone(last_bar_close, ema))
 
             if broke:
                 state.phase_a = "below" if ltp < level else "idle"
@@ -179,13 +189,15 @@ def evaluate_symbol(plan, state, params, ltp, ema, last_bar_close, at, entries_o
                 state.zone_at = None
             elif ema is None:
                 state.note = "EMA warming"
+            elif not rule.ready:
+                state.note = "no ADR history"
             else:
                 # Two separate events, in order. Reaching the zone is the setup;
                 # turning back up off the low of it is the trigger.
                 if state.phase_a == "crossed":
-                    if not near_ema(ltp, ema, params["emaZonePct"]):
+                    if not rule.near(ltp, ema):
                         state.note = "waiting for retrace"
-                    elif not _retraced(state, ltp, params):
+                    elif not _retraced(state, ltp, rule):
                         # Price at the EMA is not the same event as price having
                         # come back to it. If a break stalls and goes sideways
                         # the EMA rises into the price and the zone test starts
@@ -204,7 +216,7 @@ def evaluate_symbol(plan, state, params, ltp, ema, last_bar_close, at, entries_o
                         state.zone_low = ltp
 
                     low = state.zone_low
-                    trigger = low * (1 + params["entryReboundPct"] / 100)
+                    trigger = rule.trigger_up(low)
 
                     if ltp < trigger:
                         state.note = f"retraced to {low:.2f}, needs {show_trigger(trigger, 'up')}"
@@ -224,7 +236,7 @@ def evaluate_symbol(plan, state, params, ltp, ema, last_bar_close, at, entries_o
                                          "emaGapPct": abs(low - ema) / ema * 100,
                                          "at": state.zone_at if state.zone_at is not None else at,
                                          "turnPct": (ltp - low) / low * 100},
-                            crossed_at=state.crossed_at, at=at)
+                            crossed_at=state.crossed_at, at=at, adr=rule.record())
 
     # --- Setup B: hold above the major support, cross another marked level ----
     support = plan.major_support
@@ -241,7 +253,7 @@ def evaluate_symbol(plan, state, params, ltp, ema, last_bar_close, at, entries_o
                     and entries_open and _can_trade(state, params)):
                 fired = Signal(setup="B", symbol=plan.symbol, spot=ltp, ema=ema,
                                level=level, basis=support, retracement=None,
-                               crossed_at=at, at=at)
+                               crossed_at=at, at=at, adr=rule.record())
 
             state.below[level.pivot] = ltp < level.pivot_value
 
@@ -279,8 +291,8 @@ def evaluate_symbol(plan, state, params, ltp, ema, last_bar_close, at, entries_o
             state.low_since_break = min(state.low_since_break, ltp)
 
             # A bar closing back above the EMA is the breakdown failing.
-            reclaimed = (ema is not None and last_bar_close is not None
-                         and last_bar_close > ema * (1 + params["emaZonePct"] / 100))
+            reclaimed = (rule.ready and ema is not None and last_bar_close is not None
+                         and rule.closed_above_zone(last_bar_close, ema))
 
             if reclaimed:
                 state.phase_c = "above" if ltp > level else "idle"
@@ -290,11 +302,13 @@ def evaluate_symbol(plan, state, params, ltp, ema, last_bar_close, at, entries_o
                 state.zone_high_at = None
             elif ema is None:
                 state.note = "EMA warming"
+            elif not rule.ready:
+                state.note = "no ADR history"
             else:
                 if state.phase_c == "broken":
-                    if not near_ema(ltp, ema, params["emaZonePct"]):
+                    if not rule.near(ltp, ema):
                         state.note = "waiting for retrace"
-                    elif not _rallied(state, ltp, params):
+                    elif not _rallied(state, ltp, rule):
                         state.note = "EMA came down, no rally"
                     else:
                         state.phase_c = "retraced"
@@ -306,7 +320,7 @@ def evaluate_symbol(plan, state, params, ltp, ema, last_bar_close, at, entries_o
                         state.zone_high = ltp
 
                     high = state.zone_high
-                    trigger = high * (1 - params["entryReboundPct"] / 100)
+                    trigger = rule.trigger_down(high)
 
                     if ltp > trigger:
                         state.note = f"retraced to {high:.2f}, needs {show_trigger(trigger, 'down')}"
@@ -321,7 +335,7 @@ def evaluate_symbol(plan, state, params, ltp, ema, last_bar_close, at, entries_o
                                          "emaGapPct": abs(high - ema) / ema * 100,
                                          "at": state.zone_high_at if state.zone_high_at is not None else at,
                                          "turnPct": (high - ltp) / high * 100},
-                            crossed_at=state.broke_at, at=at)
+                            crossed_at=state.broke_at, at=at, adr=rule.record())
 
     return fired
 

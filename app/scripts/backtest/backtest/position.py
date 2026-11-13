@@ -161,6 +161,8 @@ def open_position(signal, strategy, fill, lot_size, expiry, strike, option_type,
             "spotAtEntry": signal.spot,
             "emaAtEntry": signal.ema,
             "retracement": signal.retracement,
+            # ADR variant only: the stock's ADR and the rupee bands it set.
+            "adr": getattr(signal, "adr", None),
         },
     )
 

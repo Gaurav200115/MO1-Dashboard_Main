@@ -140,6 +140,30 @@ def session_ohlc(conn, session, symbols):
     return out
 
 
+def daily_history(conn, upto, symbols, sessions):
+    """{symbol: [(date, high, low, close)]} - each stock's last `sessions` bhavcopy
+    rows on or before `upto`, in rupees. For the ADR variant's average daily range.
+
+    Read from a calendar window rather than the last N trading days, so a day
+    missing from the archive costs one older session instead of every stock's
+    ADR. Six weeks holds 14 sessions with room for holidays and gaps. Prices are
+    not adjusted for corporate actions: the ADR is a percent of each day's own
+    close, so a split inside the window changes nothing.
+    """
+    since = upto - dt.timedelta(days=max(42, sessions * 3))
+    rows = conn.execute(
+        "SELECT symbol, trade_date, high_paise, low_paise, close_paise FROM cm_bhavcopy "
+        "WHERE series = 'EQ' AND symbol = ANY(%s) AND trade_date > %s AND trade_date <= %s "
+        "ORDER BY symbol, trade_date",
+        (list(symbols), since, upto))
+    out = defaultdict(list)
+    for sym, day, high, low, close in rows:
+        if None in (high, low, close):
+            continue
+        out[sym].append((day, _rs(high), _rs(low), _rs(close)))
+    return {sym: hist[-sessions:] for sym, hist in out.items()}
+
+
 def levels_expiry(conn, session, symbol):
     """The expiry the overnight scan reads: nearest **strictly after** the session.
 

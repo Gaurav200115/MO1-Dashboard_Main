@@ -70,6 +70,26 @@ def trade_document(position, run_id):
     side = "LONG" if position.option_type == "CE" else "SHORT"
     context = position.context
 
+    trigger = {
+        "setup": position.setup,
+        "level": {"pivot": context["pivot"], "kind": context["levelKind"],
+                  "value": context["pivotValue"], "strike": context["levelStrike"],
+                  "skew": context["skew"], "gapPct": context["gapPct"]},
+        "basis": None,
+        "crossedAt": None,
+        "ema": context["emaAtEntry"],
+        "retracement": (None if not context.get("retracement") else {
+            "extreme": context["retracement"]["extreme"],
+            "emaGapPct": context["retracement"]["emaGapPct"],
+            "at": _ms(context["retracement"]["at"]),
+            "turnPct": context["retracement"]["turnPct"]}),
+        "spot": context["spotAtEntry"],
+    }
+    # Only the ADR variant's trades carry this, so every other trade keeps
+    # exactly the live shape.
+    if context.get("adr"):
+        trigger["adr"] = dict(context["adr"])
+
     return {
         "_id": f"{run_id}:{position.symbol}:{_ms(position.entry_at)}:{position.setup}",
         "runId": run_id,
@@ -111,21 +131,7 @@ def trade_document(position, run_id):
         "ladder": [{"at": _ms(s["at"]), "step": s["step"], "stop": s["stop"],
                     "target": s["target"], "locked": s["locked"]}
                    for s in position.ladder],
-        "trigger": {
-            "setup": position.setup,
-            "level": {"pivot": context["pivot"], "kind": context["levelKind"],
-                      "value": context["pivotValue"], "strike": context["levelStrike"],
-                      "skew": context["skew"], "gapPct": context["gapPct"]},
-            "basis": None,
-            "crossedAt": None,
-            "ema": context["emaAtEntry"],
-            "retracement": (None if not context.get("retracement") else {
-                "extreme": context["retracement"]["extreme"],
-                "emaGapPct": context["retracement"]["emaGapPct"],
-                "at": _ms(context["retracement"]["at"]),
-                "turnPct": context["retracement"]["turnPct"]}),
-            "spot": context["spotAtEntry"],
-        },
+        "trigger": trigger,
 
         "paper": True,
         "openedAt": position.entry_at,
