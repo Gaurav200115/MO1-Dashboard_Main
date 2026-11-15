@@ -33,8 +33,9 @@ export interface SetupOption {
   /**
    * Which book the leg trades on. A run holds exactly one: the desk's own legs
    * ("desk"), the ADR variant of them ("adr"), the pullback-stop variant
-   * ("pullback-stop"), the daily-loss-limit variant ("adr-daily-loss"), or
-   * NIFTY's opening range ("nifty"). Mirrors `book_of` in backtest/strategies.py.
+   * ("pullback-stop"), the daily-loss-limit variant ("adr-daily-loss"), the
+   * per-pivot skew variant ("adr-pivot-skew"), or NIFTY's opening range
+   * ("nifty"). Mirrors `book_of` in backtest/strategies.py.
    */
   book: string;
   /** A short label shown beside the leg, e.g. what a variant changes. */
@@ -243,6 +244,62 @@ const BACKTEST_ONLY: SetupOption[] = [
     book: "adr-daily-loss",
     tag: "ADR · day stop ₹1,700",
   },
+
+  /*
+   * ADR with a skew threshold per pivot (2026-11-15). The live ADR rule, except
+   * how each stock's major level is picked: R1, R3, S1 and S3 need a skew of 5x
+   * or more, R2, S2 and P qualify at any skew, and the closest-gap qualifying
+   * level wins (live: 4x for any resistance, 5x for any support). Setup B's
+   * crossed levels are unchanged.
+   *
+   * Python: `BREAKOUT_RETRACE_21EMA_SK` / `BREAKDOWN_RETRACE_21EMA_SK` in
+   * backtest/strategies.py; tests/test_pivot_skew.py checks these three entries match.
+   */
+  {
+    setup: "A-SK",
+    strategy: "breakout-retrace-21ema-adr-pskew",
+    strategyName: "Level Break → 21 EMA Retrace [ADR, skew 5x R1/R3/S1/S3]",
+    version: 1,
+    label: "Break & retrace",
+    side: "LONG",
+    option: "CE",
+    description:
+      "Live setup A, but the major resistance needs 5x skew if it is R1 or R3, and any skew if " +
+      "it is R2 or P; closest gap wins. ADR retrace, ₹550 SL, 1:2 → +1R ladder.",
+    backtestOnly: true,
+    book: "adr-pivot-skew",
+    tag: "ADR · skew 5x R1/R3/S1/S3",
+  },
+  {
+    setup: "B-SK",
+    strategy: "breakout-retrace-21ema-adr-pskew",
+    strategyName: "Level Break → 21 EMA Retrace [ADR, skew 5x R1/R3/S1/S3]",
+    version: 1,
+    label: "Support hold & level cross",
+    side: "LONG",
+    option: "CE",
+    description:
+      "Live setup B: still crosses any confirmed level at any skew. The support it holds above " +
+      "is the major support under the per-pivot rule (5x for S1/S3, any skew for S2/P).",
+    backtestOnly: true,
+    book: "adr-pivot-skew",
+    tag: "ADR · skew 5x R1/R3/S1/S3",
+  },
+  {
+    setup: "C-SK",
+    strategy: "breakdown-retrace-21ema-adr-pskew",
+    strategyName: "Support Break → 21 EMA Retrace (Short) [ADR, skew 5x R1/R3/S1/S3]",
+    version: 1,
+    label: "Breakdown & retrace",
+    side: "SHORT",
+    option: "PE",
+    description:
+      "Live setup C, but the major support needs 5x skew if it is S1 or S3, and any skew if " +
+      "it is S2 or P; closest gap wins. ADR retrace, ₹550 SL, 1:2 → +1R ladder.",
+    backtestOnly: true,
+    book: "adr-pivot-skew",
+    tag: "ADR · skew 5x R1/R3/S1/S3",
+  },
 ];
 
 export function listSetups(): SetupOption[] {
@@ -277,7 +334,7 @@ export function mixError(setupIds: string[]): string | null {
     setupIds.map((id) => all.find((s) => s.setup === id)?.book).filter(Boolean)
   );
   if (books.size > 1) {
-    return "A/B/C and its variants (-ADR, -PB, -DL) are alternatives, not additions — replay each set in a run of its own";
+    return "A/B/C and its variants (-ADR, -PB, -DL, -SK) are alternatives, not additions — replay each set in a run of its own";
   }
   return null;
 }
