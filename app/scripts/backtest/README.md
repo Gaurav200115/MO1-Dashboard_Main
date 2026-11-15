@@ -227,7 +227,9 @@ Same dates, same rule: only the day stop differs.
 
 Defined as `BREAKOUT_RETRACE_21EMA_SK` / `BREAKDOWN_RETRACE_21EMA_SK` in `strategies.py`, tagged
 **ADR, skew 5x R1/R3/S1/S3**, with `levels.pick_major_per_pivot`. As Gaurav specified it on
-2026-11-15.
+2026-11-15. **Went live unchanged the same day as long v10 / short v6**, so `A B C` now replay
+this rule; the -SK legs stay as the record, and `tests/test_pivot_skew.py` fails if the two
+ever differ.
 
 - **The live ADR rule (long v9 / short v5)** except how each stock's major level is picked.
   Live: closest-gap confirmed level with skew ≥ 4x (resistance) / ≥ 5x (support).
@@ -264,7 +266,7 @@ python tests/test_daily_loss.py  the ₹1,700 day stop: net of closed trades, op
 python tests/test_pivot_skew.py  5x for R1/R3/S1/S3, any for R2/S2/P: the pick, plans, sessions
 ```
 
-436 checks. `test_strategies.py` is the one that keeps the pair honest: each rule can be
+443 checks, plus `node scripts/test-live-desk.mjs` (61) and `node scripts/test-levels-ts.mjs` (13) for the live desk. `test_strategies.py` is the one that keeps the pair honest: each rule can be
 correct on its own and the two still wrong together. Give the long rule three slots and the
 short rule three more and the replay runs six positions where the desk runs three, on twice
 the risk, with every figure downstream of it inflated.

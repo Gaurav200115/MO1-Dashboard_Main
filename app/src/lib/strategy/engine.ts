@@ -5,6 +5,7 @@ import type { EodReport } from "@/lib/eod/types";
 import { getFeed } from "@/lib/kite/feed";
 import { dailyCandles, NoSessionError } from "@/lib/kite/history";
 import { readSession } from "@/lib/kite/session";
+import { liveDesk } from "@/lib/execution/desk";
 import { mongoMessage } from "@/lib/mongo";
 import { BarEngine } from "./bars";
 import { istClock, istDate, istMinutes, parseIstTime } from "./ist";
@@ -39,10 +40,11 @@ export type { EngineSnapshot, EngineStatus, SymbolStatus } from "./types";
  * The live runtime: overnight levels in, paper trades out.
  *
  * One engine per strategy, all of them sharing the tick feed and one bar
- * builder per (interval, period) they ask for. Everything it produces is paper —
- * this desk has no order placement and never has — so a "fill" here is a live
- * premium read at the moment the rule fired, recorded so the rule can be judged
- * on something better than memory.
+ * builder per (interval, period) they ask for. Everything it records is paper —
+ * a "fill" here is a live premium read at the moment the rule fired, kept so the
+ * rule can be judged on something better than memory. When live orders are
+ * switched on, the live desk (lib/execution) mirrors each paper entry, trail and
+ * exit as real orders at Zerodha; paper stays the record either way.
  *
  * Two clocks matter and they are not the same one. Entries close at the
  * strategy's cutoff; positions already open keep running to their stop or to the
@@ -300,7 +302,10 @@ export class StrategyEngine {
 
     if (this.plans.size === 0) {
       this.status = "no-levels";
-      this.detail = `No stock in ${report.basedOn} has a level clearing the skew thresholds (${this.strategy.params.resistanceSkew}x / ${this.strategy.params.supportSkew}x).`;
+      const thresholds = this.strategy.params.pivotMinSkew
+        ? "per-pivot skew"
+        : `${this.strategy.params.resistanceSkew}x / ${this.strategy.params.supportSkew}x`;
+      this.detail = `No stock in ${report.basedOn} has a level clearing the skew thresholds (${thresholds}).`;
       return;
     }
 
@@ -693,6 +698,13 @@ export class StrategyEngine {
       this.lastSignalAt = at;
       if (state) state.tradesToday += 1;
 
+      // The real order, when live orders are on. Not awaited: paper is the
+      // record and must not wait on Zerodha, and the live desk reports its own
+      // outcome.
+      void liveDesk()
+        .onEntry(trade, quote)
+        .catch((err) => this.note(`${symbol}: live entry failed — ${message(err)}`));
+
       console.log(
         `[strategy] ${istClock(at)} ${this.strategy.id} ${setup?.label ?? signal.setup}: ` +
           `${side} ${instrument.tradingsymbol} @ ${entry.toFixed(2)} x${sizing.qty} ` +
@@ -745,6 +757,12 @@ export class StrategyEngine {
       const quote = quotes.get(quoteKeyOf(trade));
       if (!quote) continue;
 
+      // Every price read is shared with the live desk: it watches its exchange
+      // stop against it, and uses it to price an exit.
+      void liveDesk()
+        .onQuote(trade, quote)
+        .catch((err) => this.note(`${trade.symbol}: live watch failed — ${message(err)}`));
+
       if (flatten) {
         await this.exit(trade, quote, "eod-flatten");
         continue;
@@ -777,6 +795,9 @@ export class StrategyEngine {
             `stop ${trade.stop.toFixed(2)} locks ₹${Math.round(last?.locked ?? 0)}, ` +
             `target ${trade.target.toFixed(2)}`
         );
+        void liveDesk()
+          .onTrail(trade)
+          .catch((err) => this.note(`${trade.symbol}: live trail failed — ${message(err)}`));
       }
 
       trade.mtm = patch.mtm ?? trade.mtm;
@@ -820,6 +841,11 @@ export class StrategyEngine {
       `[strategy] ${istClock(quote.at)} ${trade.symbol} EXIT ${reason} @ ${price.toFixed(2)} ` +
         `(in ${trade.buy.price.toFixed(2)}) → ₹${profit >= 0 ? "+" : ""}${Math.round(profit)}`
     );
+
+    // The real position, if there is one, goes out with the paper trade.
+    void liveDesk()
+      .onExit(trade, quote, reason)
+      .catch((err) => this.note(`${trade.symbol}: live exit failed — ${message(err)}`));
   }
 
   private note(text: string): void {
@@ -927,6 +953,12 @@ export async function startStrategies(): Promise<EngineSnapshot[]> {
     }
     snapshots.push(await engine.start());
   }
+
+  // Says on the phone whether real orders are on today, once a morning, and
+  // restarts the live desk's loop for any position a restart left behind.
+  void liveDesk()
+    .announce()
+    .catch((err) => console.warn(`[live] announce failed: ${message(err)}`));
 
   return snapshots;
 }

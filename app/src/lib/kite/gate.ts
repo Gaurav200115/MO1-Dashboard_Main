@@ -74,3 +74,12 @@ globalRef.__kiteGates ??= {
 
 export const historyGate = globalRef.__kiteGates.history;
 export const quoteGate = globalRef.__kiteGates.quote;
+
+/**
+ * Real orders and the order book. Kite allows 10 orders a second; 120ms leaves
+ * room under that. Kept on a global of its own rather than added to the object
+ * above, so a process that hot-reloads into this code still gets one.
+ */
+const orderRef = globalThis as typeof globalThis & { __kiteOrderGate?: Gate };
+orderRef.__kiteOrderGate ??= new Gate(120);
+export const orderGate = orderRef.__kiteOrderGate;
