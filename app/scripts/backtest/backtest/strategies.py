@@ -347,10 +347,70 @@ BREAKDOWN_RETRACE_21EMA_DL = {
     "risk": dict(DAILY_LOSS_RISK),
 }
 
+# ADR with a skew threshold per pivot, as Gaurav specified it (2026-11-15).
+# Backtest only.
+#
+# The live rule (long v9 / short v5) picks each stock's major level as the
+# confirmed level closest to its strike whose skew clears one bar per side: 4x
+# for a resistance, 5x for a support. This variant gives each pivot its own bar:
+#
+#   R1, R3, S1, S3   skew 5x or more - anything under 5x cannot be the major
+#   R2, S2, P        any skew - every confirmed level qualifies (a confirmed
+#                    level is already at least 1.8x by construction)
+#
+# The pick is otherwise the same - least gap wins among the levels that qualify
+# - so where an R1 at 4.5x used to be the major, the closest qualifying level now
+# takes its place, and an R2 or P at 2x can be the major. He chose that over
+# keeping today's pick and filtering it. "5x or more" counts exactly 5.00x as
+# passing, the way the desk already reads "skew above 4x".
+#
+#   - Setup B's cross candidates are unchanged: it still counts a cross of any
+#     confirmed level at any skew. The support it holds above is the major
+#     support, so that follows the new pick.
+#   - Everything else is the live ADR rule: ADR retrace, 550 stop, 1:2 -> +1R.
+PIVOT_SKEW_TAG = "ADR, skew 5x R1/R3/S1/S3"
+
+PIVOT_SKEW_PARAMS = {
+    # The per-side bars are dropped rather than left in, so the record of this
+    # rule does not show a 4x / 5x it never applies.
+    **{k: v for k, v in ADR_PARAMS.items() if k not in ("resistanceSkew", "supportSkew")},
+    "pivotMinSkew": {"R1": 5, "R3": 5, "S1": 5, "S3": 5, "R2": 0, "S2": 0, "P": 0},
+}
+
+BREAKOUT_RETRACE_21EMA_SK = {
+    "id": "breakout-retrace-21ema-adr-pskew",
+    "version": 1,
+    "name": f"Level Break -> 21 EMA Retrace [{PIVOT_SKEW_TAG}]",
+    "backtestOnly": True,
+    "book": "adr-pivot-skew",
+    "setups": ["A-SK", "B-SK"],
+    "setupLabels": {"A-SK": f"Break & retrace [{PIVOT_SKEW_TAG}]",
+                    "B-SK": f"Support hold & level cross [{PIVOT_SKEW_TAG}]"},
+    "sides": {"A-SK": "LONG", "B-SK": "LONG"},
+    "legs": {"A-SK": "A", "B-SK": "B"},
+    "params": dict(PIVOT_SKEW_PARAMS),
+    "risk": dict(ADR_RISK),
+}
+
+BREAKDOWN_RETRACE_21EMA_SK = {
+    "id": "breakdown-retrace-21ema-adr-pskew",
+    "version": 1,
+    "name": f"Support Break -> 21 EMA Retrace (Short) [{PIVOT_SKEW_TAG}]",
+    "backtestOnly": True,
+    "book": "adr-pivot-skew",
+    "setups": ["C-SK"],
+    "setupLabels": {"C-SK": f"Breakdown & retrace [{PIVOT_SKEW_TAG}]"},
+    "sides": {"C-SK": "SHORT"},
+    "legs": {"C-SK": "C"},
+    "params": dict(PIVOT_SKEW_PARAMS),
+    "risk": dict(ADR_RISK),
+}
+
 ALL_STRATEGIES = (BREAKOUT_RETRACE_21EMA, BREAKDOWN_RETRACE_21EMA, NIFTY_ORB_15M,
                   BREAKOUT_RETRACE_21EMA_ADR, BREAKDOWN_RETRACE_21EMA_ADR,
                   BREAKOUT_RETRACE_21EMA_PB, BREAKDOWN_RETRACE_21EMA_PB,
-                  BREAKOUT_RETRACE_21EMA_DL, BREAKDOWN_RETRACE_21EMA_DL)
+                  BREAKOUT_RETRACE_21EMA_DL, BREAKDOWN_RETRACE_21EMA_DL,
+                  BREAKOUT_RETRACE_21EMA_SK, BREAKDOWN_RETRACE_21EMA_SK)
 STRATEGIES = {s["id"]: s for s in ALL_STRATEGIES}
 
 
@@ -434,10 +494,10 @@ def selection(setup_ids):
         if STRATEGIES[sid].get("standalone") and len(chosen) > 1:
             raise SystemExit(f"setup {', '.join(sorted(chosen[sid]))} runs on its own - "
                              f"replay it in a run of its own")
-    # The variants (ADR, pullback stop, daily loss limit) are other versions of
-    # the desk's legs, so no two of those books ever share a run.
+    # The variants (ADR, pullback stop, daily loss limit, pivot skew) are other
+    # versions of the desk's legs, so no two of those books ever share a run.
     if len({book_of(STRATEGIES[sid]) for sid in chosen}) > 1:
-        raise SystemExit("A/B/C and its variants (-ADR, -PB, -DL) are alternatives, not "
+        raise SystemExit("A/B/C and its variants (-ADR, -PB, -DL, -SK) are alternatives, not "
                          "additions - replay each set in a run of its own")
     return sorted(chosen), chosen
 

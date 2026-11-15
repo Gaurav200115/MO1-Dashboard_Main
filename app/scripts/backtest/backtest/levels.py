@@ -179,6 +179,23 @@ def pick_major(levels, kind, min_skew):
     return best
 
 
+def pick_major_per_pivot(levels, kind, min_skew_by_pivot):
+    """pick_major with a skew threshold per pivot rather than one per side.
+
+    Backtest only, for the pivot-skew variant (A-SK, B-SK, C-SK). The same
+    least-gap choice; only which levels may compete for it changes. A pivot the
+    table leaves out never qualifies.
+    """
+    best = None
+    for level in levels:
+        need = min_skew_by_pivot.get(level.pivot)
+        if level.kind != kind or need is None or level.skew() < need:
+            continue
+        if best is None or level.gap_pct < best.gap_pct:
+            best = level
+    return best
+
+
 def plan_for_stock(symbol, session, chain, lot_size, strike_step, params):
     """One stock's plan for the session *after* `session`.
 
@@ -203,8 +220,15 @@ def plan_for_stock(symbol, session, chain, lot_size, strike_step, params):
     def tradeable(level):
         return level if level is not None and level.pivot not in excluded else None
 
-    major_resistance = tradeable(pick_major(marked, "resistance", params["resistanceSkew"]))
-    major_support = tradeable(pick_major(marked, "support", params["supportSkew"]))
+    per_pivot = params.get("pivotMinSkew")
+    if per_pivot:
+        # The pivot-skew variant: each pivot carries its own minimum. Setup B's
+        # cross candidates (`marked`) are untouched - only the majors move.
+        major_resistance = tradeable(pick_major_per_pivot(marked, "resistance", per_pivot))
+        major_support = tradeable(pick_major_per_pivot(marked, "support", per_pivot))
+    else:
+        major_resistance = tradeable(pick_major(marked, "resistance", params["resistanceSkew"]))
+        major_support = tradeable(pick_major(marked, "support", params["supportSkew"]))
     if major_resistance is None and major_support is None:
         return None
 

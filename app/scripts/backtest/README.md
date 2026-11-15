@@ -223,6 +223,30 @@ python run.py now --from 2025-11-10 --to 2026-10-30 --setups A-DL B-DL C-DL
 
 Same dates, same rule: only the day stop differs.
 
+## Backtest-only rule: ADR with a skew threshold per pivot (`--setups A-SK B-SK C-SK`)
+
+Defined as `BREAKOUT_RETRACE_21EMA_SK` / `BREAKDOWN_RETRACE_21EMA_SK` in `strategies.py`, tagged
+**ADR, skew 5x R1/R3/S1/S3**, with `levels.pick_major_per_pivot`. As Gaurav specified it on
+2026-11-15.
+
+- **The live ADR rule (long v9 / short v5)** except how each stock's major level is picked.
+  Live: closest-gap confirmed level with skew ≥ 4x (resistance) / ≥ 5x (support).
+- Here each pivot has its own bar: **R1, R3, S1, S3 need 5x or more; R2, S2, P qualify at any
+  skew** (a confirmed level is already ≥ 1.8x by construction). Closest gap still wins among
+  those that qualify — so an R1 at 4.5x is out and the next qualifying level takes its place,
+  and an R2 or P at 2x can now be the major. Exactly 5.00x passes, as "above 4x" does live.
+- **Setup B's cross candidates are unchanged** — any confirmed level at any skew. The support B
+  holds above is the major support, so that follows the new pick.
+- The params carry `pivotMinSkew` and drop `resistanceSkew` / `supportSkew`, so the stored record
+  never shows a bar this rule does not apply.
+
+```
+python run.py now --from 2025-11-10 --to 2026-10-30 --setups A-SK B-SK C-SK
+```
+
+Compare with the ADR run on the same dates: only the major-level pick differs. Each trade stores
+the level it traded under `trigger.level` (`pivot`, `skew`), so the result can be split by pivot.
+
 ## Tests
 
 No database and no network — the pure parts of the engine, plus one whole session replayed against
@@ -237,9 +261,10 @@ python tests/test_orb.py         the NIFTY opening range: the break, the points 
 python tests/test_adr.py         the ADR variant: the band, live vs ADR on one path, A/B/C-ADR
 python tests/test_pullback.py    the pullback stop: R, floor, cap, stock stop, backstop, A/B/C-PB
 python tests/test_daily_loss.py  the ₹1,700 day stop: net of closed trades, open trades run on
+python tests/test_pivot_skew.py  5x for R1/R3/S1/S3, any for R2/S2/P: the pick, plans, sessions
 ```
 
-395 checks. `test_strategies.py` is the one that keeps the pair honest: each rule can be
+436 checks. `test_strategies.py` is the one that keeps the pair honest: each rule can be
 correct on its own and the two still wrong together. Give the long rule three slots and the
 short rule three more and the replay runs six positions where the desk runs three, on twice
 the risk, with every figure downstream of it inflated.

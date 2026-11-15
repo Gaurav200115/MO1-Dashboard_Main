@@ -24,6 +24,9 @@ Every command that replays takes --setups, defaulting to all of them:
     --setups A-DL B-DL C-DL
                       the live ADR rule plus a 1,700 daily loss limit on the day's
                       net closed P&L - backtest only
+    --setups A-SK B-SK C-SK
+                      the live ADR rule, the major level picked with 5x skew for
+                      R1/R3/S1/S3 and any skew for R2/S2/P - backtest only
 
 `levels` and `session` print and store nothing. `now` and `queue` write to Mongo.
 """
