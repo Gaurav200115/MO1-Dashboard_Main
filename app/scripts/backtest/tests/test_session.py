@@ -232,7 +232,7 @@ check("one trade came out of the session", len(positions), 1)
 if positions:
     p = positions[0]
     check("it is the long rule", p.strategy_id, "breakout-retrace-21ema")
-    check("under the version in the registry", p.strategy_version, 9)
+    check("under the version in the registry", p.strategy_version, 10)
     check("on setup A", p.setup, "A")
     check("it bought a call", p.option_type, "CE")
     check("entered at the rebound minute", p.entry_at, at(9, 26))

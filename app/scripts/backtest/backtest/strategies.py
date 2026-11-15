@@ -55,25 +55,31 @@ SHARED_RISK = {
     "trail": "ladder",
 }
 
+# Long v10 / short v6 (2026-11-15): the major level's skew bar is per pivot -
+# 5x for R1, R3, S1, S3; any skew for R2, S2, P - instead of 4x per resistance /
+# 5x per support. Backtested first as A-SK / B-SK / C-SK (below) and went live
+# unchanged. registry.ts holds it as PIVOT_MIN_SKEW, shared by both rules.
+PIVOT_MIN_SKEW = {"R1": 5, "R3": 5, "S1": 5, "S3": 5, "R2": 0, "S2": 0, "P": 0}
+
 BREAKOUT_RETRACE_21EMA = {
     "id": "breakout-retrace-21ema",
-    "version": 9,
+    "version": 10,
     "name": "Level Break -> 21 EMA Retrace",
     "setups": ["A", "B"],
     "setupLabels": {"A": "Break & retrace", "B": "Support hold & level cross"},
     "sides": {"A": "LONG", "B": "LONG"},
-    "params": dict(SHARED_PARAMS, resistanceSkew=4, supportSkew=5),
+    "params": dict(SHARED_PARAMS, pivotMinSkew=dict(PIVOT_MIN_SKEW)),
     "risk": dict(SHARED_RISK),
 }
 
 BREAKDOWN_RETRACE_21EMA = {
     "id": "breakdown-retrace-21ema",
-    "version": 5,
+    "version": 6,
     "name": "Support Break -> 21 EMA Retrace (Short)",
     "setups": ["C"],
     "setupLabels": {"C": "Breakdown & retrace"},
     "sides": {"C": "SHORT"},
-    "params": dict(SHARED_PARAMS, resistanceSkew=4, supportSkew=5),
+    "params": dict(SHARED_PARAMS, pivotMinSkew=dict(PIVOT_MIN_SKEW)),
     "risk": dict(SHARED_RISK),
 }
 
@@ -549,6 +555,14 @@ def _ts_string(text, key):
     return m.group(1) if m else None
 
 
+def _ts_pivot_table(text, const_name):
+    """A `const NAME ... = { R1: 5, P: 0 }` table, as {pivot: float}. None when absent."""
+    m = re.search(r"const %s\b[^=]*=\s*\{([^}]*)\}" % re.escape(const_name), text)
+    if not m:
+        return None
+    return {k: float(v) for k, v in re.findall(r"\b([RSP]\d?)\s*:\s*(-?[\d.]+)", m.group(1))}
+
+
 def _ts_block(text, const_name):
     """The source of one exported definition, from its name to the line that closes it."""
     m = re.search(r"export const %s[^=]*=\s*\{" % re.escape(const_name), text)
@@ -617,11 +631,24 @@ def check_against_registry():
         setups = re.findall(r"\bid\s*:\s*[\"']([ABC])[\"']", block)
         if setups != mine["setups"]:
             bad.append(f"{const}.setups: registry.ts has {setups}, mirror has {mine['setups']}")
+        # The skew bar the major pick uses. Up to v9 / v5 one number per side;
+        # from v10 / v6 a table per pivot, shared through PIVOT_MIN_SKEW.
         for key in ("resistanceSkew", "supportSkew"):
             theirs = _ts_number(block, key)
-            if theirs is None or float(theirs) != float(mine["params"][key]):
-                bad.append(f"{const}.params.{key}: registry.ts has {theirs}, "
-                           f"mirror has {mine['params'][key]}")
+            if key in mine["params"]:
+                if theirs is None or float(theirs) != float(mine["params"][key]):
+                    bad.append(f"{const}.params.{key}: registry.ts has {theirs}, "
+                               f"mirror has {mine['params'][key]}")
+            elif theirs is not None:
+                bad.append(f"{const}.params.{key}: registry.ts sets {theirs}, which the mirror "
+                           f"does not apply")
+        if "pivotMinSkew" in mine["params"]:
+            if not re.search(r"\bpivotMinSkew\s*:\s*PIVOT_MIN_SKEW\b", block):
+                bad.append(f"{const}.params.pivotMinSkew: registry.ts does not use PIVOT_MIN_SKEW")
+            theirs = _ts_pivot_table(text, "PIVOT_MIN_SKEW")
+            if theirs != {k: float(v) for k, v in mine["params"]["pivotMinSkew"].items()}:
+                bad.append(f"{const}.params.pivotMinSkew: registry.ts has {theirs}, "
+                           f"mirror has {mine['params']['pivotMinSkew']}")
 
         # v6 excluded R3 and v7 took it back. If an excludedPivots list reappears
         # in registry.ts, this mirror is silently trading a pivot the desk does not.

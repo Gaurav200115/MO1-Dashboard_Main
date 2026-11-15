@@ -15,8 +15,9 @@ What this file pins down:
   - whole sessions through `replay_session`, named A-ADR / B-ADR / C-ADR
   - that ADR legs are never mixed with the desk's own legs in one run
   - that a stored ADR trade carries its band
-  - that live long v9 / short v5 are exactly the A-ADR / C-ADR rule that was
-    backtested (it went live unchanged on 2026-11-15)
+  - that the live entry (long v10 / short v6) is still exactly the A-ADR / C-ADR
+    retrace that was backtested (it went live as v9 / v5 on 2026-11-15; v10 / v6
+    changed only the skew bar - see test_pivot_skew.py)
 
     py -3.12 tests/test_adr.py
 """
@@ -284,8 +285,8 @@ check("A-ADR waits for the closer pullback, 09:28", [(p.setup, p.entry_at) for p
       [("A-ADR", minute(9, 28))])
 check("live A (v9) takes exactly the same 09:28 entry", [(p.setup, p.entry_at) for p in live],
       [("A", minute(9, 28))])
-check("under the live strategy at its new version", [(p.strategy_id, p.strategy_version) for p in live],
-      [("breakout-retrace-21ema", 9)])
+check("under the live strategy at its current version", [(p.strategy_id, p.strategy_version) for p in live],
+      [("breakout-retrace-21ema", 10)])
 if adr:
     p = adr[0]
     check("A-ADR runs under its own strategy", (p.strategy_id, p.strategy_version),
@@ -356,18 +357,24 @@ for strategy in (ADR_LONG, ADR_SHORT):
         check(f"{setup}'s label carries the tag", "ADR, SL 1:2->1" in label, True)
 
 
-# ---------------- live is exactly what was backtested ----------------
-# Long v9 / short v5 went live as the A-ADR / C-ADR rule, unchanged. If either
-# side moves, these fail: the live rule would no longer be the rule the
-# backtest justified, and that has to be a decision rather than an accident.
+# ---------------- live still measures the retrace this way ----------------
+# Long v9 / short v5 went live as the A-ADR / C-ADR rule, unchanged. Long v10 /
+# short v6 kept that entry and moved only the major-level skew bar (per pivot -
+# test_pivot_skew.py pins that half). So the live entry must still be exactly
+# the ADR rule's: if it moves, the live rule is no longer what was backtested.
 
+SKEW_KEYS = {"resistanceSkew", "supportSkew", "pivotMinSkew"}
 for live_rule, adr_rule in ((LIVE_LONG, ADR_LONG), (LIVE_SHORT, ADR_SHORT)):
-    check(f"{live_rule['id']} v{live_rule['version']} params are exactly {adr_rule['id']} "
-          f"v{adr_rule['version']}'s", live_rule["params"], adr_rule["params"])
+    check(f"{live_rule['id']} v{live_rule['version']} entry params are exactly {adr_rule['id']} "
+          f"v{adr_rule['version']}'s",
+          {k: v for k, v in live_rule["params"].items() if k not in SKEW_KEYS},
+          {k: v for k, v in adr_rule["params"].items() if k not in SKEW_KEYS})
     check(f"{live_rule['id']} v{live_rule['version']} risk is exactly {adr_rule['id']}'s",
           live_rule["risk"], adr_rule["risk"])
-check("live long is v9", LIVE_LONG["version"], 9)
-check("live short is v5", LIVE_SHORT["version"], 5)
+check("A-ADR keeps the 4x / 5x per-side bars it was backtested with",
+      (ADR_LONG["params"]["resistanceSkew"], ADR_LONG["params"]["supportSkew"]), (4, 5))
+check("live long is v10", LIVE_LONG["version"], 10)
+check("live short is v6", LIVE_SHORT["version"], 6)
 
 
 # ---------------- the stored trade ----------------

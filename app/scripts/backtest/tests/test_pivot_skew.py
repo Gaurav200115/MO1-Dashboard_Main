@@ -59,6 +59,16 @@ check("everything else is the live ADR rule",
 check("the live stop and ladder", SK_LONG["risk"], S.BREAKOUT_RETRACE_21EMA["risk"])
 check("its own book", (SK_LONG["book"], SK_SHORT["book"]), ("adr-pivot-skew", "adr-pivot-skew"))
 
+# Long v10 / short v6 went live as this rule, unchanged. If either side moves,
+# these fail: the live rule would no longer be the rule this backtest justified.
+for live_rule, sk_rule in ((S.BREAKOUT_RETRACE_21EMA, SK_LONG), (S.BREAKDOWN_RETRACE_21EMA, SK_SHORT)):
+    check(f"live {live_rule['id']} v{live_rule['version']} params are exactly {sk_rule['id']}'s",
+          live_rule["params"], sk_rule["params"])
+    check(f"live {live_rule['id']} v{live_rule['version']} risk is exactly {sk_rule['id']}'s",
+          live_rule["risk"], sk_rule["risk"])
+check("live is long v10 / short v6",
+      (S.BREAKOUT_RETRACE_21EMA["version"], S.BREAKDOWN_RETRACE_21EMA["version"]), (10, 6))
+
 
 # ---------------- the pick ----------------
 
@@ -126,14 +136,16 @@ def chain(call_put):
 
 SESSION = (1030.0, 970.0, 1000.0)
 two_resistances = chain({1020: (450.0, 100.0), 1040: (250.0, 100.0), 980: (100.0, 1000.0)})
-live = plan_for_stock("TEST", SESSION, two_resistances, 250, 10.0, S.BREAKOUT_RETRACE_21EMA["params"])
+old = plan_for_stock("TEST", SESSION, two_resistances, 250, 10.0, S.ADR_PARAMS)
 sk = plan_for_stock("TEST", SESSION, two_resistances, 250, 10.0, SK_LONG["params"])
-check("live plan: R1 at 4.5x is the major resistance", picked(live.major_resistance), "R1")
+check("4x / 5x plan (v9, A-ADR): R1 at 4.5x is the major resistance", picked(old.major_resistance), "R1")
 check("per-pivot plan: R1 is out, R2 at 2.5x is the major resistance", picked(sk.major_resistance), "R2")
-check("S1 at 10x is the major support in both", (picked(live.major_support), picked(sk.major_support)),
+check("S1 at 10x is the major support in both", (picked(old.major_support), picked(sk.major_support)),
       ("S1", "S1"))
 check("setup B's levels are the same in both plans",
-      [lv.pivot for lv in sk.marked], [lv.pivot for lv in live.marked])
+      [lv.pivot for lv in sk.marked], [lv.pivot for lv in old.marked])
+live = plan_for_stock("TEST", SESSION, two_resistances, 250, 10.0, S.BREAKOUT_RETRACE_21EMA["params"])
+check("live v10 picks exactly as A-SK: R2", picked(live.major_resistance), "R2")
 
 weak_r1_only = chain({1020: (450.0, 100.0), 980: (100.0, 1000.0)})
 sk = plan_for_stock("TEST", SESSION, weak_r1_only, 250, 10.0, SK_LONG["params"])
