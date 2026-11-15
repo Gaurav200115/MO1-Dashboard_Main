@@ -199,6 +199,30 @@ python run.py now --from 2025-11-10 --to 2026-10-30 --setups A-PB B-PB C-PB
 Same dates, same entry, same cap: only the stop differs. Each A/C trade stores its stop under
 `trigger.pullbackStop` (`rupees`, `rawRupees`, `floored`, `extreme`, `level`, `backstop`).
 
+## Backtest-only rule: ADR with a daily loss limit (`--setups A-DL B-DL C-DL`)
+
+Defined as `BREAKOUT_RETRACE_21EMA_DL` / `BREAKDOWN_RETRACE_21EMA_DL` in `strategies.py`, tagged
+**ADR, SL 550, day stop 1700**. As Gaurav specified it on 2026-11-15, after the pullback stop
+backtested badly: keep the ₹550 stop, add a day stop.
+
+- **The live ADR rule (long v9 / short v5) exactly** — ADR retrace for A and C, B unchanged,
+  ₹550 stop, 1:2 → +1R ladder, one step behind.
+- **One addition:** once the day's **net P&L on closed trades** is down **₹1,700**, no new trade
+  that day. Wins offset losses; open trades do not count, and are left to run on under their own
+  stop and ladder. The limit covers all three legs together, like the three-position cap.
+- A stop fills at its own price in this replay, so a loss is normally exactly ₹550: three full
+  losses are ₹1,650 and ₹1,700 usually trips on the fourth (or the third, when gaps through the
+  stop added ₹50+). He chose ₹1,700 over ₹1,650 knowing that.
+- Refused signals are counted as `daily loss limit Rs 1700`; the days it was reached as
+  `days the Rs 1700 daily loss limit was reached` (both in the run's `refused` / `skipped`).
+
+```
+python run.py now --from 2025-11-10 --to 2026-10-30 --setups A B C
+python run.py now --from 2025-11-10 --to 2026-10-30 --setups A-DL B-DL C-DL
+```
+
+Same dates, same rule: only the day stop differs.
+
 ## Tests
 
 No database and no network — the pure parts of the engine, plus one whole session replayed against
@@ -212,9 +236,10 @@ python tests/test_strategies.py  every leg: A, B and C apart and together, and t
 python tests/test_orb.py         the NIFTY opening range: the break, the points trail, 13:00
 python tests/test_adr.py         the ADR variant: the band, live vs ADR on one path, A/B/C-ADR
 python tests/test_pullback.py    the pullback stop: R, floor, cap, stock stop, backstop, A/B/C-PB
+python tests/test_daily_loss.py  the ₹1,700 day stop: net of closed trades, open trades run on
 ```
 
-365 checks. `test_strategies.py` is the one that keeps the pair honest: each rule can be
+395 checks. `test_strategies.py` is the one that keeps the pair honest: each rule can be
 correct on its own and the two still wrong together. Give the long rule three slots and the
 short rule three more and the replay runs six positions where the desk runs three, on twice
 the risk, with every figure downstream of it inflated.

@@ -19,6 +19,11 @@ Every command that replays takes --setups, defaulting to all of them:
                       the same three legs with the retrace measured in each
                       stock's 14-session average daily range instead of a fixed
                       percent - backtest only, and never mixed with A, B or C
+    --setups A-PB B-PB C-PB
+                      A and C stopped at the pullback low, R 550-800 - backtest only
+    --setups A-DL B-DL C-DL
+                      the live ADR rule plus a 1,700 daily loss limit on the day's
+                      net closed P&L - backtest only
 
 `levels` and `session` print and store nothing. `now` and `queue` write to Mongo.
 """

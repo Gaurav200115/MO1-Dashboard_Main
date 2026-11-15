@@ -33,8 +33,8 @@ export interface SetupOption {
   /**
    * Which book the leg trades on. A run holds exactly one: the desk's own legs
    * ("desk"), the ADR variant of them ("adr"), the pullback-stop variant
-   * ("pullback-stop"), or NIFTY's opening range ("nifty"). Mirrors `book_of` in
-   * backtest/strategies.py.
+   * ("pullback-stop"), the daily-loss-limit variant ("adr-daily-loss"), or
+   * NIFTY's opening range ("nifty"). Mirrors `book_of` in backtest/strategies.py.
    */
   book: string;
   /** A short label shown beside the leg, e.g. what a variant changes. */
@@ -188,6 +188,61 @@ const BACKTEST_ONLY: SetupOption[] = [
     book: "pullback-stop",
     tag: "SL pullback ₹550–800",
   },
+
+  /*
+   * ADR with a daily loss limit (2026-11-15). The live ADR rule (long v9 /
+   * short v5) exactly — ₹550 stop, 1:2 → +1R ladder — plus one addition: once
+   * the day's net P&L on closed trades is down ₹1,700, no new trade that day.
+   * Wins offset losses; trades already open run on under their own stops.
+   *
+   * Python: `BREAKOUT_RETRACE_21EMA_DL` / `BREAKDOWN_RETRACE_21EMA_DL` in
+   * backtest/strategies.py; tests/test_daily_loss.py checks these three entries match.
+   */
+  {
+    setup: "A-DL",
+    strategy: "breakout-retrace-21ema-adr-dll",
+    strategyName: "Level Break → 21 EMA Retrace [ADR, SL 550, day stop 1700]",
+    version: 1,
+    label: "Break & retrace",
+    side: "LONG",
+    option: "CE",
+    description:
+      "Live setup A (ADR retrace, ₹550 SL, 1:2 → +1R ladder). No new trades once the day's net " +
+      "P&L on closed trades is down ₹1,700; open trades run on.",
+    backtestOnly: true,
+    book: "adr-daily-loss",
+    tag: "ADR · day stop ₹1,700",
+  },
+  {
+    setup: "B-DL",
+    strategy: "breakout-retrace-21ema-adr-dll",
+    strategyName: "Level Break → 21 EMA Retrace [ADR, SL 550, day stop 1700]",
+    version: 1,
+    label: "Support hold & level cross",
+    side: "LONG",
+    option: "CE",
+    description:
+      "Live setup B (₹550 SL, 1:2 → +1R ladder), under the same ₹1,700 daily loss limit as A " +
+      "and C — the limit is on the whole day, all three legs together.",
+    backtestOnly: true,
+    book: "adr-daily-loss",
+    tag: "ADR · day stop ₹1,700",
+  },
+  {
+    setup: "C-DL",
+    strategy: "breakdown-retrace-21ema-adr-dll",
+    strategyName: "Support Break → 21 EMA Retrace (Short) [ADR, SL 550, day stop 1700]",
+    version: 1,
+    label: "Breakdown & retrace",
+    side: "SHORT",
+    option: "PE",
+    description:
+      "Live setup C (ADR retrace, ₹550 SL, 1:2 → +1R ladder). No new trades once the day's net " +
+      "P&L on closed trades is down ₹1,700; open trades run on.",
+    backtestOnly: true,
+    book: "adr-daily-loss",
+    tag: "ADR · day stop ₹1,700",
+  },
 ];
 
 export function listSetups(): SetupOption[] {
@@ -222,7 +277,7 @@ export function mixError(setupIds: string[]): string | null {
     setupIds.map((id) => all.find((s) => s.setup === id)?.book).filter(Boolean)
   );
   if (books.size > 1) {
-    return "A/B/C, the ADR legs and the pullback-stop legs are alternatives, not additions — replay each set in a run of its own";
+    return "A/B/C and its variants (-ADR, -PB, -DL) are alternatives, not additions — replay each set in a run of its own";
   }
   return null;
 }

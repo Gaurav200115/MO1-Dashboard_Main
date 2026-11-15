@@ -294,9 +294,63 @@ BREAKDOWN_RETRACE_21EMA_PB = {
     "risk": dict(PULLBACK_STOP_RISK),
 }
 
+# ADR with a daily loss limit, as Gaurav specified it (2026-11-15). Backtest only.
+#
+# The pullback stop above did not backtest well, so the stop stays the desk's:
+# 550 of premium, the 1:2 ladder to +1R and one step behind. This is the live
+# ADR rule (long v9 / short v5) exactly, with one addition:
+#
+#   - Once the day's net P&L on *closed* trades is down 1,700 or more, no new
+#     trade is taken for the rest of the day. Wins offset losses. Trades already
+#     open are left alone - they run on under their own stop and ladder, and if
+#     they close in profit the day can come back above the line, which lets
+#     entries resume. The limit covers all three legs together, like the cap.
+#   - A stop fills at its own price in this replay, so a loss is normally
+#     exactly 550: three full losses are 1,650, and 1,700 usually trips on the
+#     fourth (or the third, when gaps through the stop added 50 or more). He
+#     chose 1,700 over 1,650 knowing that.
+#
+# The limit is checked as each signal fires, after the open book has been
+# stepped for that minute - so a loss closed at 10:04 blocks a signal at 10:04.
+DAILY_LOSS_TAG = "ADR, SL 550, day stop 1700"
+
+DAILY_LOSS_RISK = dict(ADR_RISK, dailyLossLimitRupees=1700)
+
+BREAKOUT_RETRACE_21EMA_DL = {
+    "id": "breakout-retrace-21ema-adr-dll",
+    "version": 1,
+    "name": f"Level Break -> 21 EMA Retrace [{DAILY_LOSS_TAG}]",
+    "backtestOnly": True,
+    # Another version of the desk's legs: never in a run with A/B/C or the
+    # other variants, which would watch the same stocks for the same slots.
+    "book": "adr-daily-loss",
+    "setups": ["A-DL", "B-DL"],
+    "setupLabels": {"A-DL": f"Break & retrace [{DAILY_LOSS_TAG}]",
+                    "B-DL": f"Support hold & level cross [{DAILY_LOSS_TAG}]"},
+    "sides": {"A-DL": "LONG", "B-DL": "LONG"},
+    "legs": {"A-DL": "A", "B-DL": "B"},
+    "params": dict(ADR_PARAMS),
+    "risk": dict(DAILY_LOSS_RISK),
+}
+
+BREAKDOWN_RETRACE_21EMA_DL = {
+    "id": "breakdown-retrace-21ema-adr-dll",
+    "version": 1,
+    "name": f"Support Break -> 21 EMA Retrace (Short) [{DAILY_LOSS_TAG}]",
+    "backtestOnly": True,
+    "book": "adr-daily-loss",
+    "setups": ["C-DL"],
+    "setupLabels": {"C-DL": f"Breakdown & retrace [{DAILY_LOSS_TAG}]"},
+    "sides": {"C-DL": "SHORT"},
+    "legs": {"C-DL": "C"},
+    "params": dict(ADR_PARAMS),
+    "risk": dict(DAILY_LOSS_RISK),
+}
+
 ALL_STRATEGIES = (BREAKOUT_RETRACE_21EMA, BREAKDOWN_RETRACE_21EMA, NIFTY_ORB_15M,
                   BREAKOUT_RETRACE_21EMA_ADR, BREAKDOWN_RETRACE_21EMA_ADR,
-                  BREAKOUT_RETRACE_21EMA_PB, BREAKDOWN_RETRACE_21EMA_PB)
+                  BREAKOUT_RETRACE_21EMA_PB, BREAKDOWN_RETRACE_21EMA_PB,
+                  BREAKOUT_RETRACE_21EMA_DL, BREAKDOWN_RETRACE_21EMA_DL)
 STRATEGIES = {s["id"]: s for s in ALL_STRATEGIES}
 
 
@@ -380,12 +434,11 @@ def selection(setup_ids):
         if STRATEGIES[sid].get("standalone") and len(chosen) > 1:
             raise SystemExit(f"setup {', '.join(sorted(chosen[sid]))} runs on its own - "
                              f"replay it in a run of its own")
-    # The ADR and pullback-stop legs are other versions of the desk's legs, so
-    # no two of those books ever share a run.
+    # The variants (ADR, pullback stop, daily loss limit) are other versions of
+    # the desk's legs, so no two of those books ever share a run.
     if len({book_of(STRATEGIES[sid]) for sid in chosen}) > 1:
-        raise SystemExit("A/B/C, the ADR legs (A-ADR, B-ADR, C-ADR) and the pullback-stop legs "
-                         "(A-PB, B-PB, C-PB) are alternatives, not additions - replay each set "
-                         "in a run of its own")
+        raise SystemExit("A/B/C and its variants (-ADR, -PB, -DL) are alternatives, not "
+                         "additions - replay each set in a run of its own")
     return sorted(chosen), chosen
 
 

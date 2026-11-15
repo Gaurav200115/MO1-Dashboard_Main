@@ -256,6 +256,12 @@ def replay_session(conn, day, strategies, floors, log=None, setups=None):
     closed = []
     taken = defaultdict(int)
 
+    # The daily loss limit, on the -DL variant only: the day's net P&L on closed
+    # trades. A run holds one book, so every strategy in it carries the same limit.
+    loss_limit = next((st["risk"]["dailyLossLimitRupees"] for st in strategies
+                       if st["risk"].get("dailyLossLimitRupees")), None)
+    limit_reached = False
+
     for minute in minutes:
         # The open book first: a stop that fires this minute frees a slot this
         # minute, exactly as it would live.
@@ -269,6 +275,12 @@ def replay_session(conn, day, strategies, floors, log=None, setups=None):
             done = step_position(position, by_strike, band, minute, flatten, risk, apply)
             (closed if done is not None else still_open).append(done or position)
         open_positions = still_open
+
+        # Counted once per day, the first minute the line is crossed - even if a
+        # later winner brings the day back above it.
+        if loss_limit is not None and not limit_reached and day_net(closed) <= -loss_limit:
+            limit_reached = True
+            notes["skipped"][f"days the Rs {loss_limit:g} daily loss limit was reached"] += 1
 
         entries_open = minute.time() < cutoff
 
@@ -304,6 +316,11 @@ def replay_session(conn, day, strategies, floors, log=None, setups=None):
                 notes["signals"] += 1
                 notes["bySetup"][signal.setup] += 1
 
+                # Checked first, so a signal turned away by it is counted against
+                # the limit rather than against whatever else was also true.
+                if loss_limit is not None and day_net(closed) <= -loss_limit:
+                    notes["rejected"][f"daily loss limit Rs {loss_limit:g}"] += 1
+                    continue
                 if len(open_positions) >= max_open:
                     notes["rejected"]["book full"] += 1
                     continue
@@ -332,6 +349,11 @@ def replay_session(conn, day, strategies, floors, log=None, setups=None):
         log(f"{day}  {len(symbols)} stocks, {notes['signals']} signals, "
             f"{len(closed)} trades")
     return closed, notes
+
+
+def day_net(closed):
+    """The day's net P&L on trades already closed: wins offset losses, open trades do not count."""
+    return sum(p.profit for p in closed if p.profit is not None)
 
 
 def _try_fill(conn, day, prev, strategy, signal, plan, minute, floors,
