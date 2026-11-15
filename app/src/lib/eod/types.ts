@@ -14,6 +14,20 @@ export interface SessionOhlc {
   close: number;
 }
 
+/**
+ * A stock's average daily range: the mean of (high − low) / close over the
+ * `period` sessions ending on `to`, in percent. Computed by the scan from the
+ * daily candles it already holds, and recomputed by the verification pass from
+ * finalised ones. See eod/adr.ts.
+ */
+export interface StockAdr {
+  pct: number;
+  period: number;
+  /** First and last session in the window. `to` is the session the levels are built from. */
+  from: string;
+  to: string;
+}
+
 /** One strike's two-sided open interest, as read at the close. */
 export interface ChainStrike {
   strike: number;
@@ -47,6 +61,13 @@ export interface SpecialStock {
    * has since been contaminated by the next session's trading.
    */
   chain: ChainStrike[];
+  /**
+   * The ADR the ADR-measured retrace (long v9 / short v5 onward) sizes its zone
+   * and turn from. Null when the stock has fewer sessions than the window;
+   * absent on reports written before it existed, in which case the engine
+   * computes it itself at warm-up.
+   */
+  adr?: StockAdr | null;
 }
 
 export interface EodReport {

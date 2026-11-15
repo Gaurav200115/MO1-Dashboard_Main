@@ -62,17 +62,36 @@ export interface StrategyParams extends LiquidityParams {
   /** Candle size the EMA is computed on, in minutes. */
   emaIntervalMinutes: number;
   /**
+   * What the retrace legs measure their distances in.
+   *
+   * "pct" (absent means this) — a fixed percentage of price: `emaZonePct` and
+   * `entryReboundPct`. Long v1–v8 and short v1–v4.
+   * "adr" — fractions of the stock's own average daily range: `adrZoneMultiple`
+   * and `adrTurnMultiple` of a `adrPeriod`-session ADR. Long v9 / short v5 on.
+   *
+   * Either way the distances mean the same four things: how close to the EMA
+   * counts as a retrace, the minimum pullback, the turn that triggers the entry,
+   * and how far a closed bar may sit through the EMA before the setup is dead.
+   */
+  entryBasis?: "pct" | "adr";
+  /**
    * How close to the EMA price must come for the pullback to count as a proper
    * retracement, as a percentage of the EMA. Measured either side, so a wick
-   * through the line still counts as having reached it.
+   * through the line still counts as having reached it. Percent rule only.
    */
-  emaZonePct: number;
+  emaZonePct?: number;
   /**
    * How far price must rebound off the low of that retracement before the entry
    * is taken, as a percentage of the low. This is the confirmation leg: touching
-   * the EMA is the setup, turning back up off it is the trigger.
+   * the EMA is the setup, turning back up off it is the trigger. Percent rule only.
    */
-  entryReboundPct: number;
+  entryReboundPct?: number;
+  /** ADR rule: sessions in the average daily range. */
+  adrPeriod?: number;
+  /** ADR rule: the EMA zone, as a fraction of the ADR in rupees. */
+  adrZoneMultiple?: number;
+  /** ADR rule: the entry turn (and minimum pullback), as a fraction of the ADR. */
+  adrTurnMultiple?: number;
   /** Minimum callOI/putOI for a resistance to count as major. */
   resistanceSkew: number;
   /** Minimum putOI/callOI for a support to count as major. */
@@ -177,6 +196,24 @@ export interface Retracement {
   turnPct: number;
 }
 
+/**
+ * The band an ADR-measured trade used, so a result can be read back against it.
+ * Same keys as a backtest trade's `trigger.adr`.
+ */
+export interface TradeAdr {
+  period: number;
+  /** ADR as a percent of price. */
+  pct: number;
+  /** ADR in rupees — `pct` of the previous official close. */
+  rupees: number;
+  /** The EMA zone, in rupees. */
+  zone: number;
+  /** The entry turn and minimum pullback, in rupees. */
+  turn: number;
+  zoneMultiple: number;
+  turnMultiple: number;
+}
+
 export interface TradeTrigger {
   setup: SetupId;
   /** Setup A: the resistance that was broken. Setup B: the level crossed. */
@@ -191,6 +228,8 @@ export interface TradeTrigger {
   retracement: Retracement | null;
   /** Underlying price at entry, as opposed to the option premium paid. */
   spot: number;
+  /** ADR-measured rules only: the stock's ADR and the bands it set. Absent otherwise. */
+  adr?: TradeAdr;
 }
 
 export type ExitReason =
@@ -207,7 +246,14 @@ export type ExitReason =
    * name because such a trade was ended by the edge of the archive and not by
    * the rule, and a run full of them needs reading with that in mind.
    */
-  | "out-of-band";
+  | "out-of-band"
+  /**
+   * Backtest only, pullback-stop variant (A-PB, C-PB). Their stop is on the
+   * stock; this is the 1.5R premium stop kept under it, standing in for the
+   * exchange SL live would rest. Named apart so an option that collapsed while
+   * the stock held is never read as the stock stop working.
+   */
+  | "backstop";
 
 /** One ratchet of the trailing ladder. */
 export interface LadderStep {

@@ -89,6 +89,11 @@ def trade_document(position, run_id):
     # exactly the live shape.
     if context.get("adr"):
         trigger["adr"] = dict(context["adr"])
+    # Likewise only the pullback-stop variant's A/C trades: the R it sized from
+    # the pullback, whether that was raised to the floor, and where the stock
+    # stop and the premium backstop sat.
+    if context.get("pullbackStop"):
+        trigger["pullbackStop"] = dict(context["pullbackStop"])
 
     return {
         "_id": f"{run_id}:{position.symbol}:{_ms(position.entry_at)}:{position.setup}",

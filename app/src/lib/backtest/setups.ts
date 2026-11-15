@@ -32,8 +32,9 @@ export interface SetupOption {
   standalone?: boolean;
   /**
    * Which book the leg trades on. A run holds exactly one: the desk's own legs
-   * ("desk"), the ADR variant of them ("adr"), or NIFTY's opening range
-   * ("nifty"). Mirrors `book_of` in backtest/strategies.py.
+   * ("desk"), the ADR variant of them ("adr"), the pullback-stop variant
+   * ("pullback-stop"), or NIFTY's opening range ("nifty"). Mirrors `book_of` in
+   * backtest/strategies.py.
    */
   book: string;
   /** A short label shown beside the leg, e.g. what a variant changes. */
@@ -75,6 +76,9 @@ const BACKTEST_ONLY: SetupOption[] = [
    *
    * Python: `BREAKOUT_RETRACE_21EMA_ADR` / `BREAKDOWN_RETRACE_21EMA_ADR` in
    * backtest/strategies.py; tests/test_adr.py checks these three entries match.
+   *
+   * Went live unchanged on 2026-11-15 as long v9 / short v5, so A, B and C now
+   * replay this same rule. These stay as the record of what was backtested.
    */
   {
     setup: "A-ADR",
@@ -87,7 +91,7 @@ const BACKTEST_ONLY: SetupOption[] = [
     description:
       "Setup A with the retrace measured in the stock's 14-session ADR: arms within 0.15 ADR " +
       "of the 21 EMA, enters on a 0.075 ADR turn off the low. SL trails from 1:2 to +1R, then " +
-      "one step behind.",
+      "one step behind. Same rule as live setup A since long v9.",
     backtestOnly: true,
     book: "adr",
     tag: "ADR · SL 1:2→1",
@@ -103,7 +107,7 @@ const BACKTEST_ONLY: SetupOption[] = [
     description:
       "Setup B unchanged — it has no retracement % to scale. In the ADR run so the three legs " +
       "share the three-position cap as they do live. SL trails from 1:2 to +1R, then one step " +
-      "behind.",
+      "behind. Same rule as live setup B since long v9.",
     backtestOnly: true,
     book: "adr",
     tag: "ADR · SL 1:2→1",
@@ -119,10 +123,70 @@ const BACKTEST_ONLY: SetupOption[] = [
     description:
       "Setup C with the retrace measured in the stock's 14-session ADR: arms within 0.15 ADR " +
       "of the 21 EMA, enters on a 0.075 ADR turn off the rally high. SL trails from 1:2 to " +
-      "+1R, then one step behind.",
+      "+1R, then one step behind. Same rule as live setup C since short v5.",
     backtestOnly: true,
     book: "adr",
     tag: "ADR · SL 1:2→1",
+  },
+
+  /*
+   * The pullback stop (2026-11-15). The live ADR entry unchanged; setups A and C
+   * stop where the setup is proven wrong instead of a fixed ₹550 of premium —
+   * the stock back at the pullback's low (A) or the rally's high (C). R is what
+   * that costs at 1 lot (distance × 0.5 delta × lot), raised to ₹550 when
+   * smaller; over ₹800 the trade is skipped. The 1:2 ladder steps in that R, and
+   * a 1.5R premium backstop stands in for the exchange SL. B has no pullback, so
+   * B-PB is B on the fixed ₹550.
+   *
+   * Python: `BREAKOUT_RETRACE_21EMA_PB` / `BREAKDOWN_RETRACE_21EMA_PB` in
+   * backtest/strategies.py; tests/test_pullback.py checks these three entries match.
+   */
+  {
+    setup: "A-PB",
+    strategy: "breakout-retrace-21ema-pbsl",
+    strategyName: "Level Break → 21 EMA Retrace [ADR, SL pullback ₹550–800]",
+    version: 1,
+    label: "Break & retrace",
+    side: "LONG",
+    option: "CE",
+    description:
+      "Live setup A's ADR entry. Stop: the stock back at the pullback low, sized at 1 lot " +
+      "(distance × 0.5 × lot), raised to ₹550, skipped over ₹800. SL trails from 1:2 to +1R " +
+      "in that R; 1.5R premium backstop.",
+    backtestOnly: true,
+    book: "pullback-stop",
+    tag: "SL pullback ₹550–800",
+  },
+  {
+    setup: "B-PB",
+    strategy: "breakout-retrace-21ema-pbsl",
+    strategyName: "Level Break → 21 EMA Retrace [ADR, SL pullback ₹550–800]",
+    version: 1,
+    label: "Support hold & level cross",
+    side: "LONG",
+    option: "CE",
+    description:
+      "Setup B unchanged on the fixed ₹550 stop — it fires on a level cross and has no " +
+      "pullback low. In the run so the three legs share the three-position cap as they do live.",
+    backtestOnly: true,
+    book: "pullback-stop",
+    tag: "SL pullback ₹550–800",
+  },
+  {
+    setup: "C-PB",
+    strategy: "breakdown-retrace-21ema-pbsl",
+    strategyName: "Support Break → 21 EMA Retrace (Short) [ADR, SL pullback ₹550–800]",
+    version: 1,
+    label: "Breakdown & retrace",
+    side: "SHORT",
+    option: "PE",
+    description:
+      "Live setup C's ADR entry. Stop: the stock back at the rally high, sized at 1 lot " +
+      "(distance × 0.5 × lot), raised to ₹550, skipped over ₹800. SL trails from 1:2 to +1R " +
+      "in that R; 1.5R premium backstop.",
+    backtestOnly: true,
+    book: "pullback-stop",
+    tag: "SL pullback ₹550–800",
   },
 ];
 
@@ -158,7 +222,7 @@ export function mixError(setupIds: string[]): string | null {
     setupIds.map((id) => all.find((s) => s.setup === id)?.book).filter(Boolean)
   );
   if (books.size > 1) {
-    return "the ADR legs are an alternative to A, B and C, not an addition — replay them in a run of their own";
+    return "A/B/C, the ADR legs and the pullback-stop legs are alternatives, not additions — replay each set in a run of its own";
   }
   return null;
 }

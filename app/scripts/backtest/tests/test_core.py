@@ -17,6 +17,7 @@ from backtest.levels import (ConfirmedLevel, SymbolPlan, chain_window, confirm_l
                              fib_pivots, oi_levels, pick_major, pivot_levels)
 from backtest.position import evaluate, rung_levels, size_trade
 from backtest.signals import Ema, evaluate_symbol, initial_state
+from fake_archive import DEFAULT_ADR_PCT
 
 RISK = S.SHARED_RISK
 PARAMS = dict(S.SHARED_PARAMS, resistanceSkew=4, supportSkew=5)
@@ -174,10 +175,15 @@ check("a support's skew is puts over calls",
 # ---------------- the setups ----------------
 
 def plan_with(resistance=None, support=None, marked=None, close=990.0):
+    # The live rule measures in ADR (long v9 / short v5). At DEFAULT_ADR_PCT the
+    # band is the old 0.4% zone / 0.2% turn of the close, so these sequences -
+    # written for the percent rule - test the same state machine on the live
+    # ruler. test_adr.py tests the ruler itself.
     return SymbolPlan(symbol="TEST", close=close, lot_size=250, strike_step=10.0,
                       major_resistance=resistance, major_support=support,
                       marked=marked if marked is not None else
-                      [x for x in (resistance, support) if x is not None])
+                      [x for x in (resistance, support) if x is not None],
+                      adr_pct=DEFAULT_ADR_PCT)
 
 
 RES = ConfirmedLevel("R1", 1000.0, "resistance", 1000.0, 500.0, 100.0, 0.0, 1.0)

@@ -1,6 +1,6 @@
 import type { ConfirmedLevel } from "@/lib/eod/confluence";
-import { nearEma } from "./ema";
 import { crossCandidates, type SymbolPlan } from "./levels";
+import { rulerFor, type Ruler } from "./ruler";
 import type {
   PhaseA,
   PhaseB,
@@ -8,6 +8,7 @@ import type {
   Retracement,
   SetupId,
   StrategyParams,
+  TradeAdr,
 } from "./types";
 
 /**
@@ -18,6 +19,11 @@ import type {
  * crosses it, then retraces" cannot be answered from a single tick — price
  * sitting above a level says nothing about whether it ever crossed from below,
  * and the difference between those two is the whole setup.
+ *
+ * Every distance the retrace legs measure — the EMA zone, the minimum pullback,
+ * the entry turn, the closed-bar kill line — is asked of a ruler (ruler.ts):
+ * a fixed percent of price up to long v8 / short v4, the stock's own average
+ * daily range from long v9 / short v5. The machine is the same for both.
  */
 
 export interface SymbolState {
@@ -75,6 +81,8 @@ export interface Signal {
   retracement: Retracement | null;
   crossedAt: number | null;
   at: number;
+  /** ADR-measured rules: the stock's ADR and the bands it set. Null under the percent rule. */
+  adr: TradeAdr | null;
 }
 
 /**
@@ -147,6 +155,11 @@ export function evaluateSymbol(input: EvaluateInput): Signal | null {
   state.lastLtp = ltp;
   state.note = null;
 
+  // `ready` is only ever false for the ADR rule on a stock with no ADR (under
+  // 14 sessions of history, or not yet computed): it still tracks its levels,
+  // but its A and C legs cannot arm without a band to arm against.
+  const rule = rulerFor(plan, params);
+
   // --- Setup A: break the major resistance, then retrace to the EMA ----------
   const resistance = plan.majorResistance;
   if (input.setups.has("A") && resistance && state.phaseA !== "spent") {
@@ -170,9 +183,10 @@ export function evaluateSymbol(input: EvaluateInput): Signal | null {
        * what stops one dead break from arming all afternoon.
        */
       const broke =
+        rule.ready &&
         ema != null &&
         input.lastBarClose != null &&
-        input.lastBarClose < ema * (1 - params.emaZonePct / 100);
+        rule.closedBelowZone(input.lastBarClose, ema);
 
       if (broke) {
         state.phaseA = ltp < level ? "below" : "idle";
@@ -183,6 +197,8 @@ export function evaluateSymbol(input: EvaluateInput): Signal | null {
         state.zoneAt = null;
       } else if (ema == null) {
         state.note = "EMA warming";
+      } else if (!rule.ready) {
+        state.note = "no ADR history";
       } else {
         /*
          * Two separate events, in order. Reaching the zone is the setup; turning
@@ -192,9 +208,9 @@ export function evaluateSymbol(input: EvaluateInput): Signal | null {
          * only taken once the EMA has actually held.
          */
         if (state.phaseA === "crossed") {
-          if (!nearEma(ltp, ema, params.emaZonePct)) {
+          if (!rule.near(ltp, ema)) {
             state.note = "waiting for retrace";
-          } else if (!retraced(state, ltp, params)) {
+          } else if (!retraced(state, ltp, rule)) {
             /*
              * Price at the EMA is not the same event as price having come back
              * to it. If a break stalls and goes sideways, the EMA rises into the
@@ -216,7 +232,7 @@ export function evaluateSymbol(input: EvaluateInput): Signal | null {
           if (ltp < state.zoneLow) state.zoneLow = ltp;
 
           const low = state.zoneLow;
-          const trigger = low * (1 + params.entryReboundPct / 100);
+          const trigger = rule.triggerUp(low);
 
           if (ltp < trigger) {
             state.note = `retraced to ${low.toFixed(2)}, needs ${showTrigger(trigger, "up")}`;
@@ -245,6 +261,7 @@ export function evaluateSymbol(input: EvaluateInput): Signal | null {
               },
               crossedAt: state.crossedAt,
               at,
+              adr: rule.record(),
             };
           }
         }
@@ -282,6 +299,7 @@ export function evaluateSymbol(input: EvaluateInput): Signal | null {
           retracement: null,
           crossedAt: at,
           at,
+          adr: rule.record(),
         };
       }
 
@@ -322,9 +340,10 @@ export function evaluateSymbol(input: EvaluateInput): Signal | null {
 
       // A bar closing back above the EMA is the breakdown failing.
       const reclaimed =
+        rule.ready &&
         ema != null &&
         input.lastBarClose != null &&
-        input.lastBarClose > ema * (1 + params.emaZonePct / 100);
+        rule.closedAboveZone(input.lastBarClose, ema);
 
       if (reclaimed) {
         state.phaseC = ltp > level ? "above" : "idle";
@@ -334,11 +353,13 @@ export function evaluateSymbol(input: EvaluateInput): Signal | null {
         state.zoneHighAt = null;
       } else if (ema == null) {
         state.note = "EMA warming";
+      } else if (!rule.ready) {
+        state.note = "no ADR history";
       } else {
         if (state.phaseC === "broken") {
-          if (!nearEma(ltp, ema, params.emaZonePct)) {
+          if (!rule.near(ltp, ema)) {
             state.note = "waiting for retrace";
-          } else if (!rallied(state, ltp, params)) {
+          } else if (!rallied(state, ltp, rule)) {
             state.note = "EMA came down, no rally";
           } else {
             state.phaseC = "retraced";
@@ -351,7 +372,7 @@ export function evaluateSymbol(input: EvaluateInput): Signal | null {
           if (ltp > state.zoneHigh) state.zoneHigh = ltp;
 
           const high = state.zoneHigh;
-          const trigger = high * (1 - params.entryReboundPct / 100);
+          const trigger = rule.triggerDown(high);
 
           if (ltp > trigger) {
             state.note = `retraced to ${high.toFixed(2)}, needs ${showTrigger(trigger, "down")}`;
@@ -374,6 +395,7 @@ export function evaluateSymbol(input: EvaluateInput): Signal | null {
               },
               crossedAt: state.brokeAt,
               at,
+              adr: rule.record(),
             };
           }
         }
@@ -402,10 +424,8 @@ function showTrigger(price: number, towards: "up" | "down"): string {
  * The short's mirror of `retraced`: did price actually rally back up to the EMA,
  * as opposed to the EMA falling to meet a price that never moved?
  */
-function rallied(state: SymbolState, ltp: number, params: StrategyParams): boolean {
-  if (state.lowSinceBreak <= 0) return false;
-  const rally = ((ltp - state.lowSinceBreak) / state.lowSinceBreak) * 100;
-  return rally >= params.entryReboundPct;
+function rallied(state: SymbolState, ltp: number, rule: Ruler): boolean {
+  return rule.rallied(state.lowSinceBreak, ltp);
 }
 
 /**
@@ -414,10 +434,8 @@ function rallied(state: SymbolState, ltp: number, params: StrategyParams): boole
  * held to the same size as the entry rebound — a pullback smaller than the move
  * that would confirm it is not a pullback worth arming on.
  */
-function retraced(state: SymbolState, ltp: number, params: StrategyParams): boolean {
-  if (state.highSinceCross <= 0) return false;
-  const pullback = ((state.highSinceCross - ltp) / state.highSinceCross) * 100;
-  return pullback >= params.entryReboundPct;
+function retraced(state: SymbolState, ltp: number, rule: Ruler): boolean {
+  return rule.pulledBack(state.highSinceCross, ltp);
 }
 
 function canTrade(state: SymbolState, params: StrategyParams): boolean {

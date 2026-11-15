@@ -496,8 +496,19 @@ function EngineStrip({
                   {definition.risk.moneyness} · 1:{definition.risk.rewardMultiple} then{" "}
                   {definition.risk.trail === "ladder" ? "laddered trail" : "one trail step"} ·{" "}
                   {definition.params.emaPeriod} EMA on {definition.params.emaIntervalMinutes}m ·
-                  retrace within {definition.params.emaZonePct}% of it, enter on a{" "}
-                  {definition.params.entryReboundPct}% turn · first trail at 1:
+                  {definition.params.entryBasis === "adr" ? (
+                    <>
+                      {" "}retrace within {definition.params.adrZoneMultiple} ADR of it, enter on
+                      a {definition.params.adrTurnMultiple} ADR turn (ADR ={" "}
+                      {definition.params.adrPeriod}-session average daily range)
+                    </>
+                  ) : (
+                    <>
+                      {" "}retrace within {definition.params.emaZonePct}% of it, enter on a{" "}
+                      {definition.params.entryReboundPct}% turn
+                    </>
+                  )}{" "}
+                  · first trail at 1:
                   {definition.risk.trailStartMultiple} to +₹
                   {definition.risk.trailLockMultiple * definition.risk.rupeesPerTrade}, then one
                   step behind · runs to {definition.params.entryCutoffIst}, flat at{" "}

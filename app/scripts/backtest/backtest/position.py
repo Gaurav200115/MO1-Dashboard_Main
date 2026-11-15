@@ -118,6 +118,11 @@ class Position:
     exit_at: object = None
     exit_reason: str | None = None
 
+    # Pullback-stop variant only (pullback_stop.py): the stock price that ends
+    # the trade, and the minute the stock touched it. None for every other rule.
+    stock_stop: object = None
+    stock_stop_hit: object = None
+
     def __post_init__(self):
         if self.last_price is None:
             self.last_price = self.entry

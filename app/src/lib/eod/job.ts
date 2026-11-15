@@ -3,6 +3,7 @@ import path from "node:path";
 import { dailyCandles, istDateString } from "@/lib/kite/history";
 import { readSession } from "@/lib/kite/session";
 import type { DeskIndex } from "@/lib/types";
+import { ADR_PERIOD, adrFromCandles } from "./adr";
 import {
   fetchOpenInterest,
   loadOptionUniverse,
@@ -123,6 +124,7 @@ async function scan(force: boolean): Promise<ScanOutcome> {
     company: DeskIndex["companies"][number];
     settled: { date: string; high: number; low: number; close: number };
     plan: ChainPlan;
+    adr: SpecialStock["adr"];
   };
 
   const pending: Pending[] = [];
@@ -157,7 +159,12 @@ async function scan(force: boolean): Promise<ScanOutcome> {
         continue;
       }
 
-      pending.push({ company, settled, plan });
+      // The 14 sessions ending on the one the pivots come from, out of the same
+      // year of candles - no extra request. The evening's last candle is still
+      // provisional; the verification pass recomputes this from final ones.
+      const adr = adrFromCandles(candles, settled.date, ADR_PERIOD);
+
+      pending.push({ company, settled, plan, adr });
     } catch (err) {
       failed.push(company.symbol);
       console.warn(`[eod] ${company.symbol} skipped:`, message(err));
@@ -175,7 +182,7 @@ async function scan(force: boolean): Promise<ScanOutcome> {
   const stocks: SpecialStock[] = [];
   let oiLevelsFound = 0;
 
-  for (const { company, settled, plan } of pending) {
+  for (const { company, settled, plan, adr } of pending) {
     const pivots = fibPivots(settled.high, settled.low, settled.close);
     if (!pivots) {
       failed.push(company.symbol);
@@ -203,6 +210,7 @@ async function scan(force: boolean): Promise<ScanOutcome> {
       atmStrike: plan.atmStrike,
       levels: confirmed,
       chain,
+      adr,
     });
   }
 
