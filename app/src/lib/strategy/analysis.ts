@@ -553,6 +553,7 @@ export const EXIT_LABELS: Record<string, string> = {
   manual: "Manual",
   "no-quote": "No quote",
   "out-of-band": "Ran past the archive",
+  backstop: "Premium backstop (1.5R)",
 };
 
 /** The pseudo-tag for "nothing on this trade", so it can be picked like any other. */

@@ -215,8 +215,88 @@ BREAKDOWN_RETRACE_21EMA_ADR = {
     "risk": dict(ADR_RISK),
 }
 
+# Stop at the pullback, as Gaurav specified it (2026-11-15). Backtest only: it
+# goes live only if it shows a lower drawdown than the desk's fixed 550 stop.
+#
+# The entry is the live ADR rule (long v9 / short v5) unchanged. What changes is
+# where setups A and C put their stop. The desk stops every trade 550 rupees of
+# premium under the fill, which measured as a 0.19% move in the stock at the
+# median - about the same size as the 0.075 ADR turn the entry waits for, and
+# above the pullback's own low in 80 of 108 live A/C trades. So the stop sat
+# inside the very wiggle the setup had just come out of.
+#
+#   - The stop is the stock returning to the pullback's low (A) or the rally's
+#     high (C) - the price at which the setup is proven wrong - watched on the
+#     stock's 1-minute bars, not on the option.
+#   - R, the trade's risk in rupees, is what that costs at 1 lot: the distance
+#     from the entry spot to that extreme x an assumed ATM delta of 0.5 x the
+#     lot quantity. Under 550 it is raised to 550 and the stop moved further out
+#     to match, so no trade is stopped tighter than the desk's own; over 800 the
+#     trade is not taken, and the setup is spent for the day as a gate rejection
+#     spends it.
+#   - The 1:2 ladder runs in that trade's own R: at +2R the stop moves to +1R,
+#     then one step behind.
+#   - The option keeps a premium stop at 1.5R under the fill, the stand-in for
+#     the exchange-held SL that live would rest as a backstop for when the desk
+#     itself is down. An option that loses 1.5R while the stock holds is closed
+#     there, and counted as its own exit reason.
+#   - Setup B fires on a level cross, not a pullback, so it has no low to stop
+#     under: B-PB is B unchanged, on the fixed 550 premium stop. It is in the run
+#     so the three legs share the three-position cap as they do live.
+#
+# pullback_stop.py has the arithmetic and the exit rule.
+PULLBACK_STOP_TAG = "ADR, SL pullback 550-800"
+
+PULLBACK_STOP_RISK = {
+    # Setup B's fixed risk, and the floor every A/C stop is raised to.
+    "rupeesPerTrade": 550,
+    "lots": 1,
+    "moneyness": "ATM",
+    "rewardMultiple": 2,
+    "trailStartMultiple": 2,
+    "trailLockMultiple": 1,
+    "trail": "ladder",
+    "stopBasis": "pullback",
+    "minRiskRupees": 550,
+    "maxRiskRupees": 800,
+    "assumedDelta": 0.5,
+    "backstopMultiple": 1.5,
+}
+
+BREAKOUT_RETRACE_21EMA_PB = {
+    "id": "breakout-retrace-21ema-pbsl",
+    "version": 1,
+    "name": f"Level Break -> 21 EMA Retrace [{PULLBACK_STOP_TAG}]",
+    "backtestOnly": True,
+    # Another version of the desk's legs, like the ADR variant: never in a run
+    # with A/B/C or the ADR legs, which would have both watching the same stocks.
+    "book": "pullback-stop",
+    "setups": ["A-PB", "B-PB"],
+    "setupLabels": {"A-PB": f"Break & retrace [{PULLBACK_STOP_TAG}]",
+                    "B-PB": f"Support hold & level cross [{PULLBACK_STOP_TAG}]"},
+    "sides": {"A-PB": "LONG", "B-PB": "LONG"},
+    "legs": {"A-PB": "A", "B-PB": "B"},
+    "params": dict(ADR_PARAMS),
+    "risk": dict(PULLBACK_STOP_RISK),
+}
+
+BREAKDOWN_RETRACE_21EMA_PB = {
+    "id": "breakdown-retrace-21ema-pbsl",
+    "version": 1,
+    "name": f"Support Break -> 21 EMA Retrace (Short) [{PULLBACK_STOP_TAG}]",
+    "backtestOnly": True,
+    "book": "pullback-stop",
+    "setups": ["C-PB"],
+    "setupLabels": {"C-PB": f"Breakdown & retrace [{PULLBACK_STOP_TAG}]"},
+    "sides": {"C-PB": "SHORT"},
+    "legs": {"C-PB": "C"},
+    "params": dict(ADR_PARAMS),
+    "risk": dict(PULLBACK_STOP_RISK),
+}
+
 ALL_STRATEGIES = (BREAKOUT_RETRACE_21EMA, BREAKDOWN_RETRACE_21EMA, NIFTY_ORB_15M,
-                  BREAKOUT_RETRACE_21EMA_ADR, BREAKDOWN_RETRACE_21EMA_ADR)
+                  BREAKOUT_RETRACE_21EMA_ADR, BREAKDOWN_RETRACE_21EMA_ADR,
+                  BREAKOUT_RETRACE_21EMA_PB, BREAKDOWN_RETRACE_21EMA_PB)
 STRATEGIES = {s["id"]: s for s in ALL_STRATEGIES}
 
 
@@ -300,11 +380,12 @@ def selection(setup_ids):
         if STRATEGIES[sid].get("standalone") and len(chosen) > 1:
             raise SystemExit(f"setup {', '.join(sorted(chosen[sid]))} runs on its own - "
                              f"replay it in a run of its own")
-    # The ADR legs are another version of the desk's legs, so the two never
-    # share a run.
+    # The ADR and pullback-stop legs are other versions of the desk's legs, so
+    # no two of those books ever share a run.
     if len({book_of(STRATEGIES[sid]) for sid in chosen}) > 1:
-        raise SystemExit("the ADR legs (A-ADR, B-ADR, C-ADR) are an alternative to A, B and C, "
-                         "not an addition - replay them in a run of their own")
+        raise SystemExit("A/B/C, the ADR legs (A-ADR, B-ADR, C-ADR) and the pullback-stop legs "
+                         "(A-PB, B-PB, C-PB) are alternatives, not additions - replay each set "
+                         "in a run of its own")
     return sorted(chosen), chosen
 
 

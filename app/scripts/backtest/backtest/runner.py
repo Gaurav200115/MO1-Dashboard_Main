@@ -26,7 +26,7 @@ import json
 import math
 from collections import defaultdict
 
-from . import db, orb
+from . import db, orb, pullback_stop
 from .adr import adr_pct
 from .config import S, ist_time
 from .fills import step_position
@@ -262,8 +262,11 @@ def replay_session(conn, day, strategies, floors, log=None, setups=None):
         still_open = []
         for position in open_positions:
             expiry, by_strike, band = option_cache[(position.symbol, position.option_type)][0:3]
-            done = step_position(position, by_strike, band, minute, flatten,
-                                 STRATEGIES[position.strategy_id]["risk"])
+            # The pullback-stop variant's stop is on the stock, so its minute bar
+            # is looked at before the option's. No-op for every other rule.
+            pullback_stop.watch_stock(position, bar_at[position.symbol].get(minute), minute)
+            risk, apply = pullback_stop.exit_rule(position, STRATEGIES[position.strategy_id]["risk"])
+            done = step_position(position, by_strike, band, minute, flatten, risk, apply)
             (closed if done is not None else still_open).append(done or position)
         open_positions = still_open
 
@@ -309,7 +312,8 @@ def replay_session(conn, day, strategies, floors, log=None, setups=None):
                     continue
 
                 position = _try_fill(conn, day, prev, strategy, signal, plans[sid][symbol],
-                                     minute, floors, option_data, gate_cache, notes)
+                                     minute, floors, option_data, gate_cache, notes,
+                                     bar_at[symbol])
                 if position is None:
                     continue
 
@@ -331,9 +335,26 @@ def replay_session(conn, day, strategies, floors, log=None, setups=None):
 
 
 def _try_fill(conn, day, prev, strategy, signal, plan, minute, floors,
-              option_data, gate_cache, notes):
+              option_data, gate_cache, notes, spot_bars=None):
     """Picks the contract, runs the gate, and opens the position - or explains why not."""
     side = option_type(strategy, signal.setup)
+
+    # Pullback-stop variant: R is known from the stock alone, so a trade whose
+    # stop would cost more than the cap is turned away before any contract is
+    # looked at. The setup is already spent, exactly as a gate rejection leaves it.
+    stop = None
+    if pullback_stop.applies(strategy, signal):
+        risk = strategy["risk"]
+        direction = strategy["sides"][signal.setup]
+        extreme = pullback_stop.true_extreme(
+            direction, spot_bars or {}, signal.retracement["at"], signal.at,
+            signal.retracement["extreme"])
+        stop = pullback_stop.plan_stop(direction, signal.spot, extreme,
+                                       plan.lot_size * risk["lots"], risk)
+        if pullback_stop.over_cap(stop, risk):
+            notes["rejected"][f"stop risk over Rs {risk['maxRiskRupees']:g}"] += 1
+            return None
+
     expiry, by_strike, band = option_data(signal.symbol, side)
     if expiry is None or not by_strike:
         notes["skipped"]["no option data for the stock"] += 1
@@ -361,9 +382,18 @@ def _try_fill(conn, day, prev, strategy, signal, plan, minute, floors,
         notes["rejected"][result.reason or "illiquid"] += 1
         return None
 
-    return open_position(signal, strategy, {"price": fill_price(entry_bar)},
-                         plan.lot_size, expiry, strike, side, result.mark,
-                         day.isoformat())
+    if stop is None:
+        return open_position(signal, strategy, {"price": fill_price(entry_bar)},
+                             plan.lot_size, expiry, strike, side, result.mark,
+                             day.isoformat())
+
+    # Sized in the trade's own R, so the target and every ladder rung are in it;
+    # `arm` then swaps the premium stop for the 1.5R backstop.
+    sized = dict(strategy, risk=dict(strategy["risk"], rupeesPerTrade=stop.rupees))
+    position = open_position(signal, sized, {"price": fill_price(entry_bar)},
+                             plan.lot_size, expiry, strike, side, result.mark,
+                             day.isoformat())
+    return pullback_stop.arm(position, stop, strategy["risk"])
 
 
 # ---------------- the run ----------------

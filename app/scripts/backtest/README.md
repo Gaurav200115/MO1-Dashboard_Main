@@ -164,6 +164,41 @@ python run.py now --from 2026-01-01 --to 2026-10-31 --setups A-ADR B-ADR C-ADR
 Compare the last two: same dates, same cap, only the entry ruler differs. Each ADR trade stores
 the band it used under `trigger.adr` (`pct`, `rupees`, `zone`, `turn`).
 
+## Backtest-only rule: stop at the pullback (`--setups A-PB B-PB C-PB`)
+
+`backtest/pullback_stop.py`, defined as `BREAKOUT_RETRACE_21EMA_PB` / `BREAKDOWN_RETRACE_21EMA_PB`
+in `strategies.py`, tagged **ADR, SL pullback 550-800**. As Gaurav specified it on 2026-11-15; it
+goes live only if it shows a lower drawdown than A/B/C on the same dates.
+
+- **Entry: the live ADR rule (long v9 / short v5), unchanged.** Only where A and C stop moves.
+- **Why:** the desk's fixed ₹550 premium stop measured as a 0.19% move in the stock at the
+  median — about the size of the 0.075 ADR turn the entry waits for — and sat *above* the
+  pullback's own low in 80 of 108 live A/C trades. It stopped trades inside the wiggle they had
+  just come out of.
+- **Stop:** the stock back at the pullback's low (A) or the rally's high (C) — the lowest 1-minute
+  *low* / highest *high* from the minute the pullback reached the EMA zone to the entry minute.
+  A 1-minute stock bar touching it ends the trade, **filled at the option's low for that minute**
+  (the moment inside the minute is unknown, so the worst price is taken). A crossing on a minute
+  the option did not print exits on its next print.
+- **R** = distance from entry spot to that extreme × an assumed ATM delta of **0.5** × lot qty.
+  Under **₹550** it is raised to ₹550 and the stop moved out to match; over **₹800** the trade is
+  not taken and the setup is spent for the day (counted as `stop risk over Rs 800`).
+- **Ladder:** the desk's 1:2 → +1R, one step behind, in **that trade's own R**. The stock stop
+  guards only the opening rung; after the first move the trade is managed on premium.
+- **Backstop:** a premium stop at **1.5R** under the fill, standing in for the exchange SL live
+  would rest. Its exits are named `backstop`, not `stop`.
+- **B-PB is setup B unchanged** on the fixed ₹550 — it fires on a level cross and has no pullback
+  low — and is in the run so the three legs share the cap as they do live.
+- Its own book: never in a run with A/B/C or the ADR legs.
+
+```
+python run.py now --from 2025-11-10 --to 2026-10-30 --setups A B C
+python run.py now --from 2025-11-10 --to 2026-10-30 --setups A-PB B-PB C-PB
+```
+
+Same dates, same entry, same cap: only the stop differs. Each A/C trade stores its stop under
+`trigger.pullbackStop` (`rupees`, `rawRupees`, `floored`, `extreme`, `level`, `backstop`).
+
 ## Tests
 
 No database and no network — the pure parts of the engine, plus one whole session replayed against
@@ -176,9 +211,10 @@ python tests/test_session.py     one session end to end, the gate, run identity
 python tests/test_strategies.py  every leg: A, B and C apart and together, and the shared cap
 python tests/test_orb.py         the NIFTY opening range: the break, the points trail, 13:00
 python tests/test_adr.py         the ADR variant: the band, live vs ADR on one path, A/B/C-ADR
+python tests/test_pullback.py    the pullback stop: R, floor, cap, stock stop, backstop, A/B/C-PB
 ```
 
-307 checks. `test_strategies.py` is the one that keeps the pair honest: each rule can be
+365 checks. `test_strategies.py` is the one that keeps the pair honest: each rule can be
 correct on its own and the two still wrong together. Give the long rule three slots and the
 short rule three more and the replay runs six positions where the desk runs three, on twice
 the risk, with every figure downstream of it inflated.

@@ -246,7 +246,14 @@ export type ExitReason =
    * name because such a trade was ended by the edge of the archive and not by
    * the rule, and a run full of them needs reading with that in mind.
    */
-  | "out-of-band";
+  | "out-of-band"
+  /**
+   * Backtest only, pullback-stop variant (A-PB, C-PB). Their stop is on the
+   * stock; this is the 1.5R premium stop kept under it, standing in for the
+   * exchange SL live would rest. Named apart so an option that collapsed while
+   * the stock held is never read as the stock stop working.
+   */
+  | "backstop";
 
 /** One ratchet of the trailing ladder. */
 export interface LadderStep {
