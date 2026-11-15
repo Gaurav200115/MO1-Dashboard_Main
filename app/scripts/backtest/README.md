@@ -132,8 +132,11 @@ python run.py now --from 2026-01-01 --to 2026-10-31 --setups ORB
 ## Backtest-only rule: ADR-scaled retrace (`--setups A-ADR B-ADR C-ADR`)
 
 `backtest/adr.py`, defined as `BREAKOUT_RETRACE_21EMA_ADR` / `BREAKDOWN_RETRACE_21EMA_ADR` in
-`strategies.py`, tagged **ADR, SL 1:2→1**. **Not live**: if it beats the live rule it goes live as
-a version change of the two live rules, and not before.
+`strategies.py`, tagged **ADR, SL 1:2→1**. **Went live unchanged on 2026-11-15 as long v9 /
+short v5**, so `A B C` now replay this same rule; the ADR legs stay as the frozen record of what
+was backtested, and `tests/test_adr.py` fails if the two ever differ. One consequence: the mirror
+can no longer replay the v8 / v4 percent rule — a comparison against it needs a run made before
+the change (every run records the versions it replayed).
 
 - The live rules arm when price comes within **0.4%** of the 21 EMA and enter on a **0.2%** turn
   off the pullback's extreme. Here both are measured in the stock's own **14-session average
@@ -175,7 +178,7 @@ python tests/test_orb.py         the NIFTY opening range: the break, the points 
 python tests/test_adr.py         the ADR variant: the band, live vs ADR on one path, A/B/C-ADR
 ```
 
-304 checks. `test_strategies.py` is the one that keeps the pair honest: each rule can be
+307 checks. `test_strategies.py` is the one that keeps the pair honest: each rule can be
 correct on its own and the two still wrong together. Give the long rule three slots and the
 short rule three more and the replay runs six positions where the desk runs three, on twice
 the risk, with every figure downstream of it inflated.

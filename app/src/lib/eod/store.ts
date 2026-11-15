@@ -1,7 +1,7 @@
 import { type Collection } from "mongodb";
 import { getDb, isConfigured } from "@/lib/mongo";
 import type { ConfirmedLevel } from "./confluence";
-import type { EodReport, SpecialStock } from "./types";
+import type { EodReport, SpecialStock, StockAdr } from "./types";
 
 /**
  * Archive of every confirmed level, one document per (session, symbol).
@@ -36,6 +36,8 @@ export interface StoredDay {
   expiry: string;
   atmStrike: number;
   levels: StoredLevel[];
+  /** The 14-session average daily range the ADR-measured retrace used. Null before it existed. */
+  adr: StockAdr | null;
   /** True once any level on this stock has been scored as hit. */
   hitAny: boolean | null;
   provenance: {
@@ -91,6 +93,7 @@ export function toStoredDay(report: EodReport, stock: SpecialStock): StoredDay {
       held: null,
       breachPct: null,
     })),
+    adr: stock.adr ?? null,
     hitAny: null,
     provenance: {
       generatedAt: report.generatedAt,

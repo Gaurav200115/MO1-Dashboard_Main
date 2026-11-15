@@ -14,8 +14,9 @@ What this file pins down:
       the closed-bar kill line, and the short's mirror of all of it
   - whole sessions through `replay_session`, named A-ADR / B-ADR / C-ADR
   - that ADR legs are never mixed with the desk's own legs in one run
-  - that a stored ADR trade carries its band, and a live one is unchanged
-  - that the variant is frozen against the live rule it was copied from
+  - that a stored ADR trade carries its band
+  - that live long v9 / short v5 are exactly the A-ADR / C-ADR rule that was
+    backtested (it went live unchanged on 2026-11-15)
 
     py -3.12 tests/test_adr.py
 """
@@ -38,6 +39,13 @@ from backtest.strategies import selection
 DAY = dt.date(2026, 10, 15)
 LIVE_LONG, LIVE_SHORT = S.BREAKOUT_RETRACE_21EMA, S.BREAKDOWN_RETRACE_21EMA
 ADR_LONG, ADR_SHORT = S.BREAKOUT_RETRACE_21EMA_ADR, S.BREAKDOWN_RETRACE_21EMA_ADR
+
+# The percent rule the ADR rule replaced - long v8 / short v4, frozen here
+# because the live mirror is the ADR rule now (long v9 / short v5). Everything
+# but the entry ruler is the same.
+ENTRY_KEYS_ADR = {"entryBasis", "adrPeriod", "adrZoneMultiple", "adrTurnMultiple"}
+PCT = {**{k: v for k, v in S.ADR_PARAMS.items() if k not in ENTRY_KEYS_ADR},
+       "emaZonePct": 0.4, "entryReboundPct": 0.2}
 
 passed, failed = 0, []
 
@@ -89,10 +97,10 @@ def plan_with(adr, close=1000.0, resistance=None, support=None, marked=None):
 
 
 median = AdrRuler(plan_with(2.716), ADR_LONG["params"])
-check("the median stock's zone is the live 0.4%",
-      abs(median.zone / 1000 * 100 - LIVE_LONG["params"]["emaZonePct"]) < 0.01, True)
-check("and its turn the live 0.2%",
-      abs(median.turn / 1000 * 100 - LIVE_LONG["params"]["entryReboundPct"]) < 0.005, True)
+check("the median stock's zone is the old 0.4%",
+      abs(median.zone / 1000 * 100 - PCT["emaZonePct"]) < 0.01, True)
+check("and its turn the old 0.2%",
+      abs(median.turn / 1000 * 100 - PCT["entryReboundPct"]) < 0.005, True)
 
 wild = AdrRuler(plan_with(3.5, close=1200.0), ADR_LONG["params"])
 check("a wild stock (3.5% ADR at 1200) gets a 6.30 zone", round(wild.zone, 4), 6.3)
@@ -102,8 +110,9 @@ check("a calm stock (1% ADR at 1200) gets a 1.80 zone", round(calm.zone, 4), 1.8
 check("and a 0.90 turn", round(calm.turn, 4), 0.9)
 
 
-# ---------------- the worked examples, live vs ADR ----------------
-# EMA held at 1200. The live rule's zone is 0.4% of it - 4.80 - for every stock.
+# ---------------- the worked examples, old percent rule vs ADR ----------------
+# EMA held at 1200. The percent rule's zone is 0.4% of it - 4.80 - for every
+# stock. "live" below means that rule, v8 / v4, as it was before the change.
 
 def level(pivot, value, kind):
     return ConfirmedLevel(pivot, value, kind, value, 1000.0, 100.0, 0.1, 0.5)
@@ -133,7 +142,7 @@ def long_plan(adr):
     return plan_with(adr, close=1200.0, resistance=RES, support=SUP)
 
 
-LIVE, ADR = LIVE_LONG["params"], ADR_LONG["params"]
+LIVE, ADR = PCT, ADR_LONG["params"]
 
 # Wild stock, a real pullback: breaks 1205, runs to 1240, comes back to 1205.50
 # (5.50 off the EMA), then rallies.
@@ -194,7 +203,7 @@ def short_plan(adr):
 
 
 path = [1190, 1160, 1194.5, 1188]
-sig, _, _ = drive(short_plan(None), LIVE_SHORT["params"], path, {"C"})
+sig, _, _ = drive(short_plan(None), PCT, path, {"C"})
 check("live short: a rally to 5.50 under the EMA is outside 4.80 - missed", sig, None)
 sig, i, _ = drive(short_plan(3.5), ADR_SHORT["params"], path, {"C"})
 check("ADR short: inside 6.30, arms off the 1194.50 high and rolls over",
@@ -202,7 +211,7 @@ check("ADR short: inside 6.30, arms off the 1194.50 high and rolls over",
       (3, "C", 1194.5))
 
 # The short's kill line: a bar closing 6.00 back above the EMA.
-_, _, state = drive(short_plan(None), LIVE_SHORT["params"], [1190, 1160, (1204, 1206)], {"C"})
+_, _, state = drive(short_plan(None), PCT, [1190, 1160, (1204, 1206)], {"C"})
 check("live short: a close 6.00 over the EMA kills it", state.phase_c, "above")
 _, _, state = drive(short_plan(3.5), ADR_SHORT["params"], [1190, 1160, (1204, 1206)], {"C"})
 check("ADR short: inside 6.30 it survives and arms", state.phase_c, "retraced")
@@ -268,10 +277,15 @@ def run(stocks, setups):
 live, _ = run([a_stock()], ["A"])
 adr, notes = run([a_stock()], ["A-ADR"])
 
-check("live A takes the 09:26 entry", [(p.setup, p.entry_at) for p in live],
-      [("A", minute(9, 26))])
+# Under the old percent rule this path entered at 09:26 (3.32 off the EMA was
+# inside its 4.01 zone). The ADR rule waits for the closer pullback - and the
+# live setup A is the ADR rule now, so the two must take the same trade.
 check("A-ADR waits for the closer pullback, 09:28", [(p.setup, p.entry_at) for p in adr],
       [("A-ADR", minute(9, 28))])
+check("live A (v9) takes exactly the same 09:28 entry", [(p.setup, p.entry_at) for p in live],
+      [("A", minute(9, 28))])
+check("under the live strategy at its new version", [(p.strategy_id, p.strategy_version) for p in live],
+      [("breakout-retrace-21ema", 9)])
 if adr:
     p = adr[0]
     check("A-ADR runs under its own strategy", (p.strategy_id, p.strategy_version),
@@ -285,8 +299,9 @@ if adr:
     check("and the same SL ladder as live: first move at 1:2 to +1R",
           (S.STRATEGIES[p.strategy_id]["risk"]["trailStartMultiple"],
            S.STRATEGIES[p.strategy_id]["risk"]["trailLockMultiple"]), (2, 1))
-if live:
-    check("a live trade carries no ADR", live[0].context["adr"], None)
+if live and adr:
+    check("a live v9 trade carries the same band as A-ADR", live[0].context["adr"],
+          adr[0].context["adr"])
 check("an ADR run counts its signals under the ADR name", dict(notes["bySetup"]), {"A-ADR": 1})
 
 # Without 14 sessions of history the retrace leg is skipped, and counted.
@@ -341,20 +356,18 @@ for strategy in (ADR_LONG, ADR_SHORT):
         check(f"{setup}'s label carries the tag", "ADR, SL 1:2->1" in label, True)
 
 
-# ---------------- frozen against the live rule it was copied from ----------------
-# The ADR variant is the live long v8 / short v4 with only the entry ruler
-# changed. If the live rule moves on, these fail: decide whether the ADR variant
-# follows (as a new version) rather than letting it drift silently.
+# ---------------- live is exactly what was backtested ----------------
+# Long v9 / short v5 went live as the A-ADR / C-ADR rule, unchanged. If either
+# side moves, these fail: the live rule would no longer be the rule the
+# backtest justified, and that has to be a decision rather than an accident.
 
-ENTRY_KEYS_LIVE = {"emaZonePct", "entryReboundPct"}
-ENTRY_KEYS_ADR = {"entryBasis", "adrPeriod", "adrZoneMultiple", "adrTurnMultiple"}
 for live_rule, adr_rule in ((LIVE_LONG, ADR_LONG), (LIVE_SHORT, ADR_SHORT)):
-    check(f"{adr_rule['id']} params match {live_rule['id']} v{live_rule['version']} "
-          f"apart from the entry ruler",
-          {k: v for k, v in adr_rule["params"].items() if k not in ENTRY_KEYS_ADR},
-          {k: v for k, v in live_rule["params"].items() if k not in ENTRY_KEYS_LIVE})
-    check(f"{adr_rule['id']} risk matches {live_rule['id']} v{live_rule['version']}",
-          adr_rule["risk"], live_rule["risk"])
+    check(f"{live_rule['id']} v{live_rule['version']} params are exactly {adr_rule['id']} "
+          f"v{adr_rule['version']}'s", live_rule["params"], adr_rule["params"])
+    check(f"{live_rule['id']} v{live_rule['version']} risk is exactly {adr_rule['id']}'s",
+          live_rule["risk"], adr_rule["risk"])
+check("live long is v9", LIVE_LONG["version"], 9)
+check("live short is v5", LIVE_SHORT["version"], 5)
 
 
 # ---------------- the stored trade ----------------
@@ -379,8 +392,8 @@ if adr and live:
     check("and its trigger carries the band",
           (doc["trigger"]["adr"]["zone"], doc["trigger"]["adr"]["turn"],
            doc["trigger"]["adr"]["period"]), (3.0, 1.5, 14))
-    check("a stored live trade has exactly the old shape", "adr" in
-          results.trade_document(live[0], "run-live")["trigger"], False)
+    check("a stored live v9 trade carries its band too",
+          results.trade_document(live[0], "run-live")["trigger"].get("adr"), doc["trigger"]["adr"])
 
 
 # ---------------- the dashboard lists the same legs ----------------

@@ -75,6 +75,9 @@ const BACKTEST_ONLY: SetupOption[] = [
    *
    * Python: `BREAKOUT_RETRACE_21EMA_ADR` / `BREAKDOWN_RETRACE_21EMA_ADR` in
    * backtest/strategies.py; tests/test_adr.py checks these three entries match.
+   *
+   * Went live unchanged on 2026-11-15 as long v9 / short v5, so A, B and C now
+   * replay this same rule. These stay as the record of what was backtested.
    */
   {
     setup: "A-ADR",
@@ -87,7 +90,7 @@ const BACKTEST_ONLY: SetupOption[] = [
     description:
       "Setup A with the retrace measured in the stock's 14-session ADR: arms within 0.15 ADR " +
       "of the 21 EMA, enters on a 0.075 ADR turn off the low. SL trails from 1:2 to +1R, then " +
-      "one step behind.",
+      "one step behind. Same rule as live setup A since long v9.",
     backtestOnly: true,
     book: "adr",
     tag: "ADR · SL 1:2→1",
@@ -103,7 +106,7 @@ const BACKTEST_ONLY: SetupOption[] = [
     description:
       "Setup B unchanged — it has no retracement % to scale. In the ADR run so the three legs " +
       "share the three-position cap as they do live. SL trails from 1:2 to +1R, then one step " +
-      "behind.",
+      "behind. Same rule as live setup B since long v9.",
     backtestOnly: true,
     book: "adr",
     tag: "ADR · SL 1:2→1",
@@ -119,7 +122,7 @@ const BACKTEST_ONLY: SetupOption[] = [
     description:
       "Setup C with the retrace measured in the stock's 14-session ADR: arms within 0.15 ADR " +
       "of the 21 EMA, enters on a 0.075 ADR turn off the rally high. SL trails from 1:2 to " +
-      "+1R, then one step behind.",
+      "+1R, then one step behind. Same rule as live setup C since short v5.",
     backtestOnly: true,
     book: "adr",
     tag: "ADR · SL 1:2→1",

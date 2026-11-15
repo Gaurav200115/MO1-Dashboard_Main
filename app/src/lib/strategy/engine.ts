@@ -1,7 +1,9 @@
 import type { ConfirmedLevel } from "@/lib/eod/confluence";
+import { adrFromCandles } from "@/lib/eod/adr";
 import { readLatestReport } from "@/lib/eod/report";
 import type { EodReport } from "@/lib/eod/types";
 import { getFeed } from "@/lib/kite/feed";
+import { dailyCandles, NoSessionError } from "@/lib/kite/history";
 import { readSession } from "@/lib/kite/session";
 import { mongoMessage } from "@/lib/mongo";
 import { BarEngine } from "./bars";
@@ -11,6 +13,7 @@ import { fetchPremiums, fillPrice, quoteKey, resolveAtm, type PremiumQuote } fro
 import { evaluate, profitAt, sizeTrade } from "./position";
 import { assessBook, describeRejection } from "./tradeable";
 import { activeStrategies, MAX_OPEN_POSITIONS } from "./registry";
+import { usesAdr } from "./ruler";
 import { evaluateSymbol, initialState, type Signal, type SymbolState } from "./signals";
 import {
   ensureIndexes,
@@ -134,6 +137,12 @@ export class StrategyEngine {
   private warming: Promise<void> | null = null;
   /** A warm-up was asked for while one was running; run one more pass after it. */
   private warmAgain = false;
+  /**
+   * ADR rules: symbols whose ADR is still missing after warm-up, and why. Only
+   * "no Kite session" is retried — too little history does not fix itself
+   * during the day.
+   */
+  private readonly adrMissing = new Map<string, string>();
   private trackingNow = false;
 
   private readonly cutoffMin: number;
@@ -281,6 +290,7 @@ export class StrategyEngine {
 
     this.plans.clear();
     this.states.clear();
+    this.adrMissing.clear();
     for (const plan of this.plan.plans) {
       if (!this.tradeable(plan)) continue;
       this.plans.set(plan.symbol, plan);
@@ -357,7 +367,7 @@ export class StrategyEngine {
   }
 
   private async warmPass(): Promise<void> {
-    for (const symbol of this.plans.keys()) {
+    for (const [symbol, plan] of this.plans) {
       try {
         const bars = await this.bars.seed(symbol);
         if (bars.seedError) this.note(`${symbol}: ${bars.seedError}`);
@@ -365,6 +375,40 @@ export class StrategyEngine {
       } catch (err) {
         this.note(`${symbol}: seed failed — ${message(err)}`);
       }
+      await this.ensureAdr(plan);
+    }
+  }
+
+  /**
+   * ADR rules only: makes sure a watched stock has its ADR.
+   *
+   * Normally the report already carries it — the scan computes it and the
+   * morning verification pass recomputes it from finalised candles. This covers
+   * the report that does not: one written before the ADR existed (the first day
+   * after a deploy), or one computed over a different window than this strategy
+   * asks for. Same function, same candles, same answer as the scan would give.
+   *
+   * The window ends on the session the levels come from, never today, so a
+   * mid-session restart cannot fold the day in progress into it.
+   */
+  private async ensureAdr(plan: SymbolPlan): Promise<void> {
+    const params = this.strategy.params;
+    if (!usesAdr(params) || plan.adrPct != null || params.adrPeriod == null) return;
+    try {
+      const candles = await dailyCandles(plan.symbol, { background: true });
+      const adr = adrFromCandles(candles, plan.sessionDate, params.adrPeriod);
+      if (adr) {
+        plan.adrPct = adr.pct;
+        this.adrMissing.delete(plan.symbol);
+        this.clearNotes(`${plan.symbol}: ADR `);
+      } else {
+        this.adrMissing.set(plan.symbol, `fewer than ${params.adrPeriod} sessions of history`);
+        this.note(`${plan.symbol}: ADR unavailable — fewer than ${params.adrPeriod} sessions of history, A/C cannot arm`);
+      }
+    } catch (err) {
+      const reason = err instanceof NoSessionError ? NO_SESSION : message(err);
+      this.adrMissing.set(plan.symbol, reason);
+      this.note(`${plan.symbol}: ADR unavailable — ${reason}`);
     }
   }
 
@@ -374,12 +418,13 @@ export class StrategyEngine {
    */
   private async rewarmIfSignedIn(): Promise<void> {
     if (this.status !== "running" || this.warming) return;
-    const waiting = [...this.plans.keys()].some((symbol) => {
-      const bars = this.bars.get(symbol);
-      return !bars?.seeded && bars?.seedError === NO_SESSION;
-    });
+    const waiting =
+      [...this.plans.keys()].some((symbol) => {
+        const bars = this.bars.get(symbol);
+        return !bars?.seeded && bars?.seedError === NO_SESSION;
+      }) || [...this.adrMissing.values()].includes(NO_SESSION);
     if (!waiting || !(await readSession())) return;
-    console.log(`[strategy:${this.strategy.id}] Kite session found — retrying EMA warm-up`);
+    console.log(`[strategy:${this.strategy.id}] Kite session found — retrying EMA / ADR warm-up`);
     void this.warm();
   }
 
@@ -627,6 +672,9 @@ export class StrategyEngine {
           crossedAt: signal.crossedAt,
           ema: signal.ema,
           spot: signal.spot,
+          // ADR rules: the band this entry was measured with, so the trade can
+          // be read back against it - the same field a backtest trade carries.
+          ...(signal.adr ? { adr: signal.adr } : {}),
         },
         paper: true,
         openedAt: new Date(at),

@@ -17,6 +17,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from fake_archive import default_history
 from settings import GATE_FLOORS
 from backtest import strategies as S
 from backtest.runner import (SymbolClock, bucket_start, fingerprint, fold_bars,
@@ -148,6 +149,14 @@ class FakeArchive:
             return Result([(SYMBOL, LOT, 10.0)])
         if "FROM corporate_actions" in q:
             return Result([])
+        if "FROM cm_bhavcopy" in q and "ORDER BY symbol, trade_date" in q:
+            # The ADR history (long v9 measures its retrace in it): 14 sessions
+            # whose range makes the band the old 0.4% / 0.2% of the 1000 close.
+            # See fake_archive.DEFAULT_ADR_PCT.
+            upto = params[2]
+            return Result([(SYMBOL, upto - dt.timedelta(days=i),
+                            *(int(round(v * 100)) for v in hlc))
+                           for i, hlc in enumerate(default_history(1000.0))])
         if "FROM cm_bhavcopy" in q:
             return Result([(SYMBOL, 103000, 97000, 100000)])
         if "min(expiry_date) FROM fo_bhavcopy" in q:
@@ -223,7 +232,7 @@ check("one trade came out of the session", len(positions), 1)
 if positions:
     p = positions[0]
     check("it is the long rule", p.strategy_id, "breakout-retrace-21ema")
-    check("under the version in the registry", p.strategy_version, 8)
+    check("under the version in the registry", p.strategy_version, 9)
     check("on setup A", p.setup, "A")
     check("it bought a call", p.option_type, "CE")
     check("entered at the rebound minute", p.entry_at, at(9, 26))

@@ -61,9 +61,18 @@ export interface SymbolPlan {
   sector: string;
   /** Previous session's official close — where price started the day relative to each level. */
   close: number;
+  /** IST date of that session — where an ADR window for this stock ends. */
+  sessionDate: string;
   majorResistance: ConfirmedLevel | null;
   majorSupport: ConfirmedLevel | null;
   marked: ConfirmedLevel[];
+  /**
+   * ADR-measured rules: the stock's average daily range, percent of price, over
+   * the strategy's `adrPeriod`. Taken from the report when it was computed over
+   * that period; otherwise null until the engine computes it at warm-up. Always
+   * null, and never read, under the percent rule.
+   */
+  adrPct: number | null;
 }
 
 /**
@@ -103,14 +112,22 @@ export function planForStock(stock: SpecialStock, params: StrategyParams): Symbo
   // Neither leg of the rule can arm without a major level to anchor on.
   if (!majorResistance && !majorSupport) return null;
 
+  // The report's ADR is only this strategy's ADR if it covers the same window.
+  const adr =
+    params.entryBasis === "adr" && stock.adr && stock.adr.period === params.adrPeriod
+      ? stock.adr.pct
+      : null;
+
   return {
     symbol: stock.symbol,
     name: stock.name,
     sector: stock.sector,
     close: stock.session.close,
+    sessionDate: stock.session.date,
     majorResistance,
     majorSupport,
     marked: stock.levels.filter((level) => !excluded.has(level.pivot)),
+    adrPct: adr,
   };
 }
 

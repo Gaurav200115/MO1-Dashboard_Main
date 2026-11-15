@@ -13,6 +13,20 @@ from dataclasses import dataclass, field
 
 IST = dt.timezone(dt.timedelta(hours=5, minutes=30))
 
+# The live rule measures its retrace in the stock's ADR (long v9 / short v5):
+# zone 0.15 ADR, turn 0.075 ADR. At an ADR of 0.4 / 0.15 = 2.667% of the close,
+# that band is exactly the old 0.4% zone and 0.2% turn of the close - so a stock
+# left on the default history behaves as the percent rule did, and the tests
+# written around it (the cap, the fills, the gate) still test what they say.
+# The ADR ruler itself is tested in test_adr.py.
+DEFAULT_ADR_PCT = 0.4 / 0.15
+
+
+def default_history(close, sessions=14):
+    """`sessions` previous days whose range is DEFAULT_ADR_PCT of `close`."""
+    half = close * DEFAULT_ADR_PCT / 200
+    return ((close + half, close - half, close),) * sessions
+
 
 def at(day, h, m):
     return dt.datetime.combine(day, dt.time(h, m), tzinfo=IST)
@@ -48,8 +62,8 @@ class Stock:
     strike_oi: float = 500_000.0
     chain_max_oi: float = 1_000_000.0
     strikes: tuple = field(default=tuple(range(900, 1121, 10)))
-    # Previous sessions' (high, low, close), oldest first, for the ADR variant's
-    # average daily range. Left out, the stock has 14 sessions shaped like `ohlc`.
+    # Previous sessions' (high, low, close), oldest first, for the ADR rule's
+    # average daily range. Left out: default_history(close) - see DEFAULT_ADR_PCT.
     history: tuple | None = None
 
 
@@ -129,7 +143,8 @@ class FakeArchive:
             rows = []
             for symbol in symbols:
                 stock = self.stocks[symbol]
-                hist = stock.history if stock.history is not None else (stock.ohlc,) * 14
+                hist = (stock.history if stock.history is not None
+                        else default_history(stock.ohlc[2]))
                 for back, hlc in enumerate(reversed(hist)):
                     rows.append((symbol, upto - dt.timedelta(days=back),
                                  *(int(round(v * 100)) for v in hlc)))

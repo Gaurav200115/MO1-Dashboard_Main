@@ -1,4 +1,5 @@
 import { dailyCandles, istDateString } from "@/lib/kite/history";
+import { ADR_PERIOD, adrFromCandles } from "./adr";
 import { confirmLevels } from "./confluence";
 import { oiLevels } from "./oi";
 import { fibPivots, pivotLevels } from "./pivots";
@@ -29,13 +30,22 @@ export async function verifyReport(report: EodReport): Promise<EodReport> {
       const candles = await dailyCandles(stock.symbol, { background: true });
       const candle = candles.find((c) => istDateString(c.t) === report.basedOn);
 
+      /*
+       * The ADR is recomputed for every stock, revised or not. The evening scan
+       * built it with that session's provisional candle as the newest of its 14,
+       * and a report written before the ADR existed has none at all - both are
+       * put right here, from finalised candles. A stock whose candles cannot be
+       * read keeps whatever it had.
+       */
+      const adr = adrFromCandles(candles, stock.session.date, ADR_PERIOD) ?? stock.adr ?? null;
+
       if (
         !candle ||
         (candle.h === stock.session.high &&
           candle.l === stock.session.low &&
           candle.c === stock.session.close)
       ) {
-        stocks.push(stock);
+        stocks.push({ ...stock, adr });
         continue;
       }
 
@@ -48,7 +58,7 @@ export async function verifyReport(report: EodReport): Promise<EodReport> {
 
       const pivots = fibPivots(session.high, session.low, session.close);
       if (!pivots) {
-        stocks.push({ ...stock, session, levels: [] });
+        stocks.push({ ...stock, session, levels: [], adr });
         revised += 1;
         continue;
       }
@@ -60,7 +70,7 @@ export async function verifyReport(report: EodReport): Promise<EodReport> {
       );
       levels.sort((a, b) => a.reachPct - b.reachPct);
 
-      stocks.push({ ...stock, session, pivots, levels });
+      stocks.push({ ...stock, session, pivots, levels, adr });
       revised += 1;
     } catch {
       // A symbol we cannot re-read keeps its provisional figures rather than

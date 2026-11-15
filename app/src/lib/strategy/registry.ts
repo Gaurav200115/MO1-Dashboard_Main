@@ -29,8 +29,10 @@ const SHARED_PARAMS: Pick<
   StrategyParams,
   | "emaPeriod"
   | "emaIntervalMinutes"
-  | "emaZonePct"
-  | "entryReboundPct"
+  | "entryBasis"
+  | "adrPeriod"
+  | "adrZoneMultiple"
+  | "adrTurnMultiple"
   | "entryCutoffIst"
   | "flattenIst"
   | "maxOpenTrades"
@@ -45,19 +47,33 @@ const SHARED_PARAMS: Pick<
   emaPeriod: 21,
   emaIntervalMinutes: 5,
   /*
-   * The retracement zone. Price must come back within 0.4% of the 21 EMA for the
-   * pullback to count — the worked example is an EMA of 1200 and a pullback to
-   * 1204.5, which is 0.375% above it. Measured either side, so a wick through
-   * the line is the same event as a pullback that stops exactly on it.
+   * The retrace is measured in the stock's own daily range (long v9 / short v5).
+   *
+   * Up to v8 / v4 it was a fixed percent of price — within 0.4% of the 21 EMA to
+   * arm, a 0.2% turn off the pullback's extreme to enter — which is the same
+   * ruler for a stock that moves 1.5% a day and one that moves 4%. Now both are
+   * fractions of the stock's 14-session average daily range (eod/adr.ts):
+   *
+   *   zone  0.15 ADR    how close to the 21 EMA counts as a retrace, either side,
+   *                     and how far a closed bar may sit through it before the
+   *                     setup is dead
+   *   turn  0.075 ADR   the turn off the pullback's extreme that takes the trade,
+   *                     and the minimum pullback off the post-break extreme
+   *
+   * Calibrated so the median stock behaves as the percent rule did: the median
+   * 14-session ADR across the desk's 186 stocks (daily_levels, 7 Sep – 13 Nov
+   * 2026) is 2.716%, so 0.4% = 0.147 ADR and 0.2% = 0.074 ADR. A stock at
+   * ₹1,000 with that ADR gets a ₹4.07 zone and a ₹2.04 turn; at a 1.5% ADR,
+   * ₹2.25 and ₹1.13; at 4%, ₹6.00 and ₹3.00. In rupees for the day, from the
+   * previous official close.
+   *
+   * Backtested as A-ADR / B-ADR / C-ADR before going live. A stock with under 14
+   * sessions of history has no ADR: its A and C legs cannot arm (B is untouched).
    */
-  emaZonePct: 0.4,
-  /*
-   * The confirmation leg. Reaching the EMA arms the setup; turning back off it
-   * is what takes the trade. From a long's retracement low of 1204.5 that puts
-   * the entry at 1206.91 — 0.2% of the low, not of the EMA, so the trigger sits
-   * the same distance from the pullback wherever in the zone it stopped.
-   */
-  entryReboundPct: 0.2,
+  entryBasis: "adr",
+  adrPeriod: 14,
+  adrZoneMultiple: 0.15,
+  adrTurnMultiple: 0.075,
   /*
    * Entries stop at 13:00 and positions already open are left alone.
    *
@@ -129,7 +145,7 @@ const SHARED_RISK: StrategyRisk = {
 /** Strategy 1 — level break, pull back to the 21 EMA, long the ATM call. */
 export const BREAKOUT_RETRACE_21EMA: StrategyDefinition = {
   id: "breakout-retrace-21ema",
-  version: 8,
+  version: 9,
   name: "Level Break → 21 EMA Retrace",
   createdAt: "2026-09-16",
 
@@ -147,6 +163,7 @@ export const BREAKOUT_RETRACE_21EMA: StrategyDefinition = {
     "v6: stop the long trades that we take for the R3 pivot point, whatever the skew or anything else is. R2, R1 and P are still traded as before; nothing takes R3's place.",
     "v7: take the R3 trades again. The v6 block is removed, so R3 is traded like any other pivot — it can be the major resistance for setup A and is back among setup B's cross candidates.",
     "v8: the SL starts trailing at 1:2 instead of 1:3. Once 1:2 is achieved the SL moves to 550, and from then on it follows one step behind — 1650 trails it to 1100, 2200 to 1650, 2750 to 2200.",
+    "v9: instead of fixed percentage change, we get the Daily Average Range of the stock and based on it we conclude the retracement %, and only if it is met do we take the entry. Both numbers use it — the zone near the 21 EMA (was 0.4%) is 0.15 × the 14-day ADR, the turn to enter (was 0.2%) is 0.075 × ADR — calibrated so the typical stock (ADR 2.72%) behaves as before. Backtested as A-ADR / B-ADR / C-ADR before going live.",
   ],
 
   setups: [
@@ -156,7 +173,7 @@ export const BREAKOUT_RETRACE_21EMA: StrategyDefinition = {
       side: "LONG",
       requires: "majorResistance",
       description:
-        "Price crossed above the major resistance (least gap, call skew ≥ 4x), pulled back to within 0.4% of the 21 EMA, then turned up 0.2% off that low.",
+        "Price crossed above the major resistance (least gap, call skew ≥ 4x), pulled back to within 0.15 ADR of the 21 EMA, then turned up 0.075 ADR off that low (ADR = the stock's 14-session average daily range).",
     },
     {
       id: "B",
@@ -185,7 +202,7 @@ export const BREAKOUT_RETRACE_21EMA: StrategyDefinition = {
 /** Strategy 2 — the short. Break the major support, rally to the 21 EMA, roll over. */
 export const BREAKDOWN_RETRACE_21EMA: StrategyDefinition = {
   id: "breakdown-retrace-21ema",
-  version: 4,
+  version: 5,
   name: "Support Break → 21 EMA Retrace (Short)",
   createdAt: "2026-09-16",
 
@@ -199,6 +216,7 @@ export const BREAKDOWN_RETRACE_21EMA: StrategyDefinition = {
     "v2: a signal is skipped unless the option's book is tradeable — same checks as the long rule. The 550 stop itself is unchanged.",
     "v3: ends at 1:00 PM — no entries after that. A trade already running is left open and managed by the ordinary rules; 15:15 stays only as the end-of-day backstop.",
     "v4: the SL starts trailing at 1:2 instead of 1:3. Once 1:2 is achieved the SL moves to 550, and from then on it follows one step behind — same ladder as the long rule.",
+    "v5: instead of fixed percentage change, we get the Daily Average Range of the stock and based on it we conclude the retracement %, and only if it is met do we take the entry. The rally into the 21 EMA zone (was 0.4%) is 0.15 × the 14-day ADR, the roll-over to enter (was 0.2%) is 0.075 × ADR — same as the long rule.",
   ],
 
   setups: [
@@ -208,7 +226,7 @@ export const BREAKDOWN_RETRACE_21EMA: StrategyDefinition = {
       side: "SHORT",
       requires: "majorSupport",
       description:
-        "Price broke below the major support (least gap, put skew ≥ 5x), rallied back to within 0.4% of the 21 EMA, then rolled over 0.2% off that high.",
+        "Price broke below the major support (least gap, put skew ≥ 5x), rallied back to within 0.15 ADR of the 21 EMA, then rolled over 0.075 ADR off that high (ADR = the stock's 14-session average daily range).",
     },
   ],
 

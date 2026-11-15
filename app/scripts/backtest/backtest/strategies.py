@@ -24,8 +24,14 @@ MAX_OPEN_POSITIONS = 3
 SHARED_PARAMS = {
     "emaPeriod": 21,
     "emaIntervalMinutes": 5,
-    "emaZonePct": 0.4,
-    "entryReboundPct": 0.2,
+    # Long v9 / short v5 (2026-11-15): the retrace is measured in the stock's own
+    # 14-session average daily range - zone 0.15 ADR, turn 0.075 ADR - instead of
+    # the fixed 0.4% / 0.2% of v8 / v4. Backtested first as A-ADR / B-ADR / C-ADR
+    # (below), and went live unchanged. adr.py has the definition.
+    "entryBasis": "adr",
+    "adrPeriod": 14,
+    "adrZoneMultiple": 0.15,
+    "adrTurnMultiple": 0.075,
     "entryCutoffIst": "13:00",
     "flattenIst": "15:15",
     "maxOpenTrades": MAX_OPEN_POSITIONS,
@@ -51,7 +57,7 @@ SHARED_RISK = {
 
 BREAKOUT_RETRACE_21EMA = {
     "id": "breakout-retrace-21ema",
-    "version": 8,
+    "version": 9,
     "name": "Level Break -> 21 EMA Retrace",
     "setups": ["A", "B"],
     "setupLabels": {"A": "Break & retrace", "B": "Support hold & level cross"},
@@ -62,7 +68,7 @@ BREAKOUT_RETRACE_21EMA = {
 
 BREAKDOWN_RETRACE_21EMA = {
     "id": "breakdown-retrace-21ema",
-    "version": 4,
+    "version": 5,
     "name": "Support Break -> 21 EMA Retrace (Short)",
     "setups": ["C"],
     "setupLabels": {"C": "Breakdown & retrace"},
@@ -115,9 +121,11 @@ NIFTY_ORB_15M = {
     },
 }
 
-# ADR-scaled retrace, as Gaurav specified it (2026-11-13). Backtest only: if it
-# shows a good result it goes live as a version change of the two live rules,
-# and not before.
+# ADR-scaled retrace, as Gaurav specified it (2026-11-13). Backtested here first;
+# it went live unchanged on 2026-11-15 as long v9 / short v5, so the desk's own
+# A, B and C now run exactly this rule. These stay as the frozen record of what
+# was backtested to justify that change - tests/test_adr.py checks the two are
+# still identical - and as a way to re-run that exact version.
 #
 #   - The live rules measure the retrace in a fixed percent of price: within
 #     0.4% of the 21 EMA to arm, a 0.2% turn off the extreme to enter. Here both
@@ -125,7 +133,7 @@ NIFTY_ORB_15M = {
 #     zone 0.15 ADR, turn 0.075 ADR - calibrated so the median stock behaves as
 #     the live rule does (adr.py has the measurement). The minimum pullback and
 #     the closed-bar kill line ride on the same two numbers, exactly as live.
-#   - Everything else is the live long v8 / short v4 as they stood that day:
+#   - Everything else was the live long v8 / short v4 as they stood that day:
 #     same levels, same skews, same 13:00 cutoff, same book gate, same 550 risk,
 #     and the same SL trail - at 1:2 the SL moves to +1R, then one step behind
 #     (the "SL 1:2->1" in the tag).
@@ -137,6 +145,11 @@ NIFTY_ORB_15M = {
 # because a released version is frozen: if the live rule moves on, this must not
 # move with it under the same version number. tests/test_adr.py fails when the
 # two stop matching, so the change is a decision rather than an accident.
+#
+# One thing worth knowing for future comparisons: now that the live rule is the
+# ADR rule, the mirror can no longer replay the v8 / v4 percent rule. Anything
+# compared against it needs a run made before this change, which records its
+# versions on the run.
 ADR_TAG = "ADR, SL 1:2->1"
 
 ADR_PARAMS = {
