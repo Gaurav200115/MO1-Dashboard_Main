@@ -12,6 +12,7 @@ import type {
 import type { TradesResult } from "@/lib/useTrades";
 import type { TradeNotes } from "@/lib/useTradeNotes";
 import { useTradeNotes } from "@/lib/useTradeNotes";
+import ExecutionPanel from "./ExecutionPanel";
 import { TagChips, TradeTagger } from "./TradeTags";
 
 /**
@@ -115,6 +116,7 @@ export default function TradeBlotter({ data }: { data: TradesResult }) {
 
   return (
     <>
+      <ExecutionPanel />
       <EngineStrip engines={engines} strategies={strategies} />
 
       <section
@@ -154,8 +156,8 @@ export default function TradeBlotter({ data }: { data: TradesResult }) {
           ) : null}
 
           <p className="ml-auto max-w-[42ch] text-[10.5px] leading-snug text-faint">
-            Paper fills, priced off the live book at the moment the rule fired. This desk places
-            no orders.
+            Paper fills, priced off the live book at the moment the rule fired. Real orders, when
+            switched on, are listed under Live orders above.
           </p>
         </div>
 

@@ -94,6 +94,33 @@ function pickMajor(levels: ConfirmedLevel[], kind: ConfirmedLevel["kind"], minSk
   return best;
 }
 
+/**
+ * pickMajor with a threshold per pivot rather than one per side (long v10 /
+ * short v6). The same least-gap choice; only which levels may compete changes.
+ * A pivot the table leaves out never qualifies. Twin of
+ * `pick_major_per_pivot` in the backtest's levels.py.
+ */
+function pickMajorPerPivot(
+  levels: ConfirmedLevel[],
+  kind: ConfirmedLevel["kind"],
+  minByPivot: Partial<Record<ConfirmedLevel["pivot"], number>>
+) {
+  let best: ConfirmedLevel | null = null;
+  for (const level of levels) {
+    if (level.kind !== kind) continue;
+    const need = minByPivot[level.pivot];
+    if (need === undefined || skewOf(level) < need) continue;
+    if (!best || level.gapPct < best.gapPct) best = level;
+  }
+  return best;
+}
+
+function majorOf(levels: ConfirmedLevel[], kind: ConfirmedLevel["kind"], params: StrategyParams) {
+  if (params.pivotMinSkew) return pickMajorPerPivot(levels, kind, params.pivotMinSkew);
+  const minSkew = kind === "resistance" ? params.resistanceSkew : params.supportSkew;
+  return pickMajor(levels, kind, minSkew ?? Number.POSITIVE_INFINITY);
+}
+
 export function planForStock(stock: SpecialStock, params: StrategyParams): SymbolPlan | null {
   if (stock.levels.length === 0) return null;
 
@@ -106,8 +133,8 @@ export function planForStock(stock: SpecialStock, params: StrategyParams): Symbo
   const tradeable = (level: ConfirmedLevel | null) =>
     level && !excluded.has(level.pivot) ? level : null;
 
-  const majorResistance = tradeable(pickMajor(stock.levels, "resistance", params.resistanceSkew));
-  const majorSupport = tradeable(pickMajor(stock.levels, "support", params.supportSkew));
+  const majorResistance = tradeable(majorOf(stock.levels, "resistance", params));
+  const majorSupport = tradeable(majorOf(stock.levels, "support", params));
 
   // Neither leg of the rule can arm without a major level to anchor on.
   if (!majorResistance && !majorSupport) return null;

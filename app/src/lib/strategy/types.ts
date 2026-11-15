@@ -92,10 +92,20 @@ export interface StrategyParams extends LiquidityParams {
   adrZoneMultiple?: number;
   /** ADR rule: the entry turn (and minimum pullback), as a fraction of the ADR. */
   adrTurnMultiple?: number;
-  /** Minimum callOI/putOI for a resistance to count as major. */
-  resistanceSkew: number;
-  /** Minimum putOI/callOI for a support to count as major. */
-  supportSkew: number;
+  /**
+   * Minimum callOI/putOI for a resistance to count as major. Up to long v9 /
+   * short v5; superseded by `pivotMinSkew` from long v10 / short v6.
+   */
+  resistanceSkew?: number;
+  /** Minimum putOI/callOI for a support to count as major. As `resistanceSkew`. */
+  supportSkew?: number;
+  /**
+   * Long v10 / short v6: the minimum skew per pivot rather than per side — the
+   * level's own skew must reach its pivot's number to compete for major. A pivot
+   * left out never qualifies. When set, `resistanceSkew` / `supportSkew` are not
+   * read.
+   */
+  pivotMinSkew?: Partial<Record<PivotLabel, number>>;
   /**
    * Pivots this strategy never trades, whatever their skew or gap. The major
    * pick is unchanged; if an excluded pivot wins it, that side has no major

@@ -1,3 +1,4 @@
+import type { PivotLabel } from "@/lib/eod/pivots";
 import type { StrategyDefinition, StrategyParams, StrategyRisk } from "./types";
 
 /**
@@ -142,10 +143,30 @@ const SHARED_RISK: StrategyRisk = {
   trail: "ladder",
 };
 
+/**
+ * The skew a level needs to be picked as major, per pivot (long v10 / short v6).
+ *
+ * Up to v9 / v5 there was one bar per side — 4x for any resistance, 5x for any
+ * support. Now each pivot has its own: R1, R3, S1 and S3 need 5x or more; R2, S2
+ * and P qualify at any skew (a confirmed level is already 1.8x by construction).
+ * The least-gap pick is unchanged, so an R1 under 5x gives way to the closest
+ * level that qualifies, and an R2 or P at 2x can be the major. Setup B's cross
+ * candidates are not filtered by it. Backtested as A-SK / B-SK / C-SK first.
+ */
+const PIVOT_MIN_SKEW: Partial<Record<PivotLabel, number>> = {
+  R1: 5,
+  R3: 5,
+  S1: 5,
+  S3: 5,
+  R2: 0,
+  S2: 0,
+  P: 0,
+};
+
 /** Strategy 1 — level break, pull back to the 21 EMA, long the ATM call. */
 export const BREAKOUT_RETRACE_21EMA: StrategyDefinition = {
   id: "breakout-retrace-21ema",
-  version: 9,
+  version: 10,
   name: "Level Break → 21 EMA Retrace",
   createdAt: "2026-09-16",
 
@@ -164,6 +185,7 @@ export const BREAKOUT_RETRACE_21EMA: StrategyDefinition = {
     "v7: take the R3 trades again. The v6 block is removed, so R3 is traded like any other pivot — it can be the major resistance for setup A and is back among setup B's cross candidates.",
     "v8: the SL starts trailing at 1:2 instead of 1:3. Once 1:2 is achieved the SL moves to 550, and from then on it follows one step behind — 1650 trails it to 1100, 2200 to 1650, 2750 to 2200.",
     "v9: instead of fixed percentage change, we get the Daily Average Range of the stock and based on it we conclude the retracement %, and only if it is met do we take the entry. Both numbers use it — the zone near the 21 EMA (was 0.4%) is 0.15 × the 14-day ADR, the turn to enter (was 0.2%) is 0.075 × ADR — calibrated so the typical stock (ADR 2.72%) behaves as before. Backtested as A-ADR / B-ADR / C-ADR before going live.",
+    "v10: for the R1, R3, S1, S3 we only take trades whose skew is 5x or more; less than that we won't take it. For R2, S2 and P any skew. The major level is still the closest-gap one, among the levels that qualify. Setup B's crossed levels are unchanged. Backtested as A-SK / B-SK / C-SK before going live.",
   ],
 
   setups: [
@@ -173,7 +195,7 @@ export const BREAKOUT_RETRACE_21EMA: StrategyDefinition = {
       side: "LONG",
       requires: "majorResistance",
       description:
-        "Price crossed above the major resistance (least gap, call skew ≥ 4x), pulled back to within 0.15 ADR of the 21 EMA, then turned up 0.075 ADR off that low (ADR = the stock's 14-session average daily range).",
+        "Price crossed above the major resistance (least gap; call skew ≥ 5x if R1 or R3, any skew if R2 or P), pulled back to within 0.15 ADR of the 21 EMA, then turned up 0.075 ADR off that low (ADR = the stock's 14-session average daily range).",
     },
     {
       id: "B",
@@ -181,19 +203,22 @@ export const BREAKOUT_RETRACE_21EMA: StrategyDefinition = {
       side: "LONG",
       requires: "majorSupport",
       description:
-        "Price is holding above the major support (least gap, put skew ≥ 5x), crossed up through another confirmed level, and is above the 21 EMA.",
+        "Price is holding above the major support (least gap; put skew ≥ 5x if S1 or S3, any skew if S2 or P), crossed up through another confirmed level, and is above the 21 EMA.",
     },
   ],
 
   params: {
     ...SHARED_PARAMS,
-    resistanceSkew: 4,
-    supportSkew: 5,
     /*
-     * v7 removes the v6 R3 block. R3 is traded again exactly as any other
-     * pivot — it can win the major-resistance pick for setup A and it is back
-     * among setup B's cross candidates. No `excludedPivots` means none.
+     * v10: the major level's skew bar is per pivot (PIVOT_MIN_SKEW above). The
+     * 4x / 5x per-side bars are gone rather than left in, so the stored record
+     * never shows a threshold this version does not apply.
+     *
+     * v7 removed the v6 R3 block. R3 is traded like any other pivot — it can win
+     * the major-resistance pick for setup A and it is among setup B's cross
+     * candidates. No `excludedPivots` means none.
      */
+    pivotMinSkew: PIVOT_MIN_SKEW,
   },
 
   risk: SHARED_RISK,
@@ -202,7 +227,7 @@ export const BREAKOUT_RETRACE_21EMA: StrategyDefinition = {
 /** Strategy 2 — the short. Break the major support, rally to the 21 EMA, roll over. */
 export const BREAKDOWN_RETRACE_21EMA: StrategyDefinition = {
   id: "breakdown-retrace-21ema",
-  version: 5,
+  version: 6,
   name: "Support Break → 21 EMA Retrace (Short)",
   createdAt: "2026-09-16",
 
@@ -217,6 +242,7 @@ export const BREAKDOWN_RETRACE_21EMA: StrategyDefinition = {
     "v3: ends at 1:00 PM — no entries after that. A trade already running is left open and managed by the ordinary rules; 15:15 stays only as the end-of-day backstop.",
     "v4: the SL starts trailing at 1:2 instead of 1:3. Once 1:2 is achieved the SL moves to 550, and from then on it follows one step behind — same ladder as the long rule.",
     "v5: instead of fixed percentage change, we get the Daily Average Range of the stock and based on it we conclude the retracement %, and only if it is met do we take the entry. The rally into the 21 EMA zone (was 0.4%) is 0.15 × the 14-day ADR, the roll-over to enter (was 0.2%) is 0.075 × ADR — same as the long rule.",
+    "v6: the major support needs a put skew of 5x or more if it is S1 or S3; S2 and P qualify at any skew. The closest-gap qualifying level is the major — same per-pivot rule as the long. Backtested as C-SK before going live.",
   ],
 
   setups: [
@@ -226,7 +252,7 @@ export const BREAKDOWN_RETRACE_21EMA: StrategyDefinition = {
       side: "SHORT",
       requires: "majorSupport",
       description:
-        "Price broke below the major support (least gap, put skew ≥ 5x), rallied back to within 0.15 ADR of the 21 EMA, then rolled over 0.075 ADR off that high (ADR = the stock's 14-session average daily range).",
+        "Price broke below the major support (least gap; put skew ≥ 5x if S1 or S3, any skew if S2 or P), rallied back to within 0.15 ADR of the 21 EMA, then rolled over 0.075 ADR off that high (ADR = the stock's 14-session average daily range).",
     },
   ],
 
@@ -234,12 +260,11 @@ export const BREAKDOWN_RETRACE_21EMA: StrategyDefinition = {
     ...SHARED_PARAMS,
     /*
      * "Major support with highest priority point" is the same level the long
-     * rule already calls major: least gap between pivot and strike, among
-     * supports whose put skew clears 5x. `resistanceSkew` is carried only so the
-     * stored record is comparable across strategies — setup C never reads it.
+     * rule calls major: least gap between pivot and strike, among the supports
+     * that clear their pivot's skew bar (v6: PIVOT_MIN_SKEW, shared with the long
+     * so the two cannot drift).
      */
-    resistanceSkew: 4,
-    supportSkew: 5,
+    pivotMinSkew: PIVOT_MIN_SKEW,
   },
 
   risk: SHARED_RISK,

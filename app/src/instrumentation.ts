@@ -16,6 +16,18 @@
  */
 export async function register(): Promise<void> {
   if (process.env.NEXT_RUNTIME === "nodejs") {
+    /*
+     * Reach Kite over IPv4. Zerodha accepts orders only from the static IP on
+     * the developer profile, and api.kite.trade also answers on IPv6 - a VPS
+     * with an IPv6 address could otherwise send an order from an address that
+     * was never registered and have it refused. IPv4 first, and no racing the
+     * two families, so every order leaves from the one address registered.
+     */
+    const dns = await import("node:dns");
+    const net = await import("node:net");
+    dns.setDefaultResultOrder("ipv4first");
+    net.setDefaultAutoSelectFamily(false);
+
     const { kickDailyStartup } = await import("@/lib/startup");
     const { startEodSchedule } = await import("@/lib/eod/schedule");
     const { checkConnection, describeStatus } = await import("@/lib/mongo");

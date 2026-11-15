@@ -246,11 +246,14 @@ const BACKTEST_ONLY: SetupOption[] = [
   },
 
   /*
-   * ADR with a skew threshold per pivot (2026-11-15). The live ADR rule, except
-   * how each stock's major level is picked: R1, R3, S1 and S3 need a skew of 5x
-   * or more, R2, S2 and P qualify at any skew, and the closest-gap qualifying
-   * level wins (live: 4x for any resistance, 5x for any support). Setup B's
-   * crossed levels are unchanged.
+   * ADR with a skew threshold per pivot (2026-11-15). The ADR rule, except how
+   * each stock's major level is picked: R1, R3, S1 and S3 need a skew of 5x or
+   * more, R2, S2 and P qualify at any skew, and the closest-gap qualifying level
+   * wins (v9 / v5: 4x for any resistance, 5x for any support). Setup B's crossed
+   * levels are unchanged.
+   *
+   * Went live unchanged on 2026-11-15 as long v10 / short v6, so A, B and C now
+   * replay this same rule. These stay as the record of what was backtested.
    *
    * Python: `BREAKOUT_RETRACE_21EMA_SK` / `BREAKDOWN_RETRACE_21EMA_SK` in
    * backtest/strategies.py; tests/test_pivot_skew.py checks these three entries match.
