@@ -686,24 +686,35 @@ export class StrategyEngine {
         closedAt: null,
       };
 
-      const written = await insertTrade(trade);
-      if (!written) {
-        this.note(`${symbol}: signal fired but Mongo is not configured — trade not recorded`);
-        return;
-      }
-
+      /*
+       * Taken into the book first, before anything is awaited: the live order
+       * below may be filled within milliseconds, and the paper trade is what
+       * drives its trail and its exit - it must be tracked whatever happens to
+       * the write that follows.
+       */
       this.open.set(trade._id, trade);
       book().add(trade._id, this.strategy.id);
       this.openedToday += 1;
       this.lastSignalAt = at;
       if (state) state.tradesToday += 1;
 
-      // The real order, when live orders are on. Not awaited: paper is the
-      // record and must not wait on Zerodha, and the live desk reports its own
-      // outcome.
+      /*
+       * The real order goes out next, ahead of the paper record, so the ask it
+       * is priced from is as fresh as it can be - the Mongo write used to sit in
+       * front of it. Not awaited: the live desk journals its own order to disk
+       * before sending, and reports its own outcome.
+       */
       void liveDesk()
         .onEntry(trade, quote)
         .catch((err) => this.note(`${symbol}: live entry failed — ${message(err)}`));
+
+      try {
+        await insertTrade(trade);
+      } catch (err) {
+        // The disk journal failing is the only way here; the trade is still
+        // tracked in memory and managed to its exit.
+        this.note(`${symbol}: trade journal write failed — ${message(err)}`);
+      }
 
       console.log(
         `[strategy] ${istClock(at)} ${this.strategy.id} ${setup?.label ?? signal.setup}: ` +

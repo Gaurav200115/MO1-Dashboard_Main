@@ -266,7 +266,7 @@ python tests/test_daily_loss.py  the ₹1,700 day stop: net of closed trades, op
 python tests/test_pivot_skew.py  5x for R1/R3/S1/S3, any for R2/S2/P: the pick, plans, sessions
 ```
 
-443 checks, plus `node scripts/test-live-desk.mjs` (61) and `node scripts/test-levels-ts.mjs` (13) for the live desk. `test_strategies.py` is the one that keeps the pair honest: each rule can be
+443 checks, plus, for the live desk, `node scripts/test-live-desk.mjs` (70), `node scripts/test-levels-ts.mjs` (13) and `node scripts/test-feed.mjs` (26 - the Kite feed and the 09:00 reminder). `test_strategies.py` is the one that keeps the pair honest: each rule can be
 correct on its own and the two still wrong together. Give the long rule three slots and the
 short rule three more and the replay runs six positions where the desk runs three, on twice
 the risk, with every figure downstream of it inflated.

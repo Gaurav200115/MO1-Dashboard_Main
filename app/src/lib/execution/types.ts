@@ -64,13 +64,21 @@ export interface LivePosition {
   state: LiveState;
 
   entry: LiveOrderRef & {
-    /** The limit sent: the ask the paper entry was priced at. */
+    /** The ask the paper entry was priced at. */
+    ask: number;
+    /** The limit sent: the ask plus 1% of the premium (at least two ticks). */
     price: number;
     status: EntryStatus;
     reason: string | null;
     filledQty: number;
     fillPrice: number | null;
+    /** When the quote that priced it was read. */
+    quoteAt: number;
+    /** When the desk took the signal. */
     sentAt: number;
+    /** When the order left for Kite, and when Kite answered with an order id. */
+    placedAt: number | null;
+    ackAt: number | null;
     doneAt: number | null;
   };
 

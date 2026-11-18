@@ -5,7 +5,7 @@ import type { ExitReason, StrategyTrade } from "@/lib/strategy/types";
 import { kiteBroker } from "./broker";
 import { readDay, saveDay } from "./journal";
 import { liveAllowed, liveEntriesOn, liveMaxOpen, readMode, writeMode, type ExecutionMode } from "./mode";
-import { exitPrice, limitUnder, orderTag, stopPrices, tickDown, tickUp } from "./orderMath";
+import { entryLimit, exitPrice, limitUnder, orderTag, stopPrices, tickDown } from "./orderMath";
 import {
   BrokerError,
   type AlertLevel,
@@ -127,12 +127,16 @@ export class LiveDesk {
       entry: {
         tag: this.nextTag("E", trade.symbol),
         orderId: null,
-        price: tickUp(quote.ask),
+        ask: quote.ask,
+        price: entryLimit(quote.ask),
         status: "sending",
         reason: null,
         filledQty: 0,
         fillPrice: null,
+        quoteAt: quote.at,
         sentAt: now,
+        placedAt: null,
+        ackAt: null,
         doneAt: null,
       },
       stop: null,
@@ -140,11 +144,15 @@ export class LiveDesk {
       profit: null,
       updatedAt: now,
     };
+    // On disk before it is sent, so a lost reply can always be looked up by its
+    // tag. The disk write is local and quick; the Mongo copy follows on its own
+    // and never holds the order back.
     this.positions.push(position);
     await this.save(position);
     this.ensureLoop();
 
     try {
+      position.entry.placedAt = this.deps.now();
       position.entry.orderId = await this.deps.broker.placeOrder({
         tradingsymbol: position.tradingsymbol,
         transactionType: "BUY",
@@ -154,6 +162,7 @@ export class LiveDesk {
         validity: "IOC",
         tag: position.entry.tag,
       });
+      position.entry.ackAt = this.deps.now();
       await this.save(position);
     } catch (err) {
       const e = asBrokerError(err);
@@ -425,7 +434,7 @@ export class LiveDesk {
       await this.save(position);
       this.deps.alert(
         "info",
-        `BUY filled ${position.tradingsymbol} x${position.entry.filledQty} @ ${position.entry.fillPrice} (ask was ${position.entry.price}). Placing the exchange stop.`
+        `BUY filled ${position.tradingsymbol} x${position.entry.filledQty} @ ${position.entry.fillPrice} (ask ${position.entry.ask}, limit ${position.entry.price}). Placing the exchange stop.`
       );
       await this.placeStop(position);
       const wanted = this.pendingExit.get(position.tradeId);
@@ -451,7 +460,7 @@ export class LiveDesk {
       await this.save(position);
       this.deps.alert(
         "info",
-        `BUY ${position.tradingsymbol} @ ${position.entry.price} not filled (IOC found no seller at our price). Paper keeps the trade.`
+        `BUY ${position.tradingsymbol} not filled: no seller at or under ${position.entry.price} (ask was ${position.entry.ask}). Paper keeps the trade.`
       );
     }
   }
