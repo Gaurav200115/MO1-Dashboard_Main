@@ -28,6 +28,23 @@ function round6(x: number): number {
 }
 
 /**
+ * How far above the ask an entry may pay, as a percent of the option's own
+ * price. The ask is read from a quote taken a moment before the order arrives;
+ * an IOC at exactly that ask finds nobody the moment the best offer moves one
+ * step, which on 18 Nov cancelled four entries whose paper twins won ₹4,800.
+ */
+export const ENTRY_BUFFER_PCT = 1;
+
+/**
+ * The entry's IOC limit: the ask plus 1% of the premium, and at least two ticks
+ * so a cheap option still has room to move a step. A buy limit fills at the
+ * best offer up to it, so the buffer is only spent when the price really moved.
+ */
+export function entryLimit(ask: number): number {
+  return tickUp(Math.max(ask * (1 + ENTRY_BUFFER_PCT / 100), ask + 2 * TICK));
+}
+
+/**
  * The exchange stop for a filled entry.
  *
  * Trigger: the fill less the trade's risk per unit - the desk's 550 over the

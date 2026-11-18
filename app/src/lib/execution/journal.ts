@@ -39,13 +39,27 @@ export async function readDay(tradingDate: string): Promise<LivePosition[]> {
   }
 }
 
-/** Replaces the day's file with `positions`, then mirrors the one that changed. */
+/**
+ * Replaces the day's file with `positions`, and queues a Mongo copy of the one
+ * that changed.
+ *
+ * Resolves once the disk write is done - a few milliseconds - and not when
+ * Mongo answers. An entry is journalled before it is sent, so waiting on a
+ * database round trip there would hold every real order back by it. The Mongo
+ * copies run on their own chain, in order, so a slow one can never let an older
+ * state overwrite a newer one.
+ */
 export function saveDay(tradingDate: string, positions: LivePosition[], changed?: LivePosition): Promise<void> {
   return serialise(async () => {
     await mkdir(dir(), { recursive: true });
     await writeFile(file(tradingDate), JSON.stringify(positions, null, 2), { mode: 0o600 });
-    if (changed) await mirror(changed);
+    if (changed) queueMirror(JSON.parse(JSON.stringify(changed)) as LivePosition);
   });
+}
+
+let mirrorChain: Promise<unknown> = Promise.resolve();
+function queueMirror(snapshot: LivePosition): void {
+  mirrorChain = mirrorChain.then(() => mirror(snapshot)).catch(() => undefined);
 }
 
 async function mirror(position: LivePosition): Promise<void> {

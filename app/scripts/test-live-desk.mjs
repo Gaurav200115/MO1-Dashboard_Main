@@ -49,6 +49,11 @@ check("a tiny R still leaves two ticks between trigger and limit",
 check("exit at the bid, rounded down", math.exitPrice(25.13, 25.5, 0), 25.1);
 check("each retry gives up 1% more", math.exitPrice(25, 25, 2), 24.5);
 check("no bid: the last price", math.exitPrice(null, 20, 0), 20);
+check("entry limit: ask 30.00 + 1% = 30.30", math.entryLimit(30), 30.3);
+check("entry limit: 1% of the premium, rounded up to the tick (15.10 -> 15.30)", math.entryLimit(15.1), 15.3);
+check("entry limit: a dear option gets more room (140.60 -> 142.05)", math.entryLimit(140.6), 142.05);
+check("entry limit: never less than two ticks over (5.50 -> 5.60, 2.30 -> 2.40)",
+      [math.entryLimit(5.5), math.entryLimit(2.3)], [5.6, 2.4]);
 const tag = math.orderTag("2026-11-16", "E", 7, "TVSMOTOR");
 check("tag: date, kind, sequence, symbol", tag, "M11116E007TVSMOTOR");
 check("tags are alphanumeric and at most 20", [
@@ -64,6 +69,10 @@ class FakeKite {
     this.book = new Map();
     this.next = 1;
     this.netOverride = null;
+    // The best offer in the book when an IOC buy arrives. A buy limit at or
+    // above it fills AT it - the exchange gives the better price - and one
+    // below it finds nobody and is cancelled.
+    this.ask = 30;
     // What happens to an order when placed: (order) => behaviour
     this.onPlace = () => ({});
     // What happens when an order is modified: (order, change) => void
@@ -86,9 +95,17 @@ class FakeKite {
       if (b.reachedZerodha) this.record(order, b.status ?? "REJECTED", b.extra);
       throw new BrokerError("No response from server with error code: ETIMEDOUT", "NetworkException", false);
     }
-    const status = b.status ?? (order.orderType === "SL" ? "TRIGGER PENDING" : "COMPLETE");
+    let status = b.status;
+    let fill = b.fill;
+    if (!status) {
+      if (order.orderType === "SL") status = "TRIGGER PENDING";
+      else if (order.transactionType === "BUY" && order.validity === "IOC" && this.ask != null) {
+        if (this.ask <= order.price) { status = "COMPLETE"; fill = fill ?? this.ask; }
+        else status = "CANCELLED";
+      } else status = "COMPLETE";
+    }
     const filled = status === "COMPLETE" ? order.quantity : 0;
-    return this.record(order, status, { filledQty: filled, averagePrice: filled ? (b.fill ?? order.price) : 0,
+    return this.record(order, status, { filledQty: filled, averagePrice: filled ? (fill ?? order.price) : 0,
       statusMessage: b.message ?? null, ...(b.extra ?? {}) }).orderId;
   }
   async modifyOrder(id, change) {
@@ -186,9 +203,12 @@ fresh("monday");
   const t = trade();
   await desk.onEntry(t, quote(29.95, 29.9, 30.0));
   const [p] = (await desk.status()).positions;
-  check("Monday: one BUY sent - LIMIT, IOC, at the ask, with a tag",
+  check("Monday: one BUY sent - LIMIT, IOC, at the ask plus 1%, with a tag",
         kite.calls.filter((c) => c[0] === "place").map((c) => [c[1].transactionType, c[1].orderType, c[1].validity, c[1].price, c[1].quantity, /^M11116E001TVSMOTOR$/.test(c[1].tag)]),
-        [["BUY", "LIMIT", "IOC", 30, 250, true]]);
+        [["BUY", "LIMIT", "IOC", 30.3, 250, true]]);
+  check("Monday: the ask it was priced from is kept beside the limit", [p.entry.ask, p.entry.price], [30, 30.3]);
+  check("Monday: every step is timed - quote, signal, sent to Kite, answered",
+        [typeof p.entry.quoteAt, p.entry.placedAt >= p.entry.sentAt, p.entry.ackAt >= p.entry.placedAt], ["number", true, true]);
   check("Monday: recorded as rejected, nothing entered", [p.state, p.entry.status], ["not-entered", "rejected"]);
   check("Monday: with Zerodha's reason", p.entry.reason.startsWith("RMS:Margin Exceeds"), true);
   check("Monday: no stop placed for a rejected entry", [p.stop, kite.count("place", (c) => c[1].transactionType === "SELL")], [null, 0]);
@@ -246,6 +266,33 @@ fresh("ioc");
   await desk.onEntry(trade(), quote(30, 29.9, 30));
   const [p] = (await desk.status()).positions;
   check("IOC found no seller: cancelled, nothing bought", [p.entry.status, p.state, p.stop], ["cancelled", "not-entered", null]);
+}
+
+// 18 Nov: the quote said 30.00, but by the time the order arrived the best
+// offer was a step higher. At exactly the ask that was cancelled; with 1% of
+// room it fills - at the real offer, not at the limit.
+fresh("stale-ask");
+{
+  const kite = new FakeKite();
+  kite.ask = 30.1;
+  const { desk } = makeDesk(kite);
+  await desk.onEntry(trade(), quote(29.95, 29.9, 30.0));
+  const [p] = (await desk.status()).positions;
+  check("the offer moved up a step: limit 30.30 still fills, at the real offer 30.10",
+        [p.entry.status, p.entry.price, p.entry.fillPrice], ["filled", 30.3, 30.1]);
+  check("and the stop is set from what was actually paid: 30.10 - 2.20 = 27.90",
+        [p.stop.trigger, p.stop.limit], [27.9, 26.8]);
+}
+
+fresh("ran-away");
+{
+  const kite = new FakeKite();
+  kite.ask = 30.5;
+  const { desk } = makeDesk(kite);
+  await desk.onEntry(trade(), quote(29.95, 29.9, 30.0));
+  const [p] = (await desk.status()).positions;
+  check("the offer ran more than 1% away (30.50 > 30.30): not chased, cancelled",
+        [p.entry.status, p.state], ["cancelled", "not-entered"]);
 }
 
 fresh("off");

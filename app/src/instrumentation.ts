@@ -63,5 +63,12 @@ export async function register(): Promise<void> {
      * order things happen, and cheap either way — it sets one timer.
      */
     startEodSchedule();
+
+    /*
+     * 09:00 IST, Monday to Friday: the Kite sign-in link on Telegram. The
+     * sign-in is what starts each day's strategies, and the token dies at 06:00.
+     */
+    const { startLoginReminder } = await import("@/lib/notify/loginReminder");
+    startLoginReminder();
   }
 }
