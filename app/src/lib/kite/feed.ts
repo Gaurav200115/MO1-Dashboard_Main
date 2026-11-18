@@ -45,6 +45,12 @@ type WireTick = Tick & {
 
 const PERSIST_MS = 30_000;
 
+/** How often the feed checks the stored Kite session is still good. */
+const SESSION_CHECK_MS = 60_000;
+/** Reconnect backoff: 5s, 10s, 20s, 40s, then every 60s. */
+const RECONNECT_BASE_MS = 5_000;
+const RECONNECT_MAX_MS = 60_000;
+
 function quotesFile(): string {
   return path.resolve(process.cwd(), RUNTIME_DIR, "last-quotes.json");
 }
@@ -103,10 +109,14 @@ class KiteFeed {
   private persistPending = false;
   private loadedCache = false;
 
+  private reconnectTimer: NodeJS.Timeout | null = null;
+  private reconnectAttempts = 0;
+
   constructor() {
-    // Both are unreffed so they never hold the process open by themselves.
+    // All unreffed so they never hold the process open by themselves.
     setInterval(() => this.flush(), FLUSH_MS).unref();
     setInterval(() => void this.persist(), PERSIST_MS).unref();
+    setInterval(() => void this.watchSession(), SESSION_CHECK_MS).unref();
   }
 
   state(): FeedState {
@@ -144,7 +154,25 @@ class KiteFeed {
   /** Called after a fresh login, when the old token is stale by definition. */
   async restart(): Promise<FeedState> {
     this.teardown("Restarting after sign-in");
+    this.reconnectAttempts = 0;
     return this.ensureStarted();
+  }
+
+  /**
+   * Kite kills every token at 06:00 IST, but a socket opened the day before can
+   * stay up past it - and the status only ever came from the socket, so the
+   * desk went on showing "Live" and never offered the sign-in. Checked once a
+   * minute: with no valid session the socket is closed and the status says so,
+   * which is what puts "Connect Kite" back on the desk.
+   */
+  private async watchSession(): Promise<void> {
+    if (this.status === "no-session" || this.status === "unconfigured") return;
+    // Never started in this process: the first request will start it and read
+    // the session then.
+    if (!this.ticker && !this.reconnectTimer && this.status === "stopped") return;
+    if (await readSession()) return;
+    this.teardown("Kite session expired");
+    this.setStatus("no-session", "The Kite session expired at 06:00 IST — sign in again");
   }
 
   private async start(): Promise<FeedState> {
@@ -181,30 +209,46 @@ class KiteFeed {
       api_key: config.apiKey,
       access_token: session.accessToken,
     });
-    ticker.autoReconnect(true, 50, 60);
 
+    /*
+     * Never the library's own reconnect. Its retry path ends in
+     * `process.exit(1)` - once it runs out of attempts, and at once after any
+     * deliberate disconnect, because disconnect() clears a module-wide flag that
+     * nothing ever sets back. That is what took the whole desk down on every
+     * Kite sign-in (the sign-in closes the old socket) and on any later blip.
+     * The feed reconnects itself instead, and re-reads the session each time.
+     */
+    ticker.autoReconnect(false);
+
+    /*
+     * The library keeps its listeners in one module-wide list, so every socket
+     * the process has ever opened is still listening. Each handler checks it
+     * belongs to the current one; a late event from an old socket does nothing.
+     */
     ticker.on("connect", () => {
+      if (this.ticker !== ticker) return;
+      this.reconnectAttempts = 0;
       ticker.subscribe(this.tokens);
       ticker.setMode("quote", this.tokens);
       this.setStatus("live", null);
     });
 
-    ticker.on("ticks", (ticks: Tick[]) => this.ingest(ticks));
-
-    ticker.on("reconnect", (count, interval) => {
-      this.setStatus("reconnecting", `Attempt ${count}, retrying in ${interval}s`);
-    });
-
-    ticker.on("noreconnect", () => {
-      this.setStatus("error", "Reconnection attempts exhausted");
+    ticker.on("ticks", (ticks: Tick[]) => {
+      if (this.ticker === ticker) this.ingest(ticks);
     });
 
     // A 403 from an expired token surfaces here, not as a clean close.
-    ticker.on("error", (err) => this.setStatus("error", message(err)));
-
-    ticker.on("close", () => {
-      if (this.status !== "error") this.setStatus("stopped", "Socket closed");
+    ticker.on("error", (err) => {
+      if (this.ticker === ticker) this.setStatus("error", message(err));
     });
+
+    /*
+     * "disconnect", not "close". The library fires "close" to every listener for
+     * every socket - including the old one a sign-in has just shut, which would
+     * read as the new socket dropping. It fires "disconnect" only for the socket
+     * that is current, and also when its read timer gives up on a silent one.
+     */
+    ticker.on("disconnect", () => this.dropped(ticker, "Socket dropped"));
 
     this.ticker = ticker;
     this.setStatus("connecting", null);
@@ -272,14 +316,46 @@ class KiteFeed {
     return state;
   }
 
+  /**
+   * The current socket went away on its own. Reconnects with backoff, through a
+   * fresh start - which re-reads the session, so an expired token ends at
+   * "no-session" and the desk's Connect Kite rather than retrying forever.
+   */
+  private dropped(ticker: Ticker, reason: string): void {
+    if (this.ticker !== ticker) return;
+    this.ticker = null;
+    this.scheduleReconnect(reason);
+  }
+
+  private scheduleReconnect(reason: string): void {
+    if (this.reconnectTimer) return;
+    const delay = Math.min(RECONNECT_MAX_MS, RECONNECT_BASE_MS * 2 ** this.reconnectAttempts);
+    this.reconnectAttempts += 1;
+    this.setStatus("reconnecting", `${reason} — retrying in ${Math.round(delay / 1000)}s`);
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      void this.ensureStarted().then((state) => {
+        if (state.status === "error") this.scheduleReconnect(state.detail ?? "Start failed");
+      });
+    }, delay);
+    this.reconnectTimer.unref();
+  }
+
   private teardown(reason: string): void {
-    if (this.ticker) {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    // Detached before it is closed, so the close this causes is a late event
+    // from a socket that is no longer ours, and is ignored.
+    const ticker = this.ticker;
+    this.ticker = null;
+    if (ticker) {
       try {
-        this.ticker.disconnect();
+        ticker.disconnect();
       } catch {
         // already down
       }
-      this.ticker = null;
     }
     this.status = "stopped";
     this.detail = reason;
