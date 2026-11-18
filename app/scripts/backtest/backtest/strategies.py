@@ -42,6 +42,10 @@ SHARED_PARAMS = {
     "maxAskOverLastPct": 2.0,
     "staleQuoteSec": 120,
     "minStrikeOiShare": 3,
+    # Long v11 / short v7: skip a contract where one price step across the lot
+    # costs more than 20% of the risk (110 of 550). The archive holds no tick
+    # sizes, so gate.contract_tick reads the contract's step from its own prices.
+    "maxStepCostOfRiskPct": 20,
 }
 
 SHARED_RISK = {
@@ -63,7 +67,7 @@ PIVOT_MIN_SKEW = {"R1": 5, "R3": 5, "S1": 5, "S3": 5, "R2": 0, "S2": 0, "P": 0}
 
 BREAKOUT_RETRACE_21EMA = {
     "id": "breakout-retrace-21ema",
-    "version": 10,
+    "version": 11,
     "name": "Level Break -> 21 EMA Retrace",
     "setups": ["A", "B"],
     "setupLabels": {"A": "Break & retrace", "B": "Support hold & level cross"},
@@ -74,7 +78,7 @@ BREAKOUT_RETRACE_21EMA = {
 
 BREAKDOWN_RETRACE_21EMA = {
     "id": "breakdown-retrace-21ema",
-    "version": 6,
+    "version": 7,
     "name": "Support Break -> 21 EMA Retrace (Short)",
     "setups": ["C"],
     "setupLabels": {"C": "Breakdown & retrace"},

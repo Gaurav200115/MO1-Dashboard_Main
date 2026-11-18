@@ -5,7 +5,7 @@ import type { ExitReason, StrategyTrade } from "@/lib/strategy/types";
 import { kiteBroker } from "./broker";
 import { readDay, saveDay } from "./journal";
 import { liveAllowed, liveEntriesOn, liveMaxOpen, readMode, writeMode, type ExecutionMode } from "./mode";
-import { entryLimit, exitPrice, limitUnder, orderTag, stopPrices, tickDown } from "./orderMath";
+import { DEFAULT_TICK, entryLimit, exitPrice, limitUnder, orderTag, stopPrices, tickDown } from "./orderMath";
 import {
   BrokerError,
   type AlertLevel,
@@ -114,6 +114,7 @@ export class LiveDesk {
     if (quote.ask == null || !(quote.ask > 0)) return;
 
     const now = this.deps.now();
+    const tick = trade.instrument.tickSize ?? DEFAULT_TICK;
     const position: LivePosition = {
       tradeId: trade._id,
       tradingDate: this.loadedFor ?? this.deps.today(),
@@ -123,12 +124,13 @@ export class LiveDesk {
       tradingsymbol: trade.instrument.tradingsymbol,
       qty: trade.qty,
       riskPerUnit: trade.riskPerUnit,
+      tick,
       state: "entering",
       entry: {
         tag: this.nextTag("E", trade.symbol),
         orderId: null,
         ask: quote.ask,
-        price: entryLimit(quote.ask),
+        price: entryLimit(quote.ask, trade.riskPerUnit, tick),
         status: "sending",
         reason: null,
         filledQty: 0,
@@ -202,9 +204,10 @@ export class LiveDesk {
     const position = this.find(trade._id);
     if (!position || position.state !== "open" || !position.stop?.orderId) return;
     if (position.stop.status !== "open") return;
-    const trigger = tickDown(trade.stop);
+    const tick = position.tick ?? DEFAULT_TICK;
+    const trigger = tickDown(trade.stop, tick);
     if (trigger <= position.stop.trigger) return;
-    const limit = limitUnder(trigger, position.riskPerUnit);
+    const limit = limitUnder(trigger, position.riskPerUnit, tick);
 
     await this.withLock(position, async () => {
       try {
@@ -502,7 +505,7 @@ export class LiveDesk {
   // ---------------------------------------------------------------- stop
 
   private async placeStop(position: LivePosition): Promise<void> {
-    const { trigger, limit } = stopPrices(position.entry.fillPrice!, position.riskPerUnit);
+    const { trigger, limit } = stopPrices(position.entry.fillPrice!, position.riskPerUnit, position.tick ?? DEFAULT_TICK);
     let lastError = "unknown";
 
     for (let attempt = 1; attempt <= 2; attempt += 1) {
@@ -641,7 +644,7 @@ export class LiveDesk {
 
       const quote = await this.quoteFor(position.tradingsymbol);
       const fallback = position.entry.fillPrice ?? position.entry.price;
-      const price = exitPrice(quote?.bid ?? null, quote?.last ?? fallback, exit.attempts);
+      const price = exitPrice(quote?.bid ?? null, quote?.last ?? fallback, exit.attempts, position.tick ?? DEFAULT_TICK);
 
       let orderId: string | null = null;
       try {

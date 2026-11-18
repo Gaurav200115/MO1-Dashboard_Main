@@ -49,11 +49,21 @@ check("a tiny R still leaves two ticks between trigger and limit",
 check("exit at the bid, rounded down", math.exitPrice(25.13, 25.5, 0), 25.1);
 check("each retry gives up 1% more", math.exitPrice(25, 25, 2), 24.5);
 check("no bid: the last price", math.exitPrice(null, 20, 0), 20);
-check("entry limit: ask 30.00 + 1% = 30.30", math.entryLimit(30), 30.3);
-check("entry limit: 1% of the premium, rounded up to the tick (15.10 -> 15.30)", math.entryLimit(15.1), 15.3);
-check("entry limit: a dear option gets more room (140.60 -> 142.05)", math.entryLimit(140.6), 142.05);
-check("entry limit: never less than two ticks over (5.50 -> 5.60, 2.30 -> 2.40)",
-      [math.entryLimit(5.5), math.entryLimit(2.3)], [5.6, 2.4]);
+// Room = 1% of the premium, capped at 0.1R (55 of 550), at least one tick.
+check("entry limit: ask 30.00, lot 250 (R 2.20/unit): 1% = 0.30, cap 0.22 -> +0.20 = 30.20",
+      math.entryLimit(30, 550 / 250), 30.2);
+check("entry limit: lot 750 at 15.10: cap 0.07 -> one tick, 15.15 (37.50 at most)",
+      math.entryLimit(15.1, 550 / 750), 15.15);
+check("entry limit: lot 500 at 140.60: 1% would be 1.45 (725!), capped at 0.10 -> 140.70",
+      math.entryLimit(140.6, 550 / 500), 140.7);
+check("entry limit: lot 800 at 5.50: 1% = 0.055 -> one tick, 5.55", math.entryLimit(5.5, 550 / 800), 5.55);
+check("entry limit: IDFCFIRSTB lot 9,275 at 1.26 on a one-paisa tick: +1 paisa, 1.27 (93 at most)",
+      math.entryLimit(1.26, 550 / 9275, 0.01), 1.27);
+check("the most an entry can overpay, lot 250 / 750 / 500: never over 55",
+      [Math.round((math.entryLimit(30, 2.2) - 30) * 250), Math.round((math.entryLimit(15.1, 550 / 750) - 15.1) * 750),
+       Math.round((math.entryLimit(140.6, 1.1) - 140.6) * 500)], [50, 38, 50]);
+check("one-paisa stop: fill 1.26, R 0.0593 -> trigger 1.20, limit 1.17",
+      math.stopPrices(1.26, 550 / 9275, 0.01), { trigger: 1.2, limit: 1.17 });
 const tag = math.orderTag("2026-11-16", "E", 7, "TVSMOTOR");
 check("tag: date, kind, sequence, symbol", tag, "M11116E007TVSMOTOR");
 check("tags are alphanumeric and at most 20", [
@@ -203,10 +213,10 @@ fresh("monday");
   const t = trade();
   await desk.onEntry(t, quote(29.95, 29.9, 30.0));
   const [p] = (await desk.status()).positions;
-  check("Monday: one BUY sent - LIMIT, IOC, at the ask plus 1%, with a tag",
+  check("Monday: one BUY sent - LIMIT, IOC, at the ask plus capped room, with a tag",
         kite.calls.filter((c) => c[0] === "place").map((c) => [c[1].transactionType, c[1].orderType, c[1].validity, c[1].price, c[1].quantity, /^M11116E001TVSMOTOR$/.test(c[1].tag)]),
-        [["BUY", "LIMIT", "IOC", 30.3, 250, true]]);
-  check("Monday: the ask it was priced from is kept beside the limit", [p.entry.ask, p.entry.price], [30, 30.3]);
+        [["BUY", "LIMIT", "IOC", 30.2, 250, true]]);
+  check("Monday: the ask it was priced from is kept beside the limit", [p.entry.ask, p.entry.price], [30, 30.2]);
   check("Monday: every step is timed - quote, signal, sent to Kite, answered",
         [typeof p.entry.quoteAt, p.entry.placedAt >= p.entry.sentAt, p.entry.ackAt >= p.entry.placedAt], ["number", true, true]);
   check("Monday: recorded as rejected, nothing entered", [p.state, p.entry.status], ["not-entered", "rejected"]);
@@ -278,8 +288,8 @@ fresh("stale-ask");
   const { desk } = makeDesk(kite);
   await desk.onEntry(trade(), quote(29.95, 29.9, 30.0));
   const [p] = (await desk.status()).positions;
-  check("the offer moved up a step: limit 30.30 still fills, at the real offer 30.10",
-        [p.entry.status, p.entry.price, p.entry.fillPrice], ["filled", 30.3, 30.1]);
+  check("the offer moved up a step: limit 30.20 still fills, at the real offer 30.10",
+        [p.entry.status, p.entry.price, p.entry.fillPrice], ["filled", 30.2, 30.1]);
   check("and the stop is set from what was actually paid: 30.10 - 2.20 = 27.90",
         [p.stop.trigger, p.stop.limit], [27.9, 26.8]);
 }
@@ -291,8 +301,29 @@ fresh("ran-away");
   const { desk } = makeDesk(kite);
   await desk.onEntry(trade(), quote(29.95, 29.9, 30.0));
   const [p] = (await desk.status()).positions;
-  check("the offer ran more than 1% away (30.50 > 30.30): not chased, cancelled",
+  check("the offer ran past the room (30.50 > 30.20): not chased, cancelled",
         [p.entry.status, p.state], ["cancelled", "not-entered"]);
+}
+
+// A one-paisa contract, end to end: every price sent sits on its own tick.
+fresh("one-paisa");
+{
+  const kite = new FakeKite();
+  kite.ask = 1.26;
+  const { desk } = makeDesk(kite, { quoteBid: 1.3, quoteLast: 1.31 });
+  const t = trade("IDFCFIRSTB", { qty: 9275, riskPerUnit: 550 / 9275, stop: 1.26 - 550 / 9275,
+    instrument: { tradingsymbol: "IDFCFIRSTB26NOV70CE", lotSize: 9275, strike: 70, type: "CE", expiry: "2026-11-26", tickSize: 0.01 } });
+  await desk.onEntry(t, quote(1.25, 1.24, 1.26));
+  let [p] = (await desk.status()).positions;
+  const placed = kite.calls.filter((c) => c[0] === "place").map((c) => [c[1].transactionType, c[1].orderType, c[1].price, c[1].triggerPrice ?? null]);
+  check("one-paisa contract: BUY at 1.27 fills at 1.26; stop SL 1.20 / 1.17",
+        placed, [["BUY", "LIMIT", 1.27, null], ["SELL", "SL", 1.17, 1.2]]);
+  check("the position remembers its tick", p.tick, 0.01);
+  kite.onModify = (row, change) => { if (change.orderType === "LIMIT") Object.assign(row, { status: "COMPLETE", filledQty: row.quantity, averagePrice: change.price }); };
+  await desk.onExit(t, quote(1.31, 1.3, 1.32), "trail-stop");
+  [p] = (await desk.status()).positions;
+  check("and exits at a one-paisa bid: 1.30, P&L (1.30 - 1.26) x 9,275",
+        [p.exit.fillPrice, Math.round(p.profit)], [1.3, 371]);
 }
 
 fresh("off");

@@ -286,7 +286,7 @@ check("A-ADR waits for the closer pullback, 09:28", [(p.setup, p.entry_at) for p
 check("live A (v9) takes exactly the same 09:28 entry", [(p.setup, p.entry_at) for p in live],
       [("A", minute(9, 28))])
 check("under the live strategy at its current version", [(p.strategy_id, p.strategy_version) for p in live],
-      [("breakout-retrace-21ema", 10)])
+      [("breakout-retrace-21ema", 11)])
 if adr:
     p = adr[0]
     check("A-ADR runs under its own strategy", (p.strategy_id, p.strategy_version),
@@ -363,7 +363,8 @@ for strategy in (ADR_LONG, ADR_SHORT):
 # test_pivot_skew.py pins that half). So the live entry must still be exactly
 # the ADR rule's: if it moves, the live rule is no longer what was backtested.
 
-SKEW_KEYS = {"resistanceSkew", "supportSkew", "pivotMinSkew"}
+# Not the entry: the skew bar (v10 / v6) and the step-cost gate (v11 / v7).
+SKEW_KEYS = {"resistanceSkew", "supportSkew", "pivotMinSkew", "maxStepCostOfRiskPct"}
 for live_rule, adr_rule in ((LIVE_LONG, ADR_LONG), (LIVE_SHORT, ADR_SHORT)):
     check(f"{live_rule['id']} v{live_rule['version']} entry params are exactly {adr_rule['id']} "
           f"v{adr_rule['version']}'s",
@@ -373,8 +374,8 @@ for live_rule, adr_rule in ((LIVE_LONG, ADR_LONG), (LIVE_SHORT, ADR_SHORT)):
           live_rule["risk"], adr_rule["risk"])
 check("A-ADR keeps the 4x / 5x per-side bars it was backtested with",
       (ADR_LONG["params"]["resistanceSkew"], ADR_LONG["params"]["supportSkew"]), (4, 5))
-check("live long is v10", LIVE_LONG["version"], 10)
-check("live short is v6", LIVE_SHORT["version"], 6)
+check("live long is v11", LIVE_LONG["version"], 11)
+check("live short is v7", LIVE_SHORT["version"], 7)
 
 
 # ---------------- the stored trade ----------------

@@ -28,7 +28,8 @@ export type RejectReason =
   | "spread-too-wide"
   | "spread-eats-risk"
   | "never-traded"
-  | "dead-strike";
+  | "dead-strike"
+  | "step-too-costly";
 
 export interface Tradeable {
   ok: true;
@@ -56,6 +57,8 @@ export interface BookInput {
   strikeOi: number | null;
   /** The fattest strike's open interest in the same chain and on the same side. */
   chainMaxOi: number | null;
+  /** The contract's price step. Null when not known, which skips the step-cost check. */
+  tickSize?: number | null;
   now?: number;
 }
 
@@ -128,6 +131,25 @@ export function assessBook(input: BookInput): Tradeable | NotTradeable {
         0
       )}% of the stop distance`,
     };
+  }
+
+  /*
+   * What one price step costs across the lot (long v11 / short v7). On a huge
+   * lot of a cheap option on a five-paisa tick - ETERNAL at 2,425, LTF at 2,250 -
+   * a single tick of slippage is a fifth or more of the 550 risk, before
+   * anything else has gone wrong. Measured over 195 paper trades the very large
+   * lots barely broke even even before any slippage.
+   */
+  if (params.maxStepCostOfRiskPct != null && input.tickSize != null && input.tickSize > 0) {
+    const stepCost = input.tickSize * qty;
+    const ceiling = (params.maxStepCostOfRiskPct / 100) * riskPerUnit * qty;
+    if (stepCost > ceiling) {
+      return {
+        ok: false,
+        reason: "step-too-costly",
+        detail: `one ${input.tickSize} step x ${qty} = ₹${Math.round(stepCost)}, over ₹${Math.round(ceiling)}`,
+      };
+    }
   }
 
   if (quote.volume != null && quote.volume <= 0) {

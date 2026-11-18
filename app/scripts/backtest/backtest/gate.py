@@ -124,6 +124,29 @@ def assess(entry_bar, strike_stats, chain_max_oi, liquidity, lot_size, params, f
     return GateResult(CLEAR, None, "comfortably above every liquidity floor", measures)
 
 
+def contract_tick(bars):
+    """The contract's price step, read from its own prices.
+
+    NSE stock options mostly trade in five-paisa steps, but cheap options on
+    low-priced stocks trade in one-paisa steps. The archive does not store the
+    tick, so it is read off the minute bars: any price off the five-paisa grid
+    means a one-paisa contract. The step is a fixed property of the contract,
+    known before the session, so reading it from the day's prints is not
+    look-ahead.
+    """
+    for bar in bars:
+        for key in ("open", "high", "low", "close"):
+            price = bar.get(key)
+            if price is not None and round(price * 100) % 5 != 0:
+                return 0.01
+    return 0.05
+
+
+def step_too_costly(tick, qty, rupees_per_trade, max_pct):
+    """Long v11 / short v7: one step across the lot costs more than max_pct of the risk."""
+    return tick * qty > max_pct / 100 * rupees_per_trade + 1e-9
+
+
 def fill_price(entry_bar):
     """What the entry is filled at.
 

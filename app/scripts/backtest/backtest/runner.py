@@ -30,7 +30,7 @@ from . import db, orb, pullback_stop
 from .adr import adr_pct
 from .config import S, ist_time
 from .fills import step_position
-from .gate import CLEAR, assess, fill_price
+from .gate import CLEAR, assess, contract_tick, fill_price, step_too_costly
 from .levels import chain_window, plan_for_stock
 from .position import open_position
 from .signals import Ema, evaluate_symbol, initial_state
@@ -403,6 +403,16 @@ def _try_fill(conn, day, prev, strategy, signal, plan, minute, floors,
     if not result.ok:
         notes["rejected"][result.reason or "illiquid"] += 1
         return None
+
+    # Long v11 / short v7: a contract where one price step across the lot costs
+    # more than a fifth of the risk is skipped, as the live gate skips it.
+    step_cap = strategy["params"].get("maxStepCostOfRiskPct")
+    if step_cap is not None:
+        tick = contract_tick(by_strike.get(strike, {}).values())
+        if step_too_costly(tick, plan.lot_size * strategy["risk"]["lots"],
+                           strategy["risk"]["rupeesPerTrade"], step_cap):
+            notes["rejected"]["step-too-costly"] += 1
+            return None
 
     if stop is None:
         return open_position(signal, strategy, {"price": fill_price(entry_bar)},

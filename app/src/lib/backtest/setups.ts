@@ -252,8 +252,8 @@ const BACKTEST_ONLY: SetupOption[] = [
    * wins (v9 / v5: 4x for any resistance, 5x for any support). Setup B's crossed
    * levels are unchanged.
    *
-   * Went live unchanged on 2026-11-15 as long v10 / short v6, so A, B and C now
-   * replay this same rule. These stay as the record of what was backtested.
+   * Went live unchanged on 2026-11-15 as long v10 / short v6; v11 / v7 then added
+   * only the step-cost gate. These stay as the record of what was backtested.
    *
    * Python: `BREAKOUT_RETRACE_21EMA_SK` / `BREAKDOWN_RETRACE_21EMA_SK` in
    * backtest/strategies.py; tests/test_pivot_skew.py checks these three entries match.
