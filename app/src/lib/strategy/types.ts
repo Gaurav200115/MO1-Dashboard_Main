@@ -55,6 +55,13 @@ export interface LiquidityParams {
   staleQuoteSec: number;
   /** Reject when the strike carries less than this share of its chain's heaviest OI. */
   minStrikeOiShare: number;
+  /**
+   * Reject when one price step of the contract, across the lot, costs more than
+   * this share of the trade's risk, in percent (long v11 / short v7: 20, i.e.
+   * 110 of 550). On such a contract a single tick of slippage is a large slice
+   * of the risk. Absent means no such check.
+   */
+  maxStepCostOfRiskPct?: number;
 }
 
 export interface StrategyParams extends LiquidityParams {
@@ -175,6 +182,8 @@ export interface TradeInstrument {
   type: OptionType;
   expiry: string;
   lotSize: number;
+  /** The contract's price step, from Kite's dump. Absent on trades from before 19 Nov. */
+  tickSize?: number;
 }
 
 /** The level that produced the signal, kept so a trade can be audited. */

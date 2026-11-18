@@ -227,9 +227,11 @@ Same dates, same rule: only the day stop differs.
 
 Defined as `BREAKOUT_RETRACE_21EMA_SK` / `BREAKDOWN_RETRACE_21EMA_SK` in `strategies.py`, tagged
 **ADR, skew 5x R1/R3/S1/S3**, with `levels.pick_major_per_pivot`. As Gaurav specified it on
-2026-11-15. **Went live unchanged the same day as long v10 / short v6**, so `A B C` now replay
-this rule; the -SK legs stay as the record, and `tests/test_pivot_skew.py` fails if the two
-ever differ.
+2026-11-15. **Went live unchanged the same day as long v10 / short v6**; v11 / v7 (19 Nov) added only
+the step-cost gate - skip a contract where one price step across the lot costs over 20% of
+the risk, the step read from the contract's own prices (`gate.contract_tick`). The -SK legs
+stay as the record; `tests/test_pivot_skew.py` fails if live differs from them by anything
+else.
 
 - **The live ADR rule (long v9 / short v5)** except how each stock's major level is picked.
   Live: closest-gap confirmed level with skew ≥ 4x (resistance) / ≥ 5x (support).
@@ -264,9 +266,10 @@ python tests/test_adr.py         the ADR variant: the band, live vs ADR on one p
 python tests/test_pullback.py    the pullback stop: R, floor, cap, stock stop, backstop, A/B/C-PB
 python tests/test_daily_loss.py  the ₹1,700 day stop: net of closed trades, open trades run on
 python tests/test_pivot_skew.py  5x for R1/R3/S1/S3, any for R2/S2/P: the pick, plans, sessions
+python tests/test_step_cost.py   v11 / v7: skip when one price step across the lot is over 0.2R
 ```
 
-443 checks, plus, for the live desk, `node scripts/test-live-desk.mjs` (70), `node scripts/test-levels-ts.mjs` (13) and `node scripts/test-feed.mjs` (26 - the Kite feed and the 09:00 reminder). `test_strategies.py` is the one that keeps the pair honest: each rule can be
+460 checks, plus, for the live desk, `node scripts/test-live-desk.mjs` (76), `node scripts/test-levels-ts.mjs` (20) and `node scripts/test-feed.mjs` (26 - the Kite feed and the 09:00 reminder). `test_strategies.py` is the one that keeps the pair honest: each rule can be
 correct on its own and the two still wrong together. Give the long rule three slots and the
 short rule three more and the replay runs six positions where the desk runs three, on twice
 the risk, with every figure downstream of it inflated.

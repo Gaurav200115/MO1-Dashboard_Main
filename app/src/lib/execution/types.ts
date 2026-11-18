@@ -61,6 +61,8 @@ export interface LivePosition {
   qty: number;
   /** Premium per unit the paper trade risks - the desk's 550 over the lot. */
   riskPerUnit: number;
+  /** The contract's price step; every price sent is rounded to it. Absent on positions from before 19 Nov. */
+  tick?: number;
   state: LiveState;
 
   entry: LiveOrderRef & {

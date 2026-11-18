@@ -27,6 +27,12 @@ export interface OptionContract {
    */
   lotSize: number;
   /**
+   * The contract's price step. Five paise for most stock options, one paisa for
+   * cheap ones on low-priced stocks. A real order off the tick is refused, and
+   * the live desk's prices and the step-cost gate both read it.
+   */
+  tickSize: number;
+  /**
    * Needed only by the backfill. Live open interest comes from `/quote`, keyed
    * by tradingsymbol, but a past session's OI can only be read from the
    * historical endpoint, which is keyed by token.
@@ -67,6 +73,7 @@ export async function loadOptionUniverse(
       type: row.instrument_type,
       expiry: new Date(row.expiry).toISOString().slice(0, 10),
       lotSize: Number(row.lot_size) || 0,
+      tickSize: Number(row.tick_size) > 0 ? Number(row.tick_size) : 0.05,
       token: Number(row.instrument_token),
     };
 

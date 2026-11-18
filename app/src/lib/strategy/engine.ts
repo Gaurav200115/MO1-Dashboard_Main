@@ -614,6 +614,7 @@ export class StrategyEngine {
         params: this.strategy.params,
         strikeOi: strikeRow ? strikeRow[oiSide] : null,
         chainMaxOi: chain ? Math.max(...chain.map((row) => row[oiSide])) : null,
+        tickSize: instrument.tickSize ?? null,
       });
 
       if (!verdict.ok) {

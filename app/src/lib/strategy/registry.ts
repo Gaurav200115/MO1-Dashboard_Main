@@ -44,6 +44,7 @@ const SHARED_PARAMS: Pick<
   | "maxAskOverLastPct"
   | "staleQuoteSec"
   | "minStrikeOiShare"
+  | "maxStepCostOfRiskPct"
 > = {
   emaPeriod: 21,
   emaIntervalMinutes: 5,
@@ -114,6 +115,15 @@ const SHARED_PARAMS: Pick<
   maxAskOverLastPct: 2.0,
   staleQuoteSec: 120,
   minStrikeOiShare: 3,
+  /*
+   * Long v11 / short v7: skip a contract where one price step, across the lot,
+   * costs more than 20% of the risk - 110 of the 550. Measured on the contract's
+   * own tick (five paise, or one paisa on cheap options of low-priced stocks), so
+   * it bites only on very large lots on a five-paisa tick (ETERNAL 2,425, LTF
+   * 2,250): there one tick of slippage is a fifth of the risk before anything
+   * else has gone wrong.
+   */
+  maxStepCostOfRiskPct: 20,
 };
 
 /** The money side, identical for both rules — same budget, same ladder. */
@@ -166,7 +176,7 @@ const PIVOT_MIN_SKEW: Partial<Record<PivotLabel, number>> = {
 /** Strategy 1 — level break, pull back to the 21 EMA, long the ATM call. */
 export const BREAKOUT_RETRACE_21EMA: StrategyDefinition = {
   id: "breakout-retrace-21ema",
-  version: 10,
+  version: 11,
   name: "Level Break → 21 EMA Retrace",
   createdAt: "2026-09-16",
 
@@ -186,6 +196,7 @@ export const BREAKOUT_RETRACE_21EMA: StrategyDefinition = {
     "v8: the SL starts trailing at 1:2 instead of 1:3. Once 1:2 is achieved the SL moves to 550, and from then on it follows one step behind — 1650 trails it to 1100, 2200 to 1650, 2750 to 2200.",
     "v9: instead of fixed percentage change, we get the Daily Average Range of the stock and based on it we conclude the retracement %, and only if it is met do we take the entry. Both numbers use it — the zone near the 21 EMA (was 0.4%) is 0.15 × the 14-day ADR, the turn to enter (was 0.2%) is 0.075 × ADR — calibrated so the typical stock (ADR 2.72%) behaves as before. Backtested as A-ADR / B-ADR / C-ADR before going live.",
     "v10: for the R1, R3, S1, S3 we only take trades whose skew is 5x or more; less than that we won't take it. For R2, S2 and P any skew. The major level is still the closest-gap one, among the levels that qualify. Setup B's crossed levels are unchanged. Backtested as A-SK / B-SK / C-SK before going live.",
+    "v11: skip the trade when one price step of the contract, across the lot, costs more than 110 (a fifth of the 550 risk) - one tick of slippage there is too large a share of the risk.",
   ],
 
   setups: [
@@ -227,7 +238,7 @@ export const BREAKOUT_RETRACE_21EMA: StrategyDefinition = {
 /** Strategy 2 — the short. Break the major support, rally to the 21 EMA, roll over. */
 export const BREAKDOWN_RETRACE_21EMA: StrategyDefinition = {
   id: "breakdown-retrace-21ema",
-  version: 6,
+  version: 7,
   name: "Support Break → 21 EMA Retrace (Short)",
   createdAt: "2026-09-16",
 
@@ -243,6 +254,7 @@ export const BREAKDOWN_RETRACE_21EMA: StrategyDefinition = {
     "v4: the SL starts trailing at 1:2 instead of 1:3. Once 1:2 is achieved the SL moves to 550, and from then on it follows one step behind — same ladder as the long rule.",
     "v5: instead of fixed percentage change, we get the Daily Average Range of the stock and based on it we conclude the retracement %, and only if it is met do we take the entry. The rally into the 21 EMA zone (was 0.4%) is 0.15 × the 14-day ADR, the roll-over to enter (was 0.2%) is 0.075 × ADR — same as the long rule.",
     "v6: the major support needs a put skew of 5x or more if it is S1 or S3; S2 and P qualify at any skew. The closest-gap qualifying level is the major — same per-pivot rule as the long. Backtested as C-SK before going live.",
+    "v7: skip the trade when one price step of the contract, across the lot, costs more than 110 - same as the long rule.",
   ],
 
   setups: [

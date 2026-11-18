@@ -59,15 +59,18 @@ check("everything else is the live ADR rule",
 check("the live stop and ladder", SK_LONG["risk"], S.BREAKOUT_RETRACE_21EMA["risk"])
 check("its own book", (SK_LONG["book"], SK_SHORT["book"]), ("adr-pivot-skew", "adr-pivot-skew"))
 
-# Long v10 / short v6 went live as this rule, unchanged. If either side moves,
-# these fail: the live rule would no longer be the rule this backtest justified.
+# Long v10 / short v6 went live as this rule, unchanged; v11 / v7 added only the
+# step-cost gate. If anything else moves, these fail: the live rule would no
+# longer be the rule this backtest justified.
 for live_rule, sk_rule in ((S.BREAKOUT_RETRACE_21EMA, SK_LONG), (S.BREAKDOWN_RETRACE_21EMA, SK_SHORT)):
-    check(f"live {live_rule['id']} v{live_rule['version']} params are exactly {sk_rule['id']}'s",
-          live_rule["params"], sk_rule["params"])
+    check(f"live {live_rule['id']} v{live_rule['version']} params are {sk_rule['id']}'s plus the step-cost gate",
+          {k: v for k, v in live_rule["params"].items() if k != "maxStepCostOfRiskPct"}, sk_rule["params"])
+    check(f"live {live_rule['id']} v{live_rule['version']}: step-cost gate at 20% of the risk",
+          live_rule["params"]["maxStepCostOfRiskPct"], 20)
     check(f"live {live_rule['id']} v{live_rule['version']} risk is exactly {sk_rule['id']}'s",
           live_rule["risk"], sk_rule["risk"])
-check("live is long v10 / short v6",
-      (S.BREAKOUT_RETRACE_21EMA["version"], S.BREAKDOWN_RETRACE_21EMA["version"]), (10, 6))
+check("live is long v11 / short v7",
+      (S.BREAKOUT_RETRACE_21EMA["version"], S.BREAKDOWN_RETRACE_21EMA["version"]), (11, 7))
 
 
 # ---------------- the pick ----------------
