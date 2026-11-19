@@ -494,6 +494,14 @@ function RunRow({
         }`}
       >
         {s ? money(s.net) : "—"}
+        {s?.netAfterCharges != null ? (
+          <div
+            className="text-[10px] text-muted"
+            title={`Zerodha's estimated charges: ₹${Math.round(s.charges ?? 0)}. Profit factor after charges ${s.profitFactorAfterCharges != null ? s.profitFactorAfterCharges.toFixed(2) : "—"}, drawdown ${money(s.maxDrawdownAfterCharges ?? 0)}`}
+          >
+            {money(s.netAfterCharges)} after charges
+          </div>
+        ) : null}
       </td>
       <td className="py-1.5 pr-3 text-right font-mono">
         {s?.winRate != null ? `${Math.round(s.winRate * 100)}%` : "—"}

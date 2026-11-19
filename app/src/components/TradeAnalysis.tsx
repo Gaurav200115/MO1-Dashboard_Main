@@ -333,6 +333,16 @@ function Results({
       <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
         <Tile label="Net P&L" value={<Money v={s.net} />} hint={`${grouped(Math.round(s.deployed))} premium deployed`} />
         <Tile
+          label="Charges (est.)"
+          value={<Money v={-s.charges} />}
+          hint={`Zerodha · ${s.trades ? `₹${grouped(Math.round(s.charges / s.trades))} a trade` : DASH}`}
+        />
+        <Tile
+          label="Net after charges"
+          value={<Money v={s.netAfterCharges} />}
+          hint={`PF ${s.profitFactorAfterCharges === null ? DASH : s.profitFactorAfterCharges.toFixed(2)} · ${signed(s.expectancyAfterCharges)}/trade · DD ${grouped(Math.round(s.maxDrawdownAfterCharges))}`}
+        />
+        <Tile
           label="Win rate"
           value={pct(s.winRate)}
           hint={`${s.wins}W · ${s.losses}L${s.scratches ? ` · ${s.scratches} flat` : ""}`}

@@ -76,6 +76,22 @@ check("a rule without the setting (v10) does not check it",
       book(3.9, 0.05, 2425, { ...LONG, maxStepCostOfRiskPct: undefined }).ok, true);
 check("an unknown tick skips the check", book(3.9, null, 2425).ok, true);
 
+// ---------------- estimated charges (paper and backtest analysis) ----------------
+const { roundTripCharges } = await jiti.import(path.join(src, "lib/strategy/charges.ts"));
+const { analyse, stats } = await jiti.import(path.join(src, "lib/strategy/analysis.ts"));
+const titan = roundTripCharges(54.9 * 175, 54.9 * 175 - 901).total;
+const ashok = roundTripCharges(1.81 * 5000, 1.81 * 5000 + 550).total;
+check("19 Nov contract note: two round trips ~ 138", Math.round(titan + ashok), 138);
+const t = (id, buy, sell, qty, at) => ({ _id: id, tradingDate: "2026-11-19", status: "closed", qty, riskPerUnit: 550 / qty,
+  buy: { price: buy, at }, sell: { price: sell, at: at + 60000, reason: "stop" }, profit: (sell - buy) * qty,
+  strategyId: "s", strategyVersion: 11, setup: "A", symbol: "X", ladder: [], trigger: { level: { pivot: "R1", skew: 6 } },
+  instrument: { tradingsymbol: "X", type: "CE" } });
+const rows = analyse([t("a", 30, 36, 250, 1), t("b", 30, 27.8, 250, 2)]);
+const st = stats(rows);
+const want = rows.reduce((x, r) => x + r.charges, 0);
+check("analysis: charges summed per round trip", Math.round(st.charges * 100), Math.round(want * 100));
+check("analysis: net after charges = net - charges", Math.round(st.netAfterCharges * 100), Math.round((st.net - want) * 100));
+
 console.log(`${passed} passed, ${failed.length} failed`);
 for (const f of failed) console.log("  FAIL  " + f);
 process.exit(failed.length ? 1 : 0);

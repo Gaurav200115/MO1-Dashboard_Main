@@ -26,7 +26,7 @@ import json
 import math
 from collections import defaultdict
 
-from . import db, orb, pullback_stop, weekly
+from . import charges, db, orb, pullback_stop, weekly
 from .adr import adr_pct
 from .config import S, ist_time
 from .fills import step_position
@@ -485,24 +485,40 @@ def data_revision(conn, start, end, setup_ids=()):
 
 
 def summarise(positions):
-    """The headline figures, computed the way the Trade Analysis page computes them."""
+    """The headline figures, computed the way the Trade Analysis page computes them.
+
+    Each comes twice: as the replay saw it, and after Zerodha's estimated
+    charges (charges.py) - about 65-70 a round trip on a typical lot, which on
+    an edge of roughly 120 a trade is not a rounding error.
+    """
     rows = [p for p in positions if p.profit is not None]
     if not rows:
         return {"trades": 0, "wins": 0, "losses": 0, "winRate": None, "net": 0.0,
-                "profitFactor": None, "maxDrawdown": 0.0, "expectancy": 0.0}
+                "profitFactor": None, "maxDrawdown": 0.0, "expectancy": 0.0,
+                "charges": 0.0, "netAfterCharges": 0.0, "profitFactorAfterCharges": None,
+                "maxDrawdownAfterCharges": 0.0, "expectancyAfterCharges": 0.0}
 
-    net = sum(p.profit for p in rows)
-    wins = [p for p in rows if p.profit >= 0.5]
-    losses = [p for p in rows if p.profit <= -0.5]
-    gross_win = sum(p.profit for p in wins)
-    gross_loss = -sum(p.profit for p in losses)
+    def headline(profits):
+        net = sum(profits)
+        gross_win = sum(x for x in profits if x >= 0.5)
+        gross_loss = -sum(x for x in profits if x <= -0.5)
+        peak, drawdown, running = 0.0, 0.0, 0.0
+        for x in profits:
+            running += x
+            peak = max(peak, running)
+            drawdown = min(drawdown, running - peak)
+        pf = (gross_win / gross_loss) if gross_loss > 0 else (math.inf if gross_win > 0 else None)
+        return net, pf, drawdown
 
-    peak, drawdown, running = 0.0, 0.0, 0.0
-    for p in sorted(rows, key=lambda x: (x.exit_at or x.entry_at)):
-        running += p.profit
-        peak = max(peak, running)
-        drawdown = min(drawdown, running - peak)
+    ordered = sorted(rows, key=lambda x: (x.exit_at or x.entry_at))
+    gross = [p.profit for p in ordered]
+    costs = [charges.of_position(p) for p in ordered]
+    after = [g - c for g, c in zip(gross, costs)]
 
+    net, pf, drawdown = headline(gross)
+    net_after, pf_after, drawdown_after = headline(after)
+    wins = [x for x in gross if x >= 0.5]
+    losses = [x for x in gross if x <= -0.5]
     decided = len(wins) + len(losses)
     return {
         "trades": len(rows),
@@ -510,10 +526,14 @@ def summarise(positions):
         "losses": len(losses),
         "winRate": (len(wins) / decided) if decided else None,
         "net": round(net, 2),
-        "profitFactor": (gross_win / gross_loss) if gross_loss > 0
-                        else (math.inf if gross_win > 0 else None),
+        "profitFactor": pf,
         "maxDrawdown": round(drawdown, 2),
         "expectancy": round(net / len(rows), 2),
+        "charges": round(sum(costs), 2),
+        "netAfterCharges": round(net_after, 2),
+        "profitFactorAfterCharges": pf_after,
+        "maxDrawdownAfterCharges": round(drawdown_after, 2),
+        "expectancyAfterCharges": round(net_after / len(rows), 2),
     }
 
 

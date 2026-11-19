@@ -18,6 +18,7 @@ import datetime as dt
 
 from pymongo import MongoClient, ReturnDocument, UpdateOne
 
+from . import charges
 from .config import mongo_db_name, need
 from .strategies import STRATEGIES
 
@@ -133,6 +134,9 @@ def trade_document(position, run_id):
         "target": position.target,
         "step": position.step,
         "riskPerUnit": position.risk_per_unit,
+        # Zerodha's estimated charges on the round trip (charges.py); the page
+        # computes the same itself, this is for reading the trade on its own.
+        "charges": round(charges.of_position(position), 2),
         "riskCapped": position.risk_capped,
 
         "mtm": None,

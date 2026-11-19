@@ -33,6 +33,11 @@ export interface RunSummary {
   net: number;
   profitFactor: number | null;
   maxDrawdown: number;
+  /** Zerodha's estimated charges and the net after them. Absent on runs made before 19 Nov. */
+  charges?: number;
+  netAfterCharges?: number;
+  profitFactorAfterCharges?: number | null;
+  maxDrawdownAfterCharges?: number;
   expectancy: number;
 }
 

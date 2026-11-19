@@ -13,6 +13,7 @@
  * folding its mark into win rate would make the numbers move with the tape.
  */
 
+import { tradeCharges } from "./charges";
 import { istDate, istMinutes } from "./ist";
 import { rungLevels } from "./position";
 import { BREAKOUT_RETRACE_21EMA } from "./registry";
@@ -42,6 +43,8 @@ export interface AnalysedTrade {
   r: number | null;
   /** Premium paid — the whole capital a bought option needs. */
   cost: number;
+  /** Zerodha's estimated charges on the round trip (charges.ts). */
+  charges: number;
   /** 1-based position among the day's trades (all strategies), by entry. */
   nth: number;
   /**
@@ -111,6 +114,7 @@ export function analyse(
       outcome: t.profit >= 0.5 ? "WIN" : t.profit <= -0.5 ? "LOSS" : "BE",
       r: risk > 0 ? t.profit / risk : null,
       cost: t.qty * t.buy.price,
+      charges: tradeCharges(t),
       nth: nthOf.get(t._id) ?? 1,
       peak: peakR(t),
       skew: skewKey(t),
@@ -403,6 +407,18 @@ export interface Stats {
   /** Deepest fall from a running peak of cumulative P&L, trade by trade (<= 0). */
   maxDrawdown: number;
   deployed: number;
+  /**
+   * Zerodha's estimated charges over the sample (charges.ts), and the headline
+   * figures after them. About 65-70 a round trip on a typical lot, against an
+   * edge of roughly 120 a trade - the difference between paper and the
+   * contract note.
+   */
+  charges: number;
+  netAfterCharges: number;
+  expectancyAfterCharges: number;
+  /** Null when there are no losses after charges. */
+  profitFactorAfterCharges: number | null;
+  maxDrawdownAfterCharges: number;
 }
 
 /** Rows must be in entry order for streaks and drawdown — analyse() sorts them. */
@@ -423,6 +439,12 @@ export function stats(rows: AnalysedTrade[]): Stats {
   let peak = 0;
   let dd = 0;
   let deployed = 0;
+  let charges = 0;
+  let netAfter = 0;
+  let winAfter = 0;
+  let lossAfter = 0;
+  let peakAfter = 0;
+  let ddAfter = 0;
 
   for (const a of rows) {
     net += a.profit;
@@ -451,6 +473,14 @@ export function stats(rows: AnalysedTrade[]): Stats {
     worst = Math.min(worst, a.profit);
     peak = Math.max(peak, net);
     dd = Math.min(dd, net - peak);
+
+    const after = a.profit - a.charges;
+    charges += a.charges;
+    netAfter += after;
+    if (after >= 0.5) winAfter += after;
+    else if (after <= -0.5) lossAfter += -after;
+    peakAfter = Math.max(peakAfter, netAfter);
+    ddAfter = Math.min(ddAfter, netAfter - peakAfter);
   }
 
   const n = rows.length;
@@ -475,6 +505,11 @@ export function stats(rows: AnalysedTrade[]): Stats {
     maxLossStreak: maxL,
     maxDrawdown: dd,
     deployed,
+    charges,
+    netAfterCharges: netAfter,
+    expectancyAfterCharges: n ? netAfter / n : 0,
+    profitFactorAfterCharges: lossAfter > 0 ? winAfter / lossAfter : null,
+    maxDrawdownAfterCharges: ddAfter,
   };
 }
 
