@@ -34,7 +34,8 @@ export interface SetupOption {
    * Which book the leg trades on. A run holds exactly one: the desk's own legs
    * ("desk"), the ADR variant of them ("adr"), the pullback-stop variant
    * ("pullback-stop"), the daily-loss-limit variant ("adr-daily-loss"), the
-   * per-pivot skew variant ("adr-pivot-skew"), or NIFTY's opening range
+   * per-pivot skew variant ("adr-pivot-skew"), the weekly 1-hour overnight
+   * variant ("weekly-1h-top3"), or NIFTY's opening range
    * ("nifty"). Mirrors `book_of` in backtest/strategies.py.
    */
   book: string;
@@ -303,6 +304,66 @@ const BACKTEST_ONLY: SetupOption[] = [
     book: "adr-pivot-skew",
     tag: "ADR · skew 5x R1/R3/S1/S3",
   },
+
+  /*
+   * Weekly pivots on a 1-hour EMA, top 3 by OI + skew, held overnight
+   * (2026-11-19). Live long v11 / short v7 otherwise. Pivots from last week's
+   * high/low/close, fixed for the week; 21 EMA on 1-hour bars from 09:15. Each
+   * morning only the 3 stocks with the best skew rank + OI rank (previous
+   * session's chain, better of the two majors) may enter. Positions are held
+   * overnight, closed 15:15 on expiry day; no entries in the last 3 sessions
+   * before expiry. Past the archived ATM±3 the option is priced by
+   * Black-Scholes at its last real IV, and the trade is marked estimated.
+   *
+   * Python: `BREAKOUT_RETRACE_1H_WEEKLY` / `BREAKDOWN_RETRACE_1H_WEEKLY` in
+   * backtest/strategies.py, rule in backtest/weekly.py; tests/test_weekly.py
+   * checks these three entries match.
+   */
+  {
+    setup: "A-WK",
+    strategy: "breakout-retrace-1h-weekly",
+    strategyName: "Level Break → 21 EMA Retrace [1h EMA, weekly pivots, top 3 OI+skew, overnight]",
+    version: 1,
+    label: "Break & retrace",
+    side: "LONG",
+    option: "CE",
+    description:
+      "Setup A on weekly pivots and a 1-hour 21 EMA. Only the day's top 3 stocks (skew rank + " +
+      "OI rank) may enter; held overnight, ₹550 SL, 1:2 → +1R ladder; closed 15:15 on expiry day.",
+    backtestOnly: true,
+    book: "weekly-1h-top3",
+    tag: "1h · weekly pivots · top 3 · overnight",
+  },
+  {
+    setup: "B-WK",
+    strategy: "breakout-retrace-1h-weekly",
+    strategyName: "Level Break → 21 EMA Retrace [1h EMA, weekly pivots, top 3 OI+skew, overnight]",
+    version: 1,
+    label: "Support hold & level cross",
+    side: "LONG",
+    option: "CE",
+    description:
+      "Setup B on weekly levels: holds above the weekly major support, crosses another weekly " +
+      "level above the 1-hour EMA. Top 3 stocks only; held overnight.",
+    backtestOnly: true,
+    book: "weekly-1h-top3",
+    tag: "1h · weekly pivots · top 3 · overnight",
+  },
+  {
+    setup: "C-WK",
+    strategy: "breakdown-retrace-1h-weekly",
+    strategyName: "Support Break → 21 EMA Retrace (Short) [1h EMA, weekly pivots, top 3 OI+skew, overnight]",
+    version: 1,
+    label: "Breakdown & retrace",
+    side: "SHORT",
+    option: "PE",
+    description:
+      "Setup C on weekly pivots and a 1-hour 21 EMA. Only the day's top 3 stocks may enter; " +
+      "held overnight, ₹550 SL, 1:2 → +1R ladder; closed 15:15 on expiry day.",
+    backtestOnly: true,
+    book: "weekly-1h-top3",
+    tag: "1h · weekly pivots · top 3 · overnight",
+  },
 ];
 
 export function listSetups(): SetupOption[] {
@@ -337,7 +398,7 @@ export function mixError(setupIds: string[]): string | null {
     setupIds.map((id) => all.find((s) => s.setup === id)?.book).filter(Boolean)
   );
   if (books.size > 1) {
-    return "A/B/C and its variants (-ADR, -PB, -DL, -SK) are alternatives, not additions — replay each set in a run of its own";
+    return "A/B/C and its variants (-ADR, -PB, -DL, -SK, -WK) are alternatives, not additions — replay each set in a run of its own";
   }
   return null;
 }

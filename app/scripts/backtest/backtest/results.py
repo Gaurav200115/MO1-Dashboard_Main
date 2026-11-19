@@ -18,6 +18,7 @@ import datetime as dt
 
 from pymongo import MongoClient, ReturnDocument, UpdateOne
 
+from . import charges
 from .config import mongo_db_name, need
 from .strategies import STRATEGIES
 
@@ -94,6 +95,10 @@ def trade_document(position, run_id):
     # stop and the premium backstop sat.
     if context.get("pullbackStop"):
         trigger["pullbackStop"] = dict(context["pullbackStop"])
+    # Weekly rule only: the day's rank that let it in, the pivot week, and
+    # whether any minute of it was priced by Black-Scholes past the archive.
+    if context.get("weekly"):
+        trigger["weekly"] = dict(context["weekly"])
 
     return {
         "_id": f"{run_id}:{position.symbol}:{_ms(position.entry_at)}:{position.setup}",
@@ -129,6 +134,9 @@ def trade_document(position, run_id):
         "target": position.target,
         "step": position.step,
         "riskPerUnit": position.risk_per_unit,
+        # Zerodha's estimated charges on the round trip (charges.py); the page
+        # computes the same itself, this is for reading the trade on its own.
+        "charges": round(charges.of_position(position), 2),
         "riskCapped": position.risk_capped,
 
         "mtm": None,
@@ -256,6 +264,9 @@ def save_results(db, run_id, positions, report):
         "incompleteStockDays": report["incompleteStockDays"],
         "trades": report["summary"]["trades"],
         "error": None,
+        # Weekly rule only; absent (None) on every other run.
+        "summaryExEstimated": report.get("summaryExEstimated"),
+        "estimatedTrades": report.get("estimatedTrades"),
     }})
 
 

@@ -272,7 +272,14 @@ export type ExitReason =
    * exchange SL live would rest. Named apart so an option that collapsed while
    * the stock held is never read as the stock stop working.
    */
-  | "backstop";
+  | "backstop"
+  /**
+   * Backtest only, weekly rule (A-WK, B-WK, C-WK), which holds overnight: the
+   * contract was closed at 15:15 on its expiry day.
+   */
+  | "expiry"
+  /** Backtest only, weekly rule: still open when the run's dates ended, closed at its last price. */
+  | "run-end";
 
 /** One ratchet of the trailing ladder. */
 export interface LadderStep {

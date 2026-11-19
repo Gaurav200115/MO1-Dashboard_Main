@@ -164,7 +164,7 @@ function makeDesk(kite, opts = {}) {
     alert: (level, text) => alerts.push([level, text]),
     now: () => clock,
     today: () => opts.day ?? DAY,
-    quotes: async (keys) => new Map(keys.map((k) => [k, quote(opts.quoteLast ?? 30, opts.quoteBid ?? 29.9)])),
+    quotes: async (keys) => new Map(keys.map((k) => [k, quote(opts.quoteLast ?? 30, opts.quoteBid ?? 29.9, opts.quoteAsk)])),
     sleep: async (ms) => { clock += ms; },
     load: journal.readDay,
     persist: journal.saveDay,
@@ -324,6 +324,79 @@ fresh("one-paisa");
   [p] = (await desk.status()).positions;
   check("and exits at a one-paisa bid: 1.30, P&L (1.30 - 1.26) x 9,275",
         [p.exit.fillPrice, Math.round(p.profit)], [1.3, 371]);
+}
+
+// ------------------------------------------------------------ the one chase
+
+const buys = (kite) => kite.calls.filter((c) => c[0] === "place" && c[1].transactionType === "BUY").map((c) => [c[1].price, c[1].tag.slice(6, 10)]);
+
+fresh("chase-fills");
+{
+  const kite = new FakeKite();
+  kite.ask = 30.6; // the offer ran 0.60 past the signal's 30.00
+  const { desk, alerts } = makeDesk(kite, { quoteAsk: 30.6 });
+  await desk.onEntry(trade(), quote(29.95, 29.9, 30.0));
+  const [p] = (await desk.status()).positions;
+  check("first IOC 30.20 cancelled; chase at the fresh 30.60 + room, capped at 30.00 + 0.3R = 30.65",
+        buys(kite), [[30.2, "E001"], [30.65, "E002"]]);
+  check("one position, filled at the real offer 30.60", [p.state, p.entry.status, p.entry.fillPrice, p.entry.filledQty], ["open", "filled", 30.6, 250]);
+  check("the first try is kept, with the ask's move", p.entry.tries.map((t) => [t.ask, t.price, t.status]), [[30, 30.2, "cancelled"]]);
+  check("the stop is 550 under what was actually paid", [p.stop.trigger, p.stop.limit], [28.4, 27.3]);
+  check("the chase is reported", alerts.some(([, x]) => x.includes("chasing once at 30.65")), true);
+  clock += 120_000;
+  check("Zerodha holds exactly one lot", await desk.reconcile(), []);
+}
+
+fresh("chase-too-far");
+{
+  const kite = new FakeKite();
+  kite.ask = 31;
+  const { desk } = makeDesk(kite, { quoteAsk: 31 });
+  await desk.onEntry(trade(), quote(29.95, 29.9, 30.0));
+  const [p] = (await desk.status()).positions;
+  check("fresh ask 31.00 is past the 30.65 limit: no second order", [buys(kite).length, p.entry.status, p.state], [1, "cancelled", "not-entered"]);
+}
+
+fresh("chase-cancelled");
+{
+  const kite = new FakeKite();
+  kite.ask = 30.9; // keeps running while we chase
+  const { desk, alerts } = makeDesk(kite, { quoteAsk: 30.5 });
+  await desk.onEntry(trade(), quote(29.95, 29.9, 30.0));
+  const [p] = (await desk.status()).positions;
+  check("the chase is cancelled too: two orders, then stop - never a third",
+        [buys(kite).length, p.entry.status, p.state], [2, "cancelled", "not-entered"]);
+  check("and says so", alerts.some(([, x]) => x.includes("not filled on the chase either")), true);
+}
+
+fresh("chase-rejected");
+{
+  const kite = new FakeKite();
+  let n = 0;
+  kite.onPlace = (o) => (o.transactionType === "BUY" && ++n === 2 ? { status: "REJECTED", message: "Insufficient funds" } : {});
+  kite.ask = 30.4;
+  const { desk } = makeDesk(kite, { quoteAsk: 30.4 });
+  await desk.onEntry(trade(), quote(29.95, 29.9, 30.0));
+  const [p] = (await desk.status()).positions;
+  check("the chase rejected: two orders, nothing bought, no third", [buys(kite).length, p.entry.status, p.state], [2, "rejected", "not-entered"]);
+}
+
+fresh("no-chase-on-reject");
+{
+  const kite = new FakeKite();
+  kite.onPlace = () => ({ status: "REJECTED", message: "MIS LIMIT orders are blocked" });
+  const { desk } = makeDesk(kite);
+  await desk.onEntry(trade(), quote(29.95, 29.9, 30.0));
+  check("a rejected first order is never chased", buys(kite).length, 1);
+}
+
+fresh("no-chase-on-unknown");
+{
+  const kite = new FakeKite();
+  kite.onPlace = () => ({ lostReply: true, reachedZerodha: false });
+  const { desk } = makeDesk(kite);
+  await desk.onEntry(trade(), quote(29.95, 29.9, 30.0));
+  check("an order with no reply is looked up, never chased", [buys(kite).length, (await desk.status()).positions[0].entry.status], [1, "not-placed"]);
 }
 
 fresh("off");

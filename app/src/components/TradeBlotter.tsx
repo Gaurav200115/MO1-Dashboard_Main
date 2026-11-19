@@ -12,6 +12,7 @@ import type {
 import type { TradesResult } from "@/lib/useTrades";
 import type { TradeNotes } from "@/lib/useTradeNotes";
 import { useTradeNotes } from "@/lib/useTradeNotes";
+import { tradeCharges } from "@/lib/strategy/charges";
 import ExecutionPanel from "./ExecutionPanel";
 import { TagChips, TradeTagger } from "./TradeTags";
 
@@ -83,6 +84,7 @@ export default function TradeBlotter({ data }: { data: TradesResult }) {
 
   const totals = useMemo(() => {
     let realised = 0;
+    let charges = 0;
     let running = 0;
     let wins = 0;
     let losses = 0;
@@ -95,11 +97,12 @@ export default function TradeBlotter({ data }: { data: TradesResult }) {
         running += trade.mtm?.profit ?? 0;
       } else if (trade.profit != null) {
         realised += trade.profit;
+        charges += tradeCharges(trade);
         if (trade.profit > 0) wins += 1;
         else if (trade.profit < 0) losses += 1;
       }
     }
-    return { realised, running, wins, losses, open, deployed, peak: peakDeployed(trades) };
+    return { realised, charges, running, wins, losses, open, deployed, peak: peakDeployed(trades) };
   }, [trades]);
 
   if (!configured) {
@@ -151,6 +154,9 @@ export default function TradeBlotter({ data }: { data: TradesResult }) {
                 {totals.open > 0 ? ` · ${totals.open} open` : ""}
               </span>
               <Rupees label="Realised" value={totals.realised} />
+              {totals.charges > 0 ? (
+                <Rupees label="After est. charges" value={totals.realised - totals.charges} muted />
+              ) : null}
               {totals.open > 0 ? <Rupees label="Running" value={totals.running} muted /> : null}
             </>
           ) : null}

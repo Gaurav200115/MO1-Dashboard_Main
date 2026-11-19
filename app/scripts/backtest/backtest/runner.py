@@ -26,7 +26,7 @@ import json
 import math
 from collections import defaultdict
 
-from . import db, orb, pullback_stop
+from . import charges, db, orb, pullback_stop, weekly
 from .adr import adr_pct
 from .config import S, ist_time
 from .fills import step_position
@@ -186,6 +186,10 @@ def replay_session(conn, day, strategies, floors, log=None, setups=None):
     """
     if strategies[0]["id"] == NIFTY_ORB_15M["id"]:
         return orb.replay_session(conn, day, strategies[0], log=log)
+    # The weekly rule holds overnight, so a range is replayed with one carry
+    # through every day (run_range). A single day stands alone.
+    if weekly.is_weekly(strategies):
+        return weekly.replay_single(conn, day, strategies, floors, log=log, setups=setups)
 
     notes = {"signals": 0, "rejected": defaultdict(int), "skipped": defaultdict(int),
              "bySetup": defaultdict(int), "symbols": 0, "incomplete": 0}
@@ -481,24 +485,40 @@ def data_revision(conn, start, end, setup_ids=()):
 
 
 def summarise(positions):
-    """The headline figures, computed the way the Trade Analysis page computes them."""
+    """The headline figures, computed the way the Trade Analysis page computes them.
+
+    Each comes twice: as the replay saw it, and after Zerodha's estimated
+    charges (charges.py) - about 65-70 a round trip on a typical lot, which on
+    an edge of roughly 120 a trade is not a rounding error.
+    """
     rows = [p for p in positions if p.profit is not None]
     if not rows:
         return {"trades": 0, "wins": 0, "losses": 0, "winRate": None, "net": 0.0,
-                "profitFactor": None, "maxDrawdown": 0.0, "expectancy": 0.0}
+                "profitFactor": None, "maxDrawdown": 0.0, "expectancy": 0.0,
+                "charges": 0.0, "netAfterCharges": 0.0, "profitFactorAfterCharges": None,
+                "maxDrawdownAfterCharges": 0.0, "expectancyAfterCharges": 0.0}
 
-    net = sum(p.profit for p in rows)
-    wins = [p for p in rows if p.profit >= 0.5]
-    losses = [p for p in rows if p.profit <= -0.5]
-    gross_win = sum(p.profit for p in wins)
-    gross_loss = -sum(p.profit for p in losses)
+    def headline(profits):
+        net = sum(profits)
+        gross_win = sum(x for x in profits if x >= 0.5)
+        gross_loss = -sum(x for x in profits if x <= -0.5)
+        peak, drawdown, running = 0.0, 0.0, 0.0
+        for x in profits:
+            running += x
+            peak = max(peak, running)
+            drawdown = min(drawdown, running - peak)
+        pf = (gross_win / gross_loss) if gross_loss > 0 else (math.inf if gross_win > 0 else None)
+        return net, pf, drawdown
 
-    peak, drawdown, running = 0.0, 0.0, 0.0
-    for p in sorted(rows, key=lambda x: (x.exit_at or x.entry_at)):
-        running += p.profit
-        peak = max(peak, running)
-        drawdown = min(drawdown, running - peak)
+    ordered = sorted(rows, key=lambda x: (x.exit_at or x.entry_at))
+    gross = [p.profit for p in ordered]
+    costs = [charges.of_position(p) for p in ordered]
+    after = [g - c for g, c in zip(gross, costs)]
 
+    net, pf, drawdown = headline(gross)
+    net_after, pf_after, drawdown_after = headline(after)
+    wins = [x for x in gross if x >= 0.5]
+    losses = [x for x in gross if x <= -0.5]
     decided = len(wins) + len(losses)
     return {
         "trades": len(rows),
@@ -506,10 +526,14 @@ def summarise(positions):
         "losses": len(losses),
         "winRate": (len(wins) / decided) if decided else None,
         "net": round(net, 2),
-        "profitFactor": (gross_win / gross_loss) if gross_loss > 0
-                        else (math.inf if gross_win > 0 else None),
+        "profitFactor": pf,
         "maxDrawdown": round(drawdown, 2),
         "expectancy": round(net / len(rows), 2),
+        "charges": round(sum(costs), 2),
+        "netAfterCharges": round(net_after, 2),
+        "profitFactorAfterCharges": pf_after,
+        "maxDrawdownAfterCharges": round(drawdown_after, 2),
+        "expectancyAfterCharges": round(net_after / len(rows), 2),
     }
 
 
@@ -532,9 +556,16 @@ def run_range(conn, setup_ids, start, end, floors, log=None, on_progress=None):
     skipped = defaultdict(int)
     by_setup = defaultdict(int)
 
+    # The weekly rule's positions, EMAs and setups outlive a session.
+    carry = weekly.Carry() if weekly.is_weekly(strategies) else None
+
     for i, day in enumerate(days, 1):
-        day_positions, notes = replay_session(conn, day, strategies, floors, log=log,
-                                              setups=chosen)
+        if carry is not None:
+            day_positions, notes = weekly.replay_day(conn, day, strategies, floors, carry,
+                                                     log=log, setups=chosen)
+        else:
+            day_positions, notes = replay_session(conn, day, strategies, floors, log=log,
+                                                  setups=chosen)
         positions.extend(day_positions)
         totals["signals"] += notes["signals"]
         totals["symbols"] = max(totals["symbols"], notes["symbols"])
@@ -547,6 +578,9 @@ def run_range(conn, setup_ids, start, end, floors, log=None, on_progress=None):
             by_setup[k] += v
         if on_progress and i % S.PROGRESS_EVERY == 0:
             on_progress(i, len(days), day)
+
+    if carry is not None:
+        positions.extend(weekly.finish(carry))
 
     gate_counts = defaultdict(int)
     for p in positions:
@@ -569,4 +603,10 @@ def run_range(conn, setup_ids, start, end, floors, log=None, on_progress=None):
         "signals": totals["signals"],
         "incompleteStockDays": totals["incomplete"],
     }
+    if carry is not None:
+        # Trades priced by Black-Scholes for any minute past the archive's band.
+        # If this differs much from `summary`, the result leans on the estimate.
+        report["summaryExEstimated"] = summarise(
+            [p for p in positions if not weekly.is_estimated(p)])
+        report["estimatedTrades"] = sum(1 for p in positions if weekly.is_estimated(p))
     return positions, report

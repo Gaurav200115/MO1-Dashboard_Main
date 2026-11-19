@@ -140,6 +140,21 @@ def session_ohlc(conn, session, symbols):
     return out
 
 
+def sessions_ohlc(conn, days, symbols):
+    """{symbol: {day: (high, low, close)}} for several sessions - the weekly rule's
+    pivots are built from a whole week of bhavcopy rows."""
+    rows = conn.execute(
+        "SELECT symbol, trade_date, high_paise, low_paise, close_paise FROM cm_bhavcopy "
+        "WHERE trade_date = ANY(%s) AND series = 'EQ' AND symbol = ANY(%s)",
+        (list(days), list(symbols)))
+    out = defaultdict(dict)
+    for sym, day, high, low, close in rows:
+        if None in (high, low, close):
+            continue
+        out[sym][day] = (_rs(high), _rs(low), _rs(close))
+    return dict(out)
+
+
 def daily_history(conn, upto, symbols, sessions):
     """{symbol: [(date, high, low, close)]} - each stock's last `sessions` bhavcopy
     rows on or before `upto`, in rupees. For the ADR variant's average daily range.

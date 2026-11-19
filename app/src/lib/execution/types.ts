@@ -82,6 +82,21 @@ export interface LivePosition {
     placedAt: number | null;
     ackAt: number | null;
     doneAt: number | null;
+    /**
+     * An earlier IOC for this entry that was cancelled for want of a seller,
+     * before the one chase. Kept so the ask's real move can be measured.
+     */
+    tries?: {
+      tag: string;
+      orderId: string | null;
+      ask: number;
+      price: number;
+      status: "cancelled";
+      reason: string;
+      quoteAt: number;
+      sentAt: number;
+      doneAt: number;
+    }[];
   };
 
   stop:
