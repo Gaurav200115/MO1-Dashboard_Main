@@ -554,6 +554,8 @@ export const EXIT_LABELS: Record<string, string> = {
   "no-quote": "No quote",
   "out-of-band": "Ran past the archive",
   backstop: "Premium backstop (1.5R)",
+  expiry: "Closed on expiry day",
+  "run-end": "Open at end of run",
 };
 
 /** The pseudo-tag for "nothing on this trade", so it can be picked like any other. */

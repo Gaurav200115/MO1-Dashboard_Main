@@ -416,11 +416,71 @@ BREAKDOWN_RETRACE_21EMA_SK = {
     "risk": dict(ADR_RISK),
 }
 
+# Weekly pivots on a 1-hour EMA, top 3 by OI + skew, held overnight - as Gaurav
+# specified it on 2026-11-19. Backtest only; weekly.py has the whole rule.
+#
+# Base: the live long v11 / short v7 exactly (ADR retrace, per-pivot skew 5x
+# R1/R3/S1/S3, Rs 550 stop, 1:2 -> +1R ladder, book gate + step-cost gate,
+# entries until 13:00, 3 open at most). What changes:
+#   - pivots from the previous week's high / low / close, confirmed on the chain
+#     of that week's last session, fixed for the week
+#   - the 21 EMA on 1-hour bars from 09:15
+#   - each morning only the top 3 stocks may enter: skew rank + OI rank (lots)
+#     of their major levels on the previous session's chain, better level counts
+#   - held overnight; closed 15:15 on expiry day; no entries in the last 3
+#     sessions before expiry (only the near month is archived)
+#   - past ATM+-3 the option is priced by Black-Scholes from the stock, at the
+#     IV of its last real print, and the trade is marked estimated
+#   - setup memory runs all week; a fired setup re-arms the next day
+WEEKLY_TAG = "1h EMA, weekly pivots, top 3 OI+skew, overnight"
+
+WEEKLY_PARAMS = {
+    **{k: v for k, v in BREAKOUT_RETRACE_21EMA["params"].items() if k != "flattenIst"},
+    "emaIntervalMinutes": 60,
+    "pivotPeriod": "week",
+    "rankTop": 3,
+    "rankBy": "skewRank+oiLotsRank, better major level",
+    "holdOvernight": True,
+    "noEntrySessionsBeforeExpiry": 3,
+    "expiryFlattenIst": "15:15",
+    "outOfBand": "black-scholes at last real IV",
+}
+
+BREAKOUT_RETRACE_1H_WEEKLY = {
+    "id": "breakout-retrace-1h-weekly",
+    "version": 1,
+    "name": f"Level Break -> 21 EMA Retrace [{WEEKLY_TAG}]",
+    "backtestOnly": True,
+    "book": "weekly-1h-top3",
+    "setups": ["A-WK", "B-WK"],
+    "setupLabels": {"A-WK": f"Break & retrace [{WEEKLY_TAG}]",
+                    "B-WK": f"Support hold & level cross [{WEEKLY_TAG}]"},
+    "sides": {"A-WK": "LONG", "B-WK": "LONG"},
+    "legs": {"A-WK": "A", "B-WK": "B"},
+    "params": dict(WEEKLY_PARAMS),
+    "risk": dict(SHARED_RISK),
+}
+
+BREAKDOWN_RETRACE_1H_WEEKLY = {
+    "id": "breakdown-retrace-1h-weekly",
+    "version": 1,
+    "name": f"Support Break -> 21 EMA Retrace (Short) [{WEEKLY_TAG}]",
+    "backtestOnly": True,
+    "book": "weekly-1h-top3",
+    "setups": ["C-WK"],
+    "setupLabels": {"C-WK": f"Breakdown & retrace [{WEEKLY_TAG}]"},
+    "sides": {"C-WK": "SHORT"},
+    "legs": {"C-WK": "C"},
+    "params": dict(WEEKLY_PARAMS),
+    "risk": dict(SHARED_RISK),
+}
+
 ALL_STRATEGIES = (BREAKOUT_RETRACE_21EMA, BREAKDOWN_RETRACE_21EMA, NIFTY_ORB_15M,
                   BREAKOUT_RETRACE_21EMA_ADR, BREAKDOWN_RETRACE_21EMA_ADR,
                   BREAKOUT_RETRACE_21EMA_PB, BREAKDOWN_RETRACE_21EMA_PB,
                   BREAKOUT_RETRACE_21EMA_DL, BREAKDOWN_RETRACE_21EMA_DL,
-                  BREAKOUT_RETRACE_21EMA_SK, BREAKDOWN_RETRACE_21EMA_SK)
+                  BREAKOUT_RETRACE_21EMA_SK, BREAKDOWN_RETRACE_21EMA_SK,
+                  BREAKOUT_RETRACE_1H_WEEKLY, BREAKDOWN_RETRACE_1H_WEEKLY)
 STRATEGIES = {s["id"]: s for s in ALL_STRATEGIES}
 
 
@@ -507,7 +567,7 @@ def selection(setup_ids):
     # The variants (ADR, pullback stop, daily loss limit, pivot skew) are other
     # versions of the desk's legs, so no two of those books ever share a run.
     if len({book_of(STRATEGIES[sid]) for sid in chosen}) > 1:
-        raise SystemExit("A/B/C and its variants (-ADR, -PB, -DL, -SK) are alternatives, not "
+        raise SystemExit("A/B/C and its variants (-ADR, -PB, -DL, -SK, -WK) are alternatives, not "
                          "additions - replay each set in a run of its own")
     return sorted(chosen), chosen
 

@@ -113,8 +113,12 @@ class AdrRuler:
         self.zone_multiple = params["adrZoneMultiple"]
         self.turn_multiple = params["adrTurnMultiple"]
         self.pct = getattr(plan, "adr_pct", None)
-        self.ready = self.pct is not None and self.pct > 0 and plan.close > 0
-        self.rupees = self.pct / 100 * plan.close if self.ready else None
+        # The rupee band is a percent of the previous session's close. On a daily
+        # plan that is `plan.close`; the weekly rule's plan closes on last Friday,
+        # so it sets `adr_close` to the previous session's close each morning.
+        close = getattr(plan, "adr_close", None) or plan.close
+        self.ready = self.pct is not None and self.pct > 0 and close > 0
+        self.rupees = self.pct / 100 * close if self.ready else None
         self.zone = self.zone_multiple * self.rupees if self.ready else None
         self.turn = self.turn_multiple * self.rupees if self.ready else None
 

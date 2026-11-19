@@ -26,7 +26,7 @@ import json
 import math
 from collections import defaultdict
 
-from . import db, orb, pullback_stop
+from . import db, orb, pullback_stop, weekly
 from .adr import adr_pct
 from .config import S, ist_time
 from .fills import step_position
@@ -186,6 +186,10 @@ def replay_session(conn, day, strategies, floors, log=None, setups=None):
     """
     if strategies[0]["id"] == NIFTY_ORB_15M["id"]:
         return orb.replay_session(conn, day, strategies[0], log=log)
+    # The weekly rule holds overnight, so a range is replayed with one carry
+    # through every day (run_range). A single day stands alone.
+    if weekly.is_weekly(strategies):
+        return weekly.replay_single(conn, day, strategies, floors, log=log, setups=setups)
 
     notes = {"signals": 0, "rejected": defaultdict(int), "skipped": defaultdict(int),
              "bySetup": defaultdict(int), "symbols": 0, "incomplete": 0}
@@ -532,9 +536,16 @@ def run_range(conn, setup_ids, start, end, floors, log=None, on_progress=None):
     skipped = defaultdict(int)
     by_setup = defaultdict(int)
 
+    # The weekly rule's positions, EMAs and setups outlive a session.
+    carry = weekly.Carry() if weekly.is_weekly(strategies) else None
+
     for i, day in enumerate(days, 1):
-        day_positions, notes = replay_session(conn, day, strategies, floors, log=log,
-                                              setups=chosen)
+        if carry is not None:
+            day_positions, notes = weekly.replay_day(conn, day, strategies, floors, carry,
+                                                     log=log, setups=chosen)
+        else:
+            day_positions, notes = replay_session(conn, day, strategies, floors, log=log,
+                                                  setups=chosen)
         positions.extend(day_positions)
         totals["signals"] += notes["signals"]
         totals["symbols"] = max(totals["symbols"], notes["symbols"])
@@ -547,6 +558,9 @@ def run_range(conn, setup_ids, start, end, floors, log=None, on_progress=None):
             by_setup[k] += v
         if on_progress and i % S.PROGRESS_EVERY == 0:
             on_progress(i, len(days), day)
+
+    if carry is not None:
+        positions.extend(weekly.finish(carry))
 
     gate_counts = defaultdict(int)
     for p in positions:
@@ -569,4 +583,10 @@ def run_range(conn, setup_ids, start, end, floors, log=None, on_progress=None):
         "signals": totals["signals"],
         "incompleteStockDays": totals["incomplete"],
     }
+    if carry is not None:
+        # Trades priced by Black-Scholes for any minute past the archive's band.
+        # If this differs much from `summary`, the result leans on the estimate.
+        report["summaryExEstimated"] = summarise(
+            [p for p in positions if not weekly.is_estimated(p)])
+        report["estimatedTrades"] = sum(1 for p in positions if weekly.is_estimated(p))
     return positions, report
