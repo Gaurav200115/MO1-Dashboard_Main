@@ -54,6 +54,17 @@ export function entryLimit(ask: number, riskPerUnit: number, tick = DEFAULT_TICK
 }
 
 /**
+ * How far above the signal's ask the one chase may buy: 0.3R, 165 on the
+ * desk's 550. A cancelled IOC is re-sent once at the fresh ask plus the usual
+ * room, but never above this - past it the move has run too far to chase.
+ */
+export const CHASE_MAX_R = 0.3;
+
+export function chaseCeiling(firstAsk: number, riskPerUnit: number, tick = DEFAULT_TICK): number {
+  return tickDown(firstAsk + CHASE_MAX_R * riskPerUnit, tick);
+}
+
+/**
  * The exchange stop for a filled entry.
  *
  * Trigger: the fill less the trade's risk per unit - the desk's 550 over the
