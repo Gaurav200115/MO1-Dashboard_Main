@@ -339,7 +339,7 @@ export class LiveDesk {
       state.halted ? "warning" : "info",
       state.halted
         ? `Live orders are HALTED (${state.halted}). Switch them off and on again at the desk to resume.`
-        : `Live orders ON today: max ${this.deps.maxOpen()} open, entries IOC at the ask plus room capped at 0.1R, one chase up to 0.3R, MIS, exchange stop on every fill.`
+        : `Live orders ON today: max ${this.deps.maxOpen()} open, entries IOC at the ask plus room capped at 0.1R, one chase up to 0.3R, NRML, exchange stop on every fill.`
     );
     this.ensureLoop();
   }

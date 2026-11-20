@@ -12,13 +12,17 @@ import { BrokerError, type Broker, type BrokerOrder, type BrokerPosition } from 
  * profile; that is checked by Kite, not here - a refusal comes back as an
  * answered error like any other and is reported as one.
  *
- * Product MIS: intraday, so if the desk's own 15:15 exit ever failed, Zerodha's
- * own square-off near the close is the last net. Variety "regular" throughout.
+ * Product NRML, for now: Zerodha refuses fresh MIS buys of stock options in
+ * expiry week (physical delivery). Unlike MIS there is NO Zerodha square-off
+ * near the close - the desk's own 15:15 exit is the only one, so a position it
+ * fails to close stays open overnight (and near expiry, an ITM one can go to
+ * physical delivery). Entry and stop both use this, so they always match.
+ * Variety "regular" throughout.
  */
 
 const VARIETY = "regular" as const;
 const EXCHANGE = "NFO" as const;
-const PRODUCT = "MIS" as const;
+const PRODUCT = "NRML" as const;
 
 type Kite = InstanceType<typeof KiteConnect>;
 
