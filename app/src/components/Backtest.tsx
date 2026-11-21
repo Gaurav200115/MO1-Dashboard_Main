@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ArchiveCoverage, BacktestRun } from "@/lib/backtest/store";
-import type { SetupOption } from "@/lib/backtest/setups";
+import { instrumentOf, type Instrument, type SetupOption } from "@/lib/backtest/setups";
 
 /**
  * Asking for a backtest, watching it run, and finding one that was already run.
@@ -41,6 +41,7 @@ const STATUS_TONE: Record<string, string> = {
 export default function Backtest({ onOpenRun }: { onOpenRun?: (runId: string) => void }) {
   const [reply, setReply] = useState<Reply | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [instrument, setInstrument] = useState<Instrument>("STOCKS");
   const [picked, setPicked] = useState<string[]>([]);
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -79,13 +80,24 @@ export default function Backtest({ onOpenRun }: { onOpenRun?: (runId: string) =>
   // had. Backtest-only rules (ORB, the ADR legs) are never picked for you.
   useEffect(() => {
     if (reply?.setups && picked.length === 0) {
-      setPicked(reply.setups.filter((s) => !s.backtestOnly).map((s) => s.setup));
+      setPicked(defaultPicks(reply.setups, instrument));
     }
-  }, [reply, picked.length]);
+  }, [reply, picked.length, instrument]);
+
+  // Switching instrument starts that instrument's default legs and its own date
+  // range (NIFTY's options and the stocks' are archived over different spans).
+  function chooseInstrument(next: Instrument) {
+    if (next === instrument) return;
+    setInstrument(next);
+    setPicked(defaultPicks(reply?.setups ?? [], next));
+    setFrom("");
+    setTo("");
+    setNote(null);
+  }
 
   const coverage = reply?.coverage?.coverage ?? null;
-  // A standalone NIFTY run reads NIFTY's options, so its dates are bounded by those.
-  const nifty = (reply?.setups ?? []).some((s) => s.standalone && picked.includes(s.setup));
+  // A NIFTY run reads NIFTY's options, so its dates are bounded by those.
+  const nifty = instrument === "NIFTY";
   const options = (nifty ? coverage?.indexOptions : coverage?.options) ?? null;
 
   useEffect(() => {
@@ -146,7 +158,9 @@ export default function Backtest({ onOpenRun }: { onOpenRun?: (runId: string) =>
       ) : (
         <div className="flex flex-col gap-5 px-4 py-4">
           <Ask
-            setups={reply.setups ?? []}
+            instrument={instrument}
+            onInstrument={chooseInstrument}
+            setups={(reply.setups ?? []).filter((s) => instrumentOf(s) === instrument)}
             picked={picked}
             onPick={setPicked}
             from={from}
@@ -166,7 +180,26 @@ export default function Backtest({ onOpenRun }: { onOpenRun?: (runId: string) =>
   );
 }
 
+/**
+ * The legs picked when an instrument is chosen: the desk's own live legs for
+ * the stocks, the A/B/C NIFTY legs for NIFTY. Other backtest-only rules are
+ * never picked for you.
+ */
+function defaultPicks(setups: SetupOption[], instrument: Instrument): string[] {
+  if (instrument === "NIFTY") {
+    return setups.filter((s) => s.book === "nifty-abc").map((s) => s.setup);
+  }
+  return setups.filter((s) => !s.backtestOnly && instrumentOf(s) === "STOCKS").map((s) => s.setup);
+}
+
+const INSTRUMENTS: { value: Instrument; label: string; hint: string }[] = [
+  { value: "STOCKS", label: "Stocks", hint: "NIFTY 200 stock options (the top 100 archived each month)" },
+  { value: "NIFTY", label: "NIFTY", hint: "NIFTY's own weekly options" },
+];
+
 function Ask({
+  instrument,
+  onInstrument,
   setups,
   picked,
   onPick,
@@ -180,6 +213,8 @@ function Ask({
   note,
   onRun,
 }: {
+  instrument: Instrument;
+  onInstrument: (i: Instrument) => void;
   setups: SetupOption[];
   picked: string[];
   onPick: (ids: string[]) => void;
@@ -193,12 +228,39 @@ function Ask({
   note: string | null;
   onRun: () => void;
 }) {
-  const nifty = setups.some((s) => s.standalone && picked.includes(s.setup));
+  const nifty = instrument === "NIFTY";
   const options = (nifty ? coverage?.indexOptions : coverage?.options) ?? null;
   const ready = picked.length > 0 && !!from && !!to && from <= to && !busy;
 
   return (
     <div className="rounded-[5px] border border-line bg-sunken p-3">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <span className="text-[10px] font-bold uppercase tracking-[0.13em] text-muted">
+          Instrument
+        </span>
+        <div className="flex gap-1" role="radiogroup" aria-label="Instrument">
+          {INSTRUMENTS.map((i) => (
+            <button
+              key={i.value}
+              type="button"
+              role="radio"
+              aria-checked={instrument === i.value}
+              title={i.hint}
+              onClick={() => onInstrument(i.value)}
+              className={`rounded-[4px] border px-2.5 py-1 text-[12px] ${
+                instrument === i.value
+                  ? "border-accent bg-accentsoft font-semibold text-accent"
+                  : "border-line text-ink2 hover:bg-surface2"
+              }`}
+            >
+              {i.label}
+            </button>
+          ))}
+        </div>
+        <span className="text-[11px] text-faint">
+          {INSTRUMENTS.find((i) => i.value === instrument)?.hint}
+        </span>
+      </div>
       <div className="mb-3 flex flex-wrap items-end gap-4">
         <fieldset className="flex flex-col gap-1.5">
           <legend className="mb-1 text-[10px] font-bold uppercase tracking-[0.13em] text-muted">
@@ -370,7 +432,7 @@ function Coverage({
   );
 }
 
-/** What the archive holds for the NIFTY opening-range rule: NIFTY's own weekly options. */
+/** What the archive holds for the NIFTY runs (A/B/C on NIFTY, the opening range): NIFTY's own weekly options. */
 function IndexCoverage({
   coverage,
   outOfRange,

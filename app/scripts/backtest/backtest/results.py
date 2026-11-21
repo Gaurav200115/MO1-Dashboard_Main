@@ -95,10 +95,6 @@ def trade_document(position, run_id):
     # stop and the premium backstop sat.
     if context.get("pullbackStop"):
         trigger["pullbackStop"] = dict(context["pullbackStop"])
-    # Weekly rule only: the day's rank that let it in, the pivot week, and
-    # whether any minute of it was priced by Black-Scholes past the archive.
-    if context.get("weekly"):
-        trigger["weekly"] = dict(context["weekly"])
 
     return {
         "_id": f"{run_id}:{position.symbol}:{_ms(position.entry_at)}:{position.setup}",
@@ -264,9 +260,6 @@ def save_results(db, run_id, positions, report):
         "incompleteStockDays": report["incompleteStockDays"],
         "trades": report["summary"]["trades"],
         "error": None,
-        # Weekly rule only; absent (None) on every other run.
-        "summaryExEstimated": report.get("summaryExEstimated"),
-        "estimatedTrades": report.get("estimatedTrades"),
     }})
 
 

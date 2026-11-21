@@ -34,13 +34,24 @@ export interface SetupOption {
    * Which book the leg trades on. A run holds exactly one: the desk's own legs
    * ("desk"), the ADR variant of them ("adr"), the pullback-stop variant
    * ("pullback-stop"), the daily-loss-limit variant ("adr-daily-loss"), the
-   * per-pivot skew variant ("adr-pivot-skew"), the weekly 1-hour overnight
-   * variant ("weekly-1h-top3"), or NIFTY's opening range
+   * per-pivot skew variant ("adr-pivot-skew"), or NIFTY's opening range
    * ("nifty"). Mirrors `book_of` in backtest/strategies.py.
    */
   book: string;
   /** A short label shown beside the leg, e.g. what a variant changes. */
   tag?: string;
+  /**
+   * What the leg trades: the NIFTY 200 stock options (the default) or NIFTY's
+   * own weekly options. The backtest page picks the instrument first and lists
+   * only that instrument's legs.
+   */
+  instrument?: Instrument;
+}
+
+export type Instrument = "STOCKS" | "NIFTY";
+
+export function instrumentOf(s: SetupOption): Instrument {
+  return s.instrument ?? "STOCKS";
 }
 
 /**
@@ -65,6 +76,7 @@ const BACKTEST_ONLY: SetupOption[] = [
     backtestOnly: true,
     standalone: true,
     book: "nifty",
+    instrument: "NIFTY",
   },
 
   /*
@@ -306,63 +318,64 @@ const BACKTEST_ONLY: SetupOption[] = [
   },
 
   /*
-   * Weekly pivots on a 1-hour EMA, top 3 by OI + skew, held overnight
-   * (2026-11-19). Live long v11 / short v7 otherwise. Pivots from last week's
-   * high/low/close, fixed for the week; 21 EMA on 1-hour bars from 09:15. Each
-   * morning only the 3 stocks with the best skew rank + OI rank (previous
-   * session's chain, better of the two majors) may enter. Positions are held
-   * overnight, closed 15:15 on expiry day; no entries in the last 3 sessions
-   * before expiry. Past the archived ATM±3 the option is priced by
-   * Black-Scholes at its last real IV, and the trade is marked estimated.
+   * The live A, B and C on NIFTY (2026-11-21). Long v11 / short v7 run on NIFTY's
+   * weekly options instead of the stocks: pivots from NIFTY's previous session,
+   * confirmed by the NIFTY weekly chain's OI; ADR from NIFTY's own range; 21 EMA
+   * on 5-minute bars. R is ₹650 (1:2 target ₹1,300, ladder in ₹650 steps). Any
+   * number of trades a day — a leg that fires waits for a fresh setup straight
+   * away; max 3 open is the only limit. Expiry day trades the expiring weekly.
    *
-   * Python: `BREAKOUT_RETRACE_1H_WEEKLY` / `BREAKDOWN_RETRACE_1H_WEEKLY` in
-   * backtest/strategies.py, rule in backtest/weekly.py; tests/test_weekly.py
-   * checks these three entries match.
+   * Python: `NIFTY_BREAKOUT_RETRACE_21EMA` / `NIFTY_BREAKDOWN_RETRACE_21EMA` in
+   * backtest/strategies.py; tests/test_nifty_abc.py checks these three entries match.
    */
   {
-    setup: "A-WK",
-    strategy: "breakout-retrace-1h-weekly",
-    strategyName: "Level Break → 21 EMA Retrace [1h EMA, weekly pivots, top 3 OI+skew, overnight]",
+    setup: "A-NIFTY",
+    strategy: "nifty-breakout-retrace-21ema",
+    strategyName: "NIFTY Level Break → 21 EMA Retrace [NIFTY weekly, R 650, re-arm]",
     version: 1,
     label: "Break & retrace",
     side: "LONG",
     option: "CE",
     description:
-      "Setup A on weekly pivots and a 1-hour 21 EMA. Only the day's top 3 stocks (skew rank + " +
-      "OI rank) may enter; held overnight, ₹550 SL, 1:2 → +1R ladder; closed 15:15 on expiry day.",
+      "Live setup A on NIFTY: breaks NIFTY's major resistance (pivots + weekly-chain OI), " +
+      "retraces to the 5-min 21 EMA, enters on the ADR turn. ATM weekly call, ₹650 SL, " +
+      "1:2 → +1R ladder. Re-arms on a fresh break; any number a day.",
     backtestOnly: true,
-    book: "weekly-1h-top3",
-    tag: "1h · weekly pivots · top 3 · overnight",
+    book: "nifty-abc",
+    tag: "NIFTY · R ₹650 · re-arm",
+    instrument: "NIFTY",
   },
   {
-    setup: "B-WK",
-    strategy: "breakout-retrace-1h-weekly",
-    strategyName: "Level Break → 21 EMA Retrace [1h EMA, weekly pivots, top 3 OI+skew, overnight]",
+    setup: "B-NIFTY",
+    strategy: "nifty-breakout-retrace-21ema",
+    strategyName: "NIFTY Level Break → 21 EMA Retrace [NIFTY weekly, R 650, re-arm]",
     version: 1,
     label: "Support hold & level cross",
     side: "LONG",
     option: "CE",
     description:
-      "Setup B on weekly levels: holds above the weekly major support, crosses another weekly " +
-      "level above the 1-hour EMA. Top 3 stocks only; held overnight.",
+      "Live setup B on NIFTY: holding above the major support, crosses another confirmed level " +
+      "above the 21 EMA. ATM weekly call, ₹650 SL. Re-arms on a fresh cross.",
     backtestOnly: true,
-    book: "weekly-1h-top3",
-    tag: "1h · weekly pivots · top 3 · overnight",
+    book: "nifty-abc",
+    tag: "NIFTY · R ₹650 · re-arm",
+    instrument: "NIFTY",
   },
   {
-    setup: "C-WK",
-    strategy: "breakdown-retrace-1h-weekly",
-    strategyName: "Support Break → 21 EMA Retrace (Short) [1h EMA, weekly pivots, top 3 OI+skew, overnight]",
+    setup: "C-NIFTY",
+    strategy: "nifty-breakdown-retrace-21ema",
+    strategyName: "NIFTY Support Break → 21 EMA Retrace (Short) [NIFTY weekly, R 650, re-arm]",
     version: 1,
     label: "Breakdown & retrace",
     side: "SHORT",
     option: "PE",
     description:
-      "Setup C on weekly pivots and a 1-hour 21 EMA. Only the day's top 3 stocks may enter; " +
-      "held overnight, ₹550 SL, 1:2 → +1R ladder; closed 15:15 on expiry day.",
+      "Live setup C on NIFTY: breaks the major support, rallies to the 5-min 21 EMA, enters on " +
+      "the ADR roll-over. ATM weekly put, ₹650 SL, 1:2 → +1R ladder. Re-arms on a fresh break.",
     backtestOnly: true,
-    book: "weekly-1h-top3",
-    tag: "1h · weekly pivots · top 3 · overnight",
+    book: "nifty-abc",
+    tag: "NIFTY · R ₹650 · re-arm",
+    instrument: "NIFTY",
   },
 ];
 
@@ -398,7 +411,7 @@ export function mixError(setupIds: string[]): string | null {
     setupIds.map((id) => all.find((s) => s.setup === id)?.book).filter(Boolean)
   );
   if (books.size > 1) {
-    return "A/B/C and its variants (-ADR, -PB, -DL, -SK, -WK) are alternatives, not additions — replay each set in a run of its own";
+    return "A/B/C, its variants (-ADR, -PB, -DL, -SK) and the -NIFTY legs are alternatives, not additions — replay each set in a run of its own";
   }
   return null;
 }

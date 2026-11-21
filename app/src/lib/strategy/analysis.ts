@@ -25,7 +25,12 @@ import type { StrategyTrade } from "./types";
 
 export type Outcome = "WIN" | "LOSS" | "BE";
 export type HoldKey = "le10s" | "10s1m" | "1to5m" | "5to15m" | "15to60m" | "gt60m";
-export type NthKey = "1" | "2" | "3" | "4+";
+/**
+ * A trade's position in its day, as a string: "1", "2", "3" … with no cap. The
+ * NIFTY legs can take any number of trades a day, so lumping everything past the
+ * third into one bucket would hide exactly the trades worth looking at.
+ */
+export type NthKey = string;
 
 export interface AnalysedTrade {
   trade: StrategyTrade;
@@ -47,6 +52,8 @@ export interface AnalysedTrade {
   charges: number;
   /** 1-based position among the day's trades (all strategies), by entry. */
   nth: number;
+  /** Calendar days from the trading date to the option's expiry; 0 on expiry day. */
+  dte: number | null;
   /**
    * How far the premium actually ran, in R, or null when the record cannot say.
    * See `peakR` — a ratchet proves the rung was touched, and nothing below 2R
@@ -116,6 +123,7 @@ export function analyse(
       cost: t.qty * t.buy.price,
       charges: tradeCharges(t),
       nth: nthOf.get(t._id) ?? 1,
+      dte: dteOf(t),
       peak: peakR(t),
       skew: skewKey(t),
       strategyKey: `${t.strategyId}@${t.strategyVersion}`,
@@ -167,6 +175,10 @@ export interface Filters {
    * never excluded by it.
    */
   skewOut: string[];
+  /** Setup ids (A, B, C-NIFTY …) to leave OUT, as an exclusion list like `pivotOut`. */
+  setupOut: string[];
+  /** Days-to-expiry bands to leave OUT, as `dteKey` values ("0" = expiry day). */
+  dteOut: string[];
   trailed: "" | "yes" | "no";
   nth: "" | NthKey;
   symbol: string;
@@ -197,6 +209,8 @@ export const EMPTY_FILTERS: Filters = {
   pivotOut: [],
   peakOut: [],
   skewOut: [],
+  setupOut: [],
+  dteOut: [],
   trailed: "",
   nth: "",
   symbol: "",
@@ -221,7 +235,46 @@ function hhmm(value: string): number | null {
 }
 
 export function nthKey(n: number): NthKey {
-  return n >= 4 ? "4+" : (String(n) as NthKey);
+  return String(n);
+}
+
+export function nthLabel(key: NthKey): string {
+  const n = Number(key);
+  const suffix = n % 100 >= 11 && n % 100 <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] ?? "th";
+  return n === 1 ? "1st trade of the day" : `${n}${suffix} trade`;
+}
+
+export function sortNth(keys: Iterable<string>): string[] {
+  return [...new Set(keys)].sort((a, b) => Number(a) - Number(b));
+}
+
+/** Calendar days from the trading date to expiry, or null when the record has no expiry. */
+export function dteOf(trade: StrategyTrade): number | null {
+  const expiry = trade.instrument?.expiry;
+  if (!expiry || !trade.tradingDate) return null;
+  const days = Math.round(
+    (Date.parse(`${expiry.slice(0, 10)}T00:00:00Z`) - Date.parse(`${trade.tradingDate}T00:00:00Z`)) /
+      86_400_000
+  );
+  return Number.isFinite(days) && days >= 0 ? days : null;
+}
+
+/** A week of single days, then everything further out — monthly stock options land there. */
+export const DTE_TOP = 7;
+
+export function dteKey(dte: number | null): string | null {
+  if (dte === null) return null;
+  return dte >= DTE_TOP ? `${DTE_TOP}+` : String(dte);
+}
+
+export function dteLabel(key: string): string {
+  if (key === "0") return "Expiry day";
+  if (key === `${DTE_TOP}+`) return `${DTE_TOP}+ days`;
+  return key === "1" ? "1 day" : `${key} days`;
+}
+
+export function sortDte(keys: Iterable<string>): string[] {
+  return [...new Set(keys)].sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
 }
 
 export function applyFilters(rows: AnalysedTrade[], f: Filters): AnalysedTrade[] {
@@ -249,6 +302,11 @@ export function applyFilters(rows: AnalysedTrade[], f: Filters): AnalysedTrade[]
       return false;
     if (f.peakOut.length && f.peakOut.includes(peakKey(a.peak))) return false;
     if (f.skewOut.length && a.skew !== null && f.skewOut.includes(a.skew)) return false;
+    if (f.setupOut.length && f.setupOut.includes(t.setup)) return false;
+    if (f.dteOut.length) {
+      const k = dteKey(a.dte);
+      if (k !== null && f.dteOut.includes(k)) return false;
+    }
     if (f.trailed === "yes" && t.step <= 1) return false;
     if (f.trailed === "no" && t.step > 1) return false;
     if (f.nth && nthKey(a.nth) !== f.nth) return false;
@@ -574,13 +632,6 @@ export const HOLD_LABELS: Record<HoldKey, string> = {
   gt60m: "Over 1 hour",
 };
 
-export const NTH_LABELS: Record<NthKey, string> = {
-  "1": "1st trade of the day",
-  "2": "2nd trade",
-  "3": "3rd trade",
-  "4+": "4th onwards",
-};
-
 export const EXIT_LABELS: Record<string, string> = {
   stop: "Stop-loss",
   "trail-stop": "Trailing stop",
@@ -589,8 +640,6 @@ export const EXIT_LABELS: Record<string, string> = {
   "no-quote": "No quote",
   "out-of-band": "Ran past the archive",
   backstop: "Premium backstop (1.5R)",
-  expiry: "Closed on expiry day",
-  "run-end": "Open at end of run",
 };
 
 /** The pseudo-tag for "nothing on this trade", so it can be picked like any other. */

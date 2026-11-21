@@ -28,8 +28,12 @@ import {
   matchPreset,
   medianHold,
   MIN_SAMPLE,
-  NTH_LABELS,
+  dteKey,
+  dteLabel,
   nthKey,
+  nthLabel,
+  sortDte,
+  sortNth,
   presetRange,
   RANGE_PRESETS,
   rDistribution,
@@ -167,7 +171,14 @@ export default function TradeAnalysis({
     const peaks = new Set<string>();
     const skews = new Set<string>();
     const tagsUsed = new Set<string>();
-    for (const { trade: t, setupKey, peak, skew, tags } of all) {
+    const setupIds = new Set<string>();
+    const dtes = new Set<string>();
+    const nths = new Set<string>();
+    for (const { trade: t, setupKey, peak, skew, tags, dte, nth } of all) {
+      setupIds.add(t.setup);
+      const d = dteKey(dte);
+      if (d !== null) dtes.add(d);
+      nths.add(nthKey(nth));
       peaks.add(peak === null ? "none" : String(peak));
       if (skew !== null) skews.add(skew);
       for (const tag of tags) tagsUsed.add(tag);
@@ -184,6 +195,9 @@ export default function TradeAnalysis({
       peaks: sortPeaks(peaks),
       skews: sortSkews(skews),
       tags: [...tagsUsed].sort(),
+      setupIds: [...setupIds].sort(),
+      dtes: sortDte(dtes),
+      nths: sortNth(nths),
     };
   }, [all]);
 
@@ -288,7 +302,8 @@ function Results({
       tenAm: breakdown(rows, (a) => (a.entryMin < 600 ? "pre" : "post"), (k) => (k === "pre" ? "Before 10 AM" : "10 AM onwards"), ["pre", "post"]),
       dow: breakdown(rows, (a) => String(a.dow), (k) => DOW_LABELS[Number(k)], ["1", "2", "3", "4", "5"]),
       hold: breakdown(rows, (a) => a.hold, (k) => HOLD_LABELS[k as HoldKey], Object.keys(HOLD_LABELS)),
-      nth: breakdown(rows, (a) => nthKey(a.nth), (k) => NTH_LABELS[k as keyof typeof NTH_LABELS], Object.keys(NTH_LABELS)),
+      nth: breakdown(rows, (a) => nthKey(a.nth), nthLabel, sortNth(rows.map((a) => nthKey(a.nth)))),
+      dte: breakdown(rows, (a) => dteKey(a.dte), dteLabel, sortDte(rows.flatMap((a) => dteKey(a.dte) ?? []))),
       strategy: breakdown(rows, (a) => a.strategyKey, strategyName),
       setup: breakdown(rows, (a) => a.setupKey, setupName),
       exit: breakdown(rows, (a) => a.trade.sell?.reason ?? null, (k) => EXIT_LABELS[k] ?? k),
@@ -492,6 +507,7 @@ function Results({
         <Breakdown title="Setup" buckets={b.setup} onPick={(k) => set({ setup: k })} />
         <Breakdown title="Exit reason" buckets={b.exit} onPick={(k) => set({ exit: k })} />
         <Breakdown title="Trade number of the day" buckets={b.nth} onPick={(k) => set({ nth: k as Filters["nth"] })} />
+        <Breakdown title="Days to expiry" buckets={b.dte} onPick={(k) => set({ dteOut: sortDte(rows.flatMap((a) => dteKey(a.dte) ?? [])).filter((x) => x !== k) })} />
         <Breakdown title="Weekday" buckets={b.dow} onPick={(k) => set({ dow: [Number(k)] })} />
         <Breakdown title="Option type" buckets={b.option} onPick={(k) => set({ option: k as Filters["option"] })} />
         <Breakdown title="Trigger level" buckets={b.level} onPick={(k) => set({ level: k as Filters["level"] })} />
@@ -629,6 +645,9 @@ function FilterBar({
     pivots: string[];
     peaks: string[];
     skews: string[];
+    setupIds: string[];
+    dtes: string[];
+    nths: string[];
     tags: string[];
   };
   shown: number;
@@ -858,6 +877,28 @@ function FilterBar({
           </Row>
         ) : null}
 
+        {options.setupIds.length > 1 ? (
+          <ExcludeRow
+            label="Setups"
+            keys={options.setupIds}
+            out={f.setupOut}
+            labelOf={(k) => k}
+            hint="Setups in this record · click to exclude"
+            onChange={(next) => set({ setupOut: next })}
+          />
+        ) : null}
+
+        {options.dtes.length > 0 ? (
+          <ExcludeRow
+            label="To expiry"
+            keys={options.dtes}
+            out={f.dteOut}
+            labelOf={dteLabel}
+            hint="Calendar days from the trade's date to its option's expiry · click to exclude"
+            onChange={(next) => set({ dteOut: next })}
+          />
+        ) : null}
+
         {options.tags.length > 0 ? (
           <Row label="Tags">
             <div className="flex flex-wrap gap-1">
@@ -1009,9 +1050,9 @@ function FilterBar({
           </Select>
           <Select label="Trade # of day" value={f.nth} onChange={(v) => set({ nth: v as Filters["nth"] })}>
             <option value="">Any</option>
-            {Object.entries(NTH_LABELS).map(([k, label]) => (
+            {options.nths.map((k) => (
               <option key={k} value={k}>
-                {label}
+                {nthLabel(k)}
               </option>
             ))}
           </Select>
@@ -1057,6 +1098,61 @@ function FilterBar({
 
 const inputCls =
   "rounded-md border border-line bg-sunken px-2 py-1 font-mono text-[11.5px] text-ink";
+
+/**
+ * A row of chips that are all on until clicked off — the shape of the pivot and
+ * skew rows, for any dimension where "these, minus a few" is the question.
+ */
+function ExcludeRow({
+  label,
+  keys,
+  out,
+  labelOf,
+  hint,
+  onChange,
+}: {
+  label: string;
+  keys: string[];
+  out: string[];
+  labelOf: (k: string) => string;
+  hint: string;
+  onChange: (next: string[]) => void;
+}) {
+  return (
+    <Row label={label}>
+      <div className="flex flex-wrap gap-1">
+        {keys.map((k) => {
+          const off = out.includes(k);
+          const text = labelOf(k);
+          return (
+            <button
+              key={k}
+              type="button"
+              aria-pressed={!off}
+              title={off ? `${text} excluded — click to include it again` : `Exclude ${text}`}
+              onClick={() => onChange(off ? out.filter((x) => x !== k) : [...out, k])}
+              className={
+                off
+                  ? "rounded-[4px] border border-dashed border-line px-2 py-0.5 font-mono text-[11.5px] text-faint line-through"
+                  : chipCls(true)
+              }
+            >
+              {text}
+            </button>
+          );
+        })}
+      </div>
+      <span className="text-[10.5px] text-faint">
+        {out.length === 0 ? hint : `${out.length} excluded`}
+      </span>
+      {out.length > 0 ? (
+        <button type="button" onClick={() => onChange([])} className="text-[11px] text-accent">
+          Include all
+        </button>
+      ) : null}
+    </Row>
+  );
+}
 
 function chipCls(on: boolean) {
   return `rounded-[4px] border px-2 py-0.5 text-[11.5px] ${
