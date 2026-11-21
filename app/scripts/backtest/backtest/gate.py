@@ -102,15 +102,20 @@ def assess(entry_bar, strike_stats, chain_max_oi, liquidity, lot_size, params, f
     marks.append(("contracts that day", contracts,
                   _band(contracts, floors["day_contracts_min"], floors["day_contracts_clear"])))
 
-    turnover = liquidity.get("turnover_median")
-    measures["turnoverMedian"] = turnover
-    marks.append(("monthly turnover", turnover,
-                  _band(turnover, floors["turnover_median_min"], floors["turnover_median_clear"])))
+    # The two monthly proxies come from the stock liquidity ranking, which NIFTY
+    # is not in. For the NIFTY legs they are skipped rather than read as missing
+    # (missing would mark every NIFTY trade `approx`); the exact checks and the
+    # two per-contract proxies above still apply.
+    if not params.get("skipStockLiquidity"):
+        turnover = liquidity.get("turnover_median")
+        measures["turnoverMedian"] = turnover
+        marks.append(("monthly turnover", turnover,
+                      _band(turnover, floors["turnover_median_min"], floors["turnover_median_clear"])))
 
-    atm_oi = liquidity.get("atm_oi_lots")
-    measures["atmOiLots"] = atm_oi
-    marks.append(("monthly ATM OI", atm_oi,
-                  _band(atm_oi, floors["atm_oi_lots_min"], floors["atm_oi_lots_clear"])))
+        atm_oi = liquidity.get("atm_oi_lots")
+        measures["atmOiLots"] = atm_oi
+        marks.append(("monthly ATM OI", atm_oi,
+                      _band(atm_oi, floors["atm_oi_lots_min"], floors["atm_oi_lots_clear"])))
 
     for label, value, mark in marks:
         if mark == REJECTED:

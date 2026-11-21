@@ -140,21 +140,6 @@ def session_ohlc(conn, session, symbols):
     return out
 
 
-def sessions_ohlc(conn, days, symbols):
-    """{symbol: {day: (high, low, close)}} for several sessions - the weekly rule's
-    pivots are built from a whole week of bhavcopy rows."""
-    rows = conn.execute(
-        "SELECT symbol, trade_date, high_paise, low_paise, close_paise FROM cm_bhavcopy "
-        "WHERE trade_date = ANY(%s) AND series = 'EQ' AND symbol = ANY(%s)",
-        (list(days), list(symbols)))
-    out = defaultdict(dict)
-    for sym, day, high, low, close in rows:
-        if None in (high, low, close):
-            continue
-        out[sym][day] = (_rs(high), _rs(low), _rs(close))
-    return dict(out)
-
-
 def daily_history(conn, upto, symbols, sessions):
     """{symbol: [(date, high, low, close)]} - each stock's last `sessions` bhavcopy
     rows on or before `upto`, in rupees. For the ADR variant's average daily range.
@@ -179,7 +164,7 @@ def daily_history(conn, upto, symbols, sessions):
     return {sym: hist[-sessions:] for sym, hist in out.items()}
 
 
-def levels_expiry(conn, session, symbol):
+def levels_expiry(conn, session, symbol, instrument="OPTSTK"):
     """The expiry the overnight scan reads: nearest **strictly after** the session.
 
     Strictly after, not on. lib/eod/chain.ts nearestExpiry says why: a scan
@@ -190,12 +175,12 @@ def levels_expiry(conn, session, symbol):
     """
     row = conn.execute(
         "SELECT min(expiry_date) FROM fo_bhavcopy "
-        "WHERE trade_date = %s AND symbol = %s AND instrument = 'OPTSTK' AND expiry_date > %s",
-        (session, symbol, session)).fetchone()
+        "WHERE trade_date = %s AND symbol = %s AND instrument = %s AND expiry_date > %s",
+        (session, symbol, instrument, session)).fetchone()
     return row[0] if row and row[0] else None
 
 
-def option_chain(conn, session, symbol, expiry):
+def option_chain(conn, session, symbol, expiry, instrument="OPTSTK"):
     """{strike_rs: {"CE": oi, "PE": oi}} for one expiry, from that session's F&O bhavcopy.
 
     `open_interest` is in shares. The confluence test compares call OI against
@@ -203,8 +188,8 @@ def option_chain(conn, session, symbol, expiry):
     """
     rows = conn.execute(
         "SELECT strike_paise, option_type, open_interest FROM fo_bhavcopy "
-        "WHERE trade_date = %s AND symbol = %s AND instrument = 'OPTSTK' AND expiry_date = %s",
-        (session, symbol, expiry))
+        "WHERE trade_date = %s AND symbol = %s AND instrument = %s AND expiry_date = %s",
+        (session, symbol, instrument, expiry))
     chain = defaultdict(dict)
     for strike, opt_type, oi in rows:
         if opt_type in ("CE", "PE"):
@@ -212,7 +197,7 @@ def option_chain(conn, session, symbol, expiry):
     return dict(chain)
 
 
-def chain_max_oi(conn, session, symbol, expiry, option_type):
+def chain_max_oi(conn, session, symbol, expiry, option_type, instrument="OPTSTK"):
     """The heaviest strike's open interest in the same chain, on the same side.
 
     The denominator of the live gate's `minStrikeOiShare` test - reproduced
@@ -220,23 +205,54 @@ def chain_max_oi(conn, session, symbol, expiry, option_type):
     """
     row = conn.execute(
         "SELECT max(open_interest) FROM fo_bhavcopy "
-        "WHERE trade_date = %s AND symbol = %s AND instrument = 'OPTSTK' "
+        "WHERE trade_date = %s AND symbol = %s AND instrument = %s "
         "AND expiry_date = %s AND option_type = %s",
-        (session, symbol, expiry, option_type)).fetchone()
+        (session, symbol, instrument, expiry, option_type)).fetchone()
     return float(row[0]) if row and row[0] else None
 
 
-def strike_day_stats(conn, session, symbol, expiry, strike_rs, option_type):
+def strike_day_stats(conn, session, symbol, expiry, strike_rs, option_type, instrument="OPTSTK"):
     """That strike's own end-of-day open interest and contracts traded."""
     row = conn.execute(
         "SELECT open_interest, contracts FROM fo_bhavcopy "
-        "WHERE trade_date = %s AND symbol = %s AND instrument = 'OPTSTK' "
+        "WHERE trade_date = %s AND symbol = %s AND instrument = %s "
         "AND expiry_date = %s AND strike_paise = %s AND option_type = %s",
-        (session, symbol, expiry, round(strike_rs * PAISE), option_type)).fetchone()
+        (session, symbol, instrument, expiry, round(strike_rs * PAISE), option_type)).fetchone()
     if not row:
         return {"open_interest": None, "contracts": None}
     return {"open_interest": float(row[0]) if row[0] is not None else None,
             "contracts": float(row[1]) if row[1] is not None else None}
+
+
+def index_daily(conn, upto, symbol, sessions):
+    """[(date, high, low, close)] - an index's last `sessions` days on or before `upto`,
+    folded from its own 1-minute bars (indices are not in the equity bhavcopy).
+
+    For the NIFTY legs: the previous session's high and low for the pivots, and
+    the 14 sessions of the ADR band. The close here is the last 1-minute close;
+    the pivots take the official close from `index_close` where it exists.
+    """
+    start = dt.datetime.combine(upto - dt.timedelta(days=max(42, sessions * 3)), dt.time(0, 0),
+                                tzinfo=IST)
+    end = dt.datetime.combine(upto, dt.time(0, 0), tzinfo=IST) + dt.timedelta(days=1)
+    rows = conn.execute(
+        "SELECT (ts AT TIME ZONE 'Asia/Kolkata')::date AS d, max(high_paise), min(low_paise), "
+        "       (array_agg(close_paise ORDER BY ts DESC))[1] "
+        "FROM spot_1min WHERE symbol = %s AND ts >= %s AND ts < %s "
+        "GROUP BY 1 ORDER BY 1",
+        (symbol, start, end))
+    out = [(d, _rs(h), _rs(l), _rs(c)) for d, h, l, c in rows if None not in (h, l, c)]
+    return out[-sessions:]
+
+
+def index_close(conn, session, symbol):
+    """The index's official close for `session`: the underlying price NSE prints on
+    every index option row of the F&O bhavcopy (from 2024-07-08). None before that."""
+    row = conn.execute(
+        "SELECT max(underlying_paise) FROM fo_bhavcopy "
+        "WHERE trade_date = %s AND symbol = %s AND instrument = 'OPTIDX'",
+        (session, symbol)).fetchone()
+    return _rs(row[0]) if row and row[0] else None
 
 
 def liquidity_row(conn, day, symbol):

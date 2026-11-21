@@ -27,11 +27,10 @@ Every command that replays takes --setups, defaulting to all of them:
     --setups A-SK B-SK C-SK
                       the live ADR rule, the major level picked with 5x skew for
                       R1/R3/S1/S3 and any skew for R2/S2/P - backtest only
-    --setups A-WK B-WK C-WK
-                      weekly pivots, 21 EMA on 1-hour bars, only the day's top 3
-                      stocks by skew + OI rank, held overnight - backtest only.
-                      `session` replays one day alone; `now`/`queue` carry
-                      positions across the whole range
+    --setups A-NIFTY B-NIFTY C-NIFTY
+                      the live A, B and C on NIFTY's weekly options: NIFTY's own
+                      pivots + weekly-chain OI, R 650, re-arm after each signal,
+                      max 3 open - backtest only
 
 `levels` and `session` print and store nothing. `now` and `queue` write to Mongo.
 """

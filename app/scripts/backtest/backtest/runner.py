@@ -26,14 +26,14 @@ import json
 import math
 from collections import defaultdict
 
-from . import charges, db, orb, pullback_stop, weekly
+from . import charges, db, orb, pullback_stop
 from .adr import adr_pct
 from .config import S, ist_time
 from .fills import step_position
 from .gate import CLEAR, assess, contract_tick, fill_price, step_too_costly
 from .levels import chain_window, plan_for_stock
 from .position import open_position
-from .signals import Ema, evaluate_symbol, initial_state
+from .signals import Ema, evaluate_symbol, initial_state, rearm
 from .strategies import (NIFTY_ORB_15M, SETUPS, STRATEGIES, leg_of, option_type, selection,
                          setup_for_leg)
 
@@ -145,6 +145,43 @@ def _session_plans(conn, day, prev, strategies, universe):
     return plans
 
 
+def _index_plans(conn, day, prev, strategies, symbol):
+    """The NIFTY legs' levels for `day`: the same overnight scan as a stock's, on the index.
+
+    High and low of `prev` come from the index's own 1-minute bars (an index is
+    not in the equity bhavcopy); the close is NSE's official close, read off the
+    index option rows of the F&O bhavcopy, falling back to the last 1-minute
+    close before that column exists (2024-07-08). The option chain is the index
+    options' (OPTIDX), nearest expiry strictly after `prev` - the weekly - and
+    the ADR is NIFTY's own over the 14 sessions ending on `prev`.
+    """
+    plans = defaultdict(dict)
+    period = max(st["params"].get("adrPeriod", 1) for st in strategies)
+    daily = db.index_daily(conn, prev, symbol, period)
+    if not daily or daily[-1][0] != prev:
+        return plans
+    _, high, low, last = daily[-1]
+    close = db.index_close(conn, prev, symbol) or last
+
+    expiry = db.levels_expiry(conn, prev, symbol, "OPTIDX")
+    if expiry is None:
+        return plans
+    chain = chain_window(db.option_chain(conn, prev, symbol, expiry, "OPTIDX"), close)
+    lot = db.index_lot_size(conn, prev, symbol, expiry)
+    if not chain or not lot:
+        return plans
+
+    for strategy in strategies:
+        params = strategy["params"]
+        plan = plan_for_stock(symbol, (high, low, close), chain, lot, None, params)
+        if plan is None:
+            continue
+        if params.get("entryBasis") == "adr":
+            plan.adr_pct = adr_pct(daily, params["adrPeriod"])
+        plans[strategy["id"]][symbol] = plan
+    return plans
+
+
 def _seed_closes(conn, day, prev, symbols, period, interval):
     """{symbol: [closes]} - the last period*4 settled interval bars before `day`."""
     need = period * SEED_BAR_MULTIPLE
@@ -186,10 +223,6 @@ def replay_session(conn, day, strategies, floors, log=None, setups=None):
     """
     if strategies[0]["id"] == NIFTY_ORB_15M["id"]:
         return orb.replay_session(conn, day, strategies[0], log=log)
-    # The weekly rule holds overnight, so a range is replayed with one carry
-    # through every day (run_range). A single day stands alone.
-    if weekly.is_weekly(strategies):
-        return weekly.replay_single(conn, day, strategies, floors, log=log, setups=setups)
 
     notes = {"signals": 0, "rejected": defaultdict(int), "skipped": defaultdict(int),
              "bySetup": defaultdict(int), "symbols": 0, "incomplete": 0}
@@ -198,20 +231,28 @@ def replay_session(conn, day, strategies, floors, log=None, setups=None):
     if prev is None:
         return [], notes
 
-    universe = db.option_universe(conn, day)
-    if not universe:
-        notes["skipped"]["no option universe for the month"] += 1
-        return [], notes
-
-    coverage = db.option_coverage(conn, day, universe)
-    plans = _session_plans(conn, day, prev, strategies, universe)
+    # The NIFTY legs trade one instrument, the index's weekly options, instead of
+    # the month's stock universe. Everything after the plans is the same replay.
+    index = strategies[0]["params"].get("instrument")
+    if index:
+        coverage = {index: db.index_coverage(conn, day, index)}
+        full = db.INDEX_SERIES_PER_DAY
+        plans = _index_plans(conn, day, prev, strategies, index)
+    else:
+        universe = db.option_universe(conn, day)
+        if not universe:
+            notes["skipped"]["no option universe for the month"] += 1
+            return [], notes
+        coverage = db.option_coverage(conn, day, universe)
+        full = db.OPTION_SERIES_PER_DAY
+        plans = _session_plans(conn, day, prev, strategies, universe)
     symbols = sorted({s for by_symbol in plans.values() for s in by_symbol})
     notes["symbols"] = len(symbols)
     if not symbols:
         return [], notes
 
     notes["incomplete"] = sum(1 for s in symbols
-                              if coverage.get(s, 0) < db.OPTION_SERIES_PER_DAY)
+                              if coverage.get(s, 0) < full)
 
     # A stock without 14 sessions of history has no ADR, so its retrace legs
     # cannot arm under the ADR rule. Counted, not hidden.
@@ -246,7 +287,10 @@ def replay_session(conn, day, strategies, floors, log=None, setups=None):
         key = (symbol, side)
         if key not in option_cache:
             if symbol not in expiry_cache:
-                expiry_cache[symbol] = db.entry_expiry(conn, day, symbol)
+                # An index's weekly: the expiry archived for that day, which on
+                # expiry day is the contract expiring that day (0 days to expiry).
+                expiry_cache[symbol] = (db.index_entry_expiry(conn, day, symbol) if index
+                                        else db.entry_expiry(conn, day, symbol))
             expiry = expiry_cache[symbol]
             option_cache[key] = ((None, None, None) if expiry is None
                                  else (expiry,) + db.option_day(conn, day, symbol, expiry, side))
@@ -315,6 +359,10 @@ def replay_session(conn, day, strategies, floors, log=None, setups=None):
                     clock.value, clock.last_bar_close, minute, entries_open, allowed)
                 if signal is None:
                     continue
+                # NIFTY legs: the leg waits for a fresh setup straight away,
+                # whether or not this signal is taken.
+                if strategy["params"].get("rearmAfterSignal"):
+                    rearm(state, signal.setup)
                 signal.setup = setup_for_leg(strategy, signal.setup)
 
                 notes["signals"] += 1
@@ -328,7 +376,8 @@ def replay_session(conn, day, strategies, floors, log=None, setups=None):
                 if len(open_positions) >= max_open:
                     notes["rejected"]["book full"] += 1
                     continue
-                if taken[sid] >= strategy["params"]["maxTradesPerDay"]:
+                day_cap = strategy["params"]["maxTradesPerDay"]
+                if day_cap is not None and taken[sid] >= day_cap:
                     notes["rejected"]["daily cap"] += 1
                     continue
 
@@ -397,8 +446,10 @@ def _try_fill(conn, day, prev, strategy, signal, plan, minute, floors,
         # The previous session's figures: what the overnight scan knew, and what
         # was knowable at the entry minute. The day's own end-of-day numbers
         # would be look-ahead.
-        gate_cache[key] = (db.strike_day_stats(conn, prev, signal.symbol, expiry, strike, side),
-                           db.chain_max_oi(conn, prev, signal.symbol, expiry, side),
+        instrument = "OPTIDX" if strategy["params"].get("instrument") else "OPTSTK"
+        gate_cache[key] = (db.strike_day_stats(conn, prev, signal.symbol, expiry, strike, side,
+                                               instrument),
+                           db.chain_max_oi(conn, prev, signal.symbol, expiry, side, instrument),
                            db.liquidity_row(conn, day, signal.symbol))
     strike_stats, chain_max, liquidity = gate_cache[key]
 
@@ -476,7 +527,9 @@ def data_revision(conn, start, end, setup_ids=()):
     """Changes whenever the archive under this range changes, so a run made
     before a gap was backfilled is not silently reused afterwards. Counted on
     the option data the run actually reads - NIFTY's for the opening-range rule."""
-    index = any(SETUPS[s]["strategy"] == NIFTY_ORB_15M["id"] for s in setup_ids)
+    index = any(SETUPS[s]["strategy"] == NIFTY_ORB_15M["id"]
+                or STRATEGIES[SETUPS[s]["strategy"]]["params"].get("instrument")
+                for s in setup_ids)
     dataset = db.INDEX_DATASET if index else "options_1min"
     row = conn.execute(
         "SELECT count(*), coalesce(max(finished_at), 'epoch') FROM done "
@@ -556,16 +609,9 @@ def run_range(conn, setup_ids, start, end, floors, log=None, on_progress=None):
     skipped = defaultdict(int)
     by_setup = defaultdict(int)
 
-    # The weekly rule's positions, EMAs and setups outlive a session.
-    carry = weekly.Carry() if weekly.is_weekly(strategies) else None
-
     for i, day in enumerate(days, 1):
-        if carry is not None:
-            day_positions, notes = weekly.replay_day(conn, day, strategies, floors, carry,
-                                                     log=log, setups=chosen)
-        else:
-            day_positions, notes = replay_session(conn, day, strategies, floors, log=log,
-                                                  setups=chosen)
+        day_positions, notes = replay_session(conn, day, strategies, floors, log=log,
+                                              setups=chosen)
         positions.extend(day_positions)
         totals["signals"] += notes["signals"]
         totals["symbols"] = max(totals["symbols"], notes["symbols"])
@@ -578,9 +624,6 @@ def run_range(conn, setup_ids, start, end, floors, log=None, on_progress=None):
             by_setup[k] += v
         if on_progress and i % S.PROGRESS_EVERY == 0:
             on_progress(i, len(days), day)
-
-    if carry is not None:
-        positions.extend(weekly.finish(carry))
 
     gate_counts = defaultdict(int)
     for p in positions:
@@ -603,10 +646,4 @@ def run_range(conn, setup_ids, start, end, floors, log=None, on_progress=None):
         "signals": totals["signals"],
         "incompleteStockDays": totals["incomplete"],
     }
-    if carry is not None:
-        # Trades priced by Black-Scholes for any minute past the archive's band.
-        # If this differs much from `summary`, the result leans on the estimate.
-        report["summaryExEstimated"] = summarise(
-            [p for p in positions if not weekly.is_estimated(p)])
-        report["estimatedTrades"] = sum(1 for p in positions if weekly.is_estimated(p))
     return positions, report

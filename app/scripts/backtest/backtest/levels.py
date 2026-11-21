@@ -72,9 +72,6 @@ class SymbolPlan:
     # price. Set by the runner on that variant's plans and nowhere else; the live
     # mirror's plans leave it None and never read it.
     adr_pct: float | None = None
-    # Weekly rule only: the previous session's close, which its rupee ADR band is
-    # measured on. A weekly plan's `close` is last week's close.
-    adr_close: float | None = None
 
 
 def fib_pivots(high, low, close):

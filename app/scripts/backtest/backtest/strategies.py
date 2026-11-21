@@ -416,63 +416,65 @@ BREAKDOWN_RETRACE_21EMA_SK = {
     "risk": dict(ADR_RISK),
 }
 
-# Weekly pivots on a 1-hour EMA, top 3 by OI + skew, held overnight - as Gaurav
-# specified it on 2026-11-19. Backtest only; weekly.py has the whole rule.
+# The live A, B and C traded on NIFTY instead of the stocks - as Gaurav specified
+# it on 2026-11-21. Backtest only; the desk never trades NIFTY.
 #
-# Base: the live long v11 / short v7 exactly (ADR retrace, per-pivot skew 5x
-# R1/R3/S1/S3, Rs 550 stop, 1:2 -> +1R ladder, book gate + step-cost gate,
-# entries until 13:00, 3 open at most). What changes:
-#   - pivots from the previous week's high / low / close, confirmed on the chain
-#     of that week's last session, fixed for the week
-#   - the 21 EMA on 1-hour bars from 09:15
-#   - each morning only the top 3 stocks may enter: skew rank + OI rank (lots)
-#     of their major levels on the previous session's chain, better level counts
-#   - held overnight; closed 15:15 on expiry day; no entries in the last 3
-#     sessions before expiry (only the near month is archived)
-#   - past ATM+-3 the option is priced by Black-Scholes from the stock, at the
-#     IV of its last real print, and the trade is marked estimated
-#   - setup memory runs all week; a fired setup re-arms the next day
-WEEKLY_TAG = "1h EMA, weekly pivots, top 3 OI+skew, overnight"
+# The live long v11 / short v7 rule, run on one instrument: NIFTY's weekly
+# options (nearest expiry, so the expiring contract on expiry day - 0 DTE). The
+# overnight scan is the same, on the index: Fibonacci pivots from NIFTY's
+# previous session, confirmed by the NIFTY weekly option chain's OI (1.8x, ATM+-8,
+# 0.8% band, per-pivot 5x for R1/R3/S1/S3), ADR from NIFTY's own 14 sessions, the
+# 21 EMA on 5-minute bars. What differs:
+#   - R is Rs 650 a trade (1 lot), so the 1:2 target is Rs 1,300 and the ladder
+#     steps in Rs 650 - his number, not the stocks' Rs 550
+#   - any number of trades a day: a leg that fires waits for a fresh setup
+#     straight away (a new break for A and C, a new level cross for B), taken or
+#     not; no per-day or per-symbol cap. Max 3 open is the only limit.
+#   - the gate's monthly stock-liquidity proxies do not apply to an index and are
+#     skipped; its exact checks (volume, strike OI >= 3% of the chain's heaviest)
+#     run on the index options
+NIFTY_ABC_TAG = "NIFTY weekly, R 650, re-arm"
 
-WEEKLY_PARAMS = {
-    **{k: v for k, v in BREAKOUT_RETRACE_21EMA["params"].items() if k != "flattenIst"},
-    "emaIntervalMinutes": 60,
-    "pivotPeriod": "week",
-    "rankTop": 3,
-    "rankBy": "skewRank+oiLotsRank, better major level",
-    "holdOvernight": True,
-    "noEntrySessionsBeforeExpiry": 3,
-    "expiryFlattenIst": "15:15",
-    "outOfBand": "black-scholes at last real IV",
+NIFTY_ABC_PARAMS = {
+    **BREAKOUT_RETRACE_21EMA["params"],
+    "instrument": "NIFTY",
+    "maxTradesPerDay": None,
+    "maxTradesPerSymbolPerDay": None,
+    "rearmAfterSignal": True,
+    "skipStockLiquidity": True,
 }
 
-BREAKOUT_RETRACE_1H_WEEKLY = {
-    "id": "breakout-retrace-1h-weekly",
+NIFTY_ABC_RISK = dict(SHARED_RISK, rupeesPerTrade=650)
+
+NIFTY_BREAKOUT_RETRACE_21EMA = {
+    "id": "nifty-breakout-retrace-21ema",
     "version": 1,
-    "name": f"Level Break -> 21 EMA Retrace [{WEEKLY_TAG}]",
+    "name": f"NIFTY Level Break -> 21 EMA Retrace [{NIFTY_ABC_TAG}]",
     "backtestOnly": True,
-    "book": "weekly-1h-top3",
-    "setups": ["A-WK", "B-WK"],
-    "setupLabels": {"A-WK": f"Break & retrace [{WEEKLY_TAG}]",
-                    "B-WK": f"Support hold & level cross [{WEEKLY_TAG}]"},
-    "sides": {"A-WK": "LONG", "B-WK": "LONG"},
-    "legs": {"A-WK": "A", "B-WK": "B"},
-    "params": dict(WEEKLY_PARAMS),
-    "risk": dict(SHARED_RISK),
+    "instrument": "NIFTY",
+    "book": "nifty-abc",
+    "setups": ["A-NIFTY", "B-NIFTY"],
+    "setupLabels": {"A-NIFTY": "NIFTY break & retrace",
+                    "B-NIFTY": "NIFTY support hold & level cross"},
+    "sides": {"A-NIFTY": "LONG", "B-NIFTY": "LONG"},
+    "legs": {"A-NIFTY": "A", "B-NIFTY": "B"},
+    "params": dict(NIFTY_ABC_PARAMS),
+    "risk": dict(NIFTY_ABC_RISK),
 }
 
-BREAKDOWN_RETRACE_1H_WEEKLY = {
-    "id": "breakdown-retrace-1h-weekly",
+NIFTY_BREAKDOWN_RETRACE_21EMA = {
+    "id": "nifty-breakdown-retrace-21ema",
     "version": 1,
-    "name": f"Support Break -> 21 EMA Retrace (Short) [{WEEKLY_TAG}]",
+    "name": f"NIFTY Support Break -> 21 EMA Retrace (Short) [{NIFTY_ABC_TAG}]",
     "backtestOnly": True,
-    "book": "weekly-1h-top3",
-    "setups": ["C-WK"],
-    "setupLabels": {"C-WK": f"Breakdown & retrace [{WEEKLY_TAG}]"},
-    "sides": {"C-WK": "SHORT"},
-    "legs": {"C-WK": "C"},
-    "params": dict(WEEKLY_PARAMS),
-    "risk": dict(SHARED_RISK),
+    "instrument": "NIFTY",
+    "book": "nifty-abc",
+    "setups": ["C-NIFTY"],
+    "setupLabels": {"C-NIFTY": "NIFTY breakdown & retrace"},
+    "sides": {"C-NIFTY": "SHORT"},
+    "legs": {"C-NIFTY": "C"},
+    "params": dict(NIFTY_ABC_PARAMS),
+    "risk": dict(NIFTY_ABC_RISK),
 }
 
 ALL_STRATEGIES = (BREAKOUT_RETRACE_21EMA, BREAKDOWN_RETRACE_21EMA, NIFTY_ORB_15M,
@@ -480,7 +482,7 @@ ALL_STRATEGIES = (BREAKOUT_RETRACE_21EMA, BREAKDOWN_RETRACE_21EMA, NIFTY_ORB_15M
                   BREAKOUT_RETRACE_21EMA_PB, BREAKDOWN_RETRACE_21EMA_PB,
                   BREAKOUT_RETRACE_21EMA_DL, BREAKDOWN_RETRACE_21EMA_DL,
                   BREAKOUT_RETRACE_21EMA_SK, BREAKDOWN_RETRACE_21EMA_SK,
-                  BREAKOUT_RETRACE_1H_WEEKLY, BREAKDOWN_RETRACE_1H_WEEKLY)
+                  NIFTY_BREAKOUT_RETRACE_21EMA, NIFTY_BREAKDOWN_RETRACE_21EMA)
 STRATEGIES = {s["id"]: s for s in ALL_STRATEGIES}
 
 
@@ -567,7 +569,7 @@ def selection(setup_ids):
     # The variants (ADR, pullback stop, daily loss limit, pivot skew) are other
     # versions of the desk's legs, so no two of those books ever share a run.
     if len({book_of(STRATEGIES[sid]) for sid in chosen}) > 1:
-        raise SystemExit("A/B/C and its variants (-ADR, -PB, -DL, -SK, -WK) are alternatives, not "
+        raise SystemExit("A/B/C, its variants (-ADR, -PB, -DL, -SK) and the -NIFTY legs are alternatives, not "
                          "additions - replay each set in a run of its own")
     return sorted(chosen), chosen
 

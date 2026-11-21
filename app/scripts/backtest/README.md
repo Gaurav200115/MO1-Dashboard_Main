@@ -251,48 +251,35 @@ python run.py now --from 2025-11-10 --to 2026-10-30 --setups A-SK B-SK C-SK
 Compare with the ADR run on the same dates: only the major-level pick differs. Each trade stores
 the level it traded under `trigger.level` (`pivot`, `skew`), so the result can be split by pivot.
 
-## Backtest-only rule: weekly pivots, 1-hour EMA, top 3, held overnight (`--setups A-WK B-WK C-WK`)
+## Backtest-only rule: A, B and C on NIFTY (`--setups A-NIFTY B-NIFTY C-NIFTY`)
 
-`backtest/weekly.py`, defined as `BREAKOUT_RETRACE_1H_WEEKLY` / `BREAKDOWN_RETRACE_1H_WEEKLY`
-in `strategies.py`, tagged **1h EMA, weekly pivots, top 3 OI+skew, overnight**. As Gaurav
-specified it on 2026-11-19. Its own book (`weekly-1h-top3`), never mixed with another.
+Defined as `NIFTY_BREAKOUT_RETRACE_21EMA` / `NIFTY_BREAKDOWN_RETRACE_21EMA` in `strategies.py`,
+tagged **NIFTY weekly, R 650, re-arm**, book `nifty-abc`. As Gaurav specified it on 2026-11-21.
+On the dashboard: Backtest → Instrument **NIFTY**.
 
-- **Base: live long v11 / short v7** - ADR retrace, per-pivot skew (5x R1/R3/S1/S3), ₹550
-  stop, 1:2 → +1R ladder, book gate + step-cost gate, entries until 13:00, 3 open at most
-  across all three legs.
-- **Weekly pivots.** From the previous week's highest high, lowest low and last close
-  (a holiday week is skipped back over), confirmed on the option chain of that week's last
-  session. Fixed for the week. A stock with an ex-date inside the week sits the rest of it out.
-- **21 EMA on 1-hour bars** from 09:15 (09:15, 10:15 … 15:15, as Kite's 60-minute candles).
-  Carried across days - the 15:15 bar closes on the next morning's first minute - and
-  re-seeded from 84 hourly bars only after a missed session. The rule is still watched
-  minute by minute.
-- **Top 3 each day.** Before the open, each major level is scored on the *previous* session's
-  chain: skew at its strike, and the dominant side's open interest **in lots**. Both are
-  ranked across all levels (1 = strongest), the ranks added, and a stock scores with its
-  better level. Only the 3 lowest totals may open a trade that day (any of A, B, C). A held
-  stock that drops out keeps running and keeps its slot.
-- **Held overnight.** No 15:15 flatten. Closed at 15:15 on the contract's expiry day
-  (`expiry`). No new trade in the last 3 sessions before expiry - the archive holds only the
-  nearest month. Anything open when the run's dates end is closed at its last price (`run-end`).
-- **Past ATM±3: estimated.** When the held strike leaves the downloaded band, or the stock's
-  options were not downloaded that day, the option is priced each minute by Black-Scholes
-  from the stock's 1-minute bar (r = 6.5%, no dividends) at the implied volatility of the
-  contract's last real print. Stop and ladder run on that price. The trade is marked under
-  `trigger.weekly.estimated`, and the run stores `summaryExEstimated` / `estimatedTrades`
-  beside its headline. A large gap between the two means the result leans on the estimate.
-- **Setup memory runs all week.** A Monday break and a Tuesday pullback is one setup. A
-  setup that fires is spent for the day and re-arms the next morning (then needing a fresh
-  break). Everything resets each Monday with the new pivots.
+- **The live long v11 / short v7, on one instrument:** NIFTY's weekly options (the nearest
+  expiry archived for the day - so the expiring contract on expiry day, 0 DTE).
+- **The overnight scan on the index.** Pivots from NIFTY's previous session: high and low from
+  its 1-minute bars (`db.index_daily`), close = NSE's official close (`underlying_paise` on the
+  OPTIDX rows of the F&O bhavcopy; the last 1-minute close before 2024-07-08). Confirmed by
+  the OPTIDX weekly chain's open interest, nearest expiry strictly after the session - the same
+  1.8x / ATM±8 / 0.8% band / per-pivot 5x as the stocks. ADR from NIFTY's own 14 sessions.
+  Lot size from the bhavcopy (`index_lot_size`). 21 EMA on 5-minute bars, seeded the same way.
+- **R = ₹650** a trade at 1 lot (10 points on a 65 lot): 1:2 target ₹1,300, ladder in ₹650 steps.
+- **Any number of trades a day.** A leg that fires is re-armed at once (`rearmAfterSignal`) -
+  A and C need price back through the level and a fresh break, B a fresh cross - whether the
+  signal was taken or refused. No per-day or per-symbol cap; **max 3 open** is the only limit.
+  Entries until 13:00, flat 15:15, as live.
+- **The gate** runs its exact checks on the index options (OPTIDX: entry-minute volume, strike
+  OI ≥ 3% of the chain's heaviest) and its per-contract proxies; the two monthly stock-liquidity
+  proxies do not exist for an index and are skipped (`skipStockLiquidity`).
 
 ```
-python run.py now --from 2025-11-10 --to 2026-10-30 --setups A-WK B-WK C-WK
-python run.py session --day 2026-10-15 --setups A-WK B-WK C-WK     one day alone, nothing carried in
+python run.py now --from 2025-11-10 --to 2026-10-30 --setups A-NIFTY B-NIFTY C-NIFTY
 ```
 
-Each trade stores `trigger.weekly`: `rank`, `score`, `skewRank`, `oiRank`, `skew`, `oiLots`,
-`rankPivot`, `weekOf`, `pivotWeek`, `estimated`, `estimatedMinutes`, `estimatedExit`, `iv`.
-`tradingDate` is the entry day; `closedAt` may be days later.
+Trade analysis can split the result by setup, by trade number of the day (1st, 2nd … uncapped)
+and by days to expiry (expiry day, 1 … 6, 7+).
 
 ## Tests
 
@@ -310,10 +297,10 @@ python tests/test_pullback.py    the pullback stop: R, floor, cap, stock stop, b
 python tests/test_daily_loss.py  the ₹1,700 day stop: net of closed trades, open trades run on
 python tests/test_pivot_skew.py  5x for R1/R3/S1/S3, any for R2/S2/P: the pick, plans, sessions
 python tests/test_step_cost.py   v11 / v7: skip when one price step across the lot is over 0.2R
-python tests/test_weekly.py      A/B/C-WK: 1h bars, weekly levels, top 3, overnight, BS estimate
+python tests/test_nifty_abc.py   A/B/C-NIFTY: the scan on the index, re-arm, R 650, 0 DTE, OPTIDX gate
 ```
 
-537 checks, plus, for the live desk, `node scripts/test-live-desk.mjs` (76), `node scripts/test-levels-ts.mjs` (20) and `node scripts/test-feed.mjs` (26 - the Kite feed and the 09:00 reminder). `test_strategies.py` is the one that keeps the pair honest: each rule can be
+499 checks, plus, for the live desk, `node scripts/test-live-desk.mjs` (76), `node scripts/test-levels-ts.mjs` (20) and `node scripts/test-feed.mjs` (26 - the Kite feed and the 09:00 reminder). `test_strategies.py` is the one that keeps the pair honest: each rule can be
 correct on its own and the two still wrong together. Give the long rule three slots and the
 short rule three more and the replay runs six positions where the desk runs three, on twice
 the risk, with every figure downstream of it inflated.

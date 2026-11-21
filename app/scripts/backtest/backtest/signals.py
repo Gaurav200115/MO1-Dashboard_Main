@@ -136,7 +136,33 @@ def _rallied(state, ltp, rule):
 
 
 def _can_trade(state, params):
-    return state.trades_today < params["maxTradesPerSymbolPerDay"]
+    # None = no per-symbol limit (the NIFTY legs, where the one symbol is the whole book).
+    limit = params["maxTradesPerSymbolPerDay"]
+    return limit is None or state.trades_today < limit
+
+
+def rearm(state, leg):
+    """Puts a leg that just fired back to waiting for a *fresh* setup, the same day.
+
+    Backtest-only NIFTY legs (`rearmAfterSignal`). A and C go back to idle, so
+    they need price to come back through the level and break it again before a
+    new pullback can arm them; B goes back to watching, and its per-level memory
+    already says price is above the level it just crossed, so it needs a new cross.
+    """
+    if leg == "A":
+        state.phase_a = "idle"
+        state.crossed_at = None
+        state.high_since_cross = 0.0
+        state.zone_low = None
+        state.zone_at = None
+    elif leg == "B":
+        state.phase_b = "watching"
+    elif leg == "C":
+        state.phase_c = "idle"
+        state.broke_at = None
+        state.low_since_break = 0.0
+        state.zone_high = None
+        state.zone_high_at = None
 
 
 def evaluate_symbol(plan, state, params, ltp, ema, last_bar_close, at, entries_open, setups):
