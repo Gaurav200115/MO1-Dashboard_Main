@@ -3,6 +3,7 @@ import { loadOptionUniverse, type OptionContract } from "@/lib/eod/chain";
 import { requireConfig } from "@/lib/kite/config";
 import { quoteGate } from "@/lib/kite/gate";
 import { readSession } from "@/lib/kite/session";
+import { tradeExpiry } from "./expiryRoll";
 import { istDate } from "./ist";
 import type { OptionType, TradeInstrument } from "./types";
 
@@ -118,7 +119,11 @@ export async function resolveAtm(
   const live = nearestExpiry(contracts, today);
   if (!live) throw new NoContractError(symbol, "has no unexpired series");
 
-  const expiry = preferExpiry && preferExpiry >= today ? preferExpiry : live;
+  const near = preferExpiry && preferExpiry >= today ? preferExpiry : live;
+  // From E-2 to expiry day, next month's series: Zerodha refuses fresh buys of
+  // current-month stock options in the last two days (physical delivery).
+  // Paper and live both follow this, so they stay comparable (expiryRoll.ts).
+  const expiry = tradeExpiry(symbol, today, near, contracts.map((c) => c.expiry));
 
   let best: OptionContract | null = null;
   for (const contract of contracts) {
