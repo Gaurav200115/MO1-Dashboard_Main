@@ -242,9 +242,10 @@ def apply_bar(position, bar, risk, at):
     """
     if bar["low"] <= position.stop:
         trailed = position.stop > position.entry
+        at_cost = position.stop == position.entry and "breakeven" in position.context
         return {"action": "exit",
                 "price": min(bar["open"], position.stop),
-                "reason": "trail-stop" if trailed else "stop"}
+                "reason": "trail-stop" if trailed else "breakeven" if at_cost else "stop"}
 
     verdict = evaluate(position, bar["high"], risk, at)
     if verdict["action"] == "trail":
@@ -253,7 +254,24 @@ def apply_bar(position, bar, risk, at):
         position.target = advance["target"]
         position.step = advance["step"]
         position.ladder.extend(advance["steps"])
+    move_to_cost(position, bar["high"], risk, at)
     return {"action": "hold"}
+
+
+def move_to_cost(position, high, risk, at):
+    """Backtest-only break-even (`breakevenAtR`; -SK, -CAP, -35K): once the
+    premium touches entry + 1.5R, the stop moves to the entry price - cost to
+    cost. Only ever raises the stop, so once the 1:2 rung has put it at +1R this
+    does nothing. Read on the minute's high after the stop was tested on its
+    low, like the ladder: a minute that does both is a stop at the old level.
+    The live desk has no such rule (position.ts).
+    """
+    multiple = risk.get("breakevenAtR")
+    if multiple is None or position.stop >= position.entry:
+        return
+    if high >= position.entry + multiple * position.risk_per_unit:
+        position.stop = position.entry
+        position.context["breakeven"] = {"at": at, "atR": multiple}
 
 
 def close_position(position, price, at, reason):

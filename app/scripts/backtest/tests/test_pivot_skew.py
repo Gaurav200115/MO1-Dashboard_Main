@@ -56,7 +56,8 @@ check("the per-side 4x / 5x bars are not carried",
 check("everything else is the live ADR rule",
       {k: v for k, v in SK_LONG["params"].items() if k != "pivotMinSkew"},
       {k: v for k, v in S.ADR_PARAMS.items() if k not in ("resistanceSkew", "supportSkew")})
-check("the live stop and ladder", SK_LONG["risk"], S.BREAKOUT_RETRACE_21EMA["risk"])
+check("the live stop and ladder, plus v2's break-even at 1.5R",
+      SK_LONG["risk"], dict(S.BREAKOUT_RETRACE_21EMA["risk"], breakevenAtR=1.5))
 check("its own book", (SK_LONG["book"], SK_SHORT["book"]), ("adr-pivot-skew", "adr-pivot-skew"))
 
 # Long v10 / short v6 went live as this rule, unchanged; v11 / v7 added only the
@@ -67,8 +68,8 @@ for live_rule, sk_rule in ((S.BREAKOUT_RETRACE_21EMA, SK_LONG), (S.BREAKDOWN_RET
           {k: v for k, v in live_rule["params"].items() if k != "maxStepCostOfRiskPct"}, sk_rule["params"])
     check(f"live {live_rule['id']} v{live_rule['version']}: step-cost gate at 20% of the risk",
           live_rule["params"]["maxStepCostOfRiskPct"], 20)
-    check(f"live {live_rule['id']} v{live_rule['version']} risk is exactly {sk_rule['id']}'s",
-          live_rule["risk"], sk_rule["risk"])
+    check(f"live {live_rule['id']} v{live_rule['version']} risk is {sk_rule['id']}'s, less the backtest-only break-even",
+          live_rule["risk"], {k: v for k, v in sk_rule["risk"].items() if k != "breakevenAtR"})
 check("live is long v11 / short v7",
       (S.BREAKOUT_RETRACE_21EMA["version"], S.BREAKDOWN_RETRACE_21EMA["version"]), (11, 7))
 
@@ -218,7 +219,7 @@ sk, _ = run([alpha(1000.0)], ["A-SK"])
 check("R1 at 10x: both take the same trade",
       [(p.symbol, p.entry_at, p.entry) for p in sk], [(p.symbol, p.entry_at, p.entry) for p in adr])
 check("under the -SK strategy", [(p.setup, p.strategy_id, p.strategy_version) for p in sk],
-      [("A-SK", "breakout-retrace-21ema-adr-pskew", 1)])
+      [("A-SK", "breakout-retrace-21ema-adr-pskew", 2)])
 
 together, _ = run([alpha(1000.0), shorty()], ["A-SK", "B-SK", "C-SK"])
 control, _ = run([alpha(1000.0), shorty()], ["A-ADR", "B-ADR", "C-ADR"])

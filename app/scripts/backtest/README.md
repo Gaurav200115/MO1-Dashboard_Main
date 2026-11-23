@@ -295,6 +295,10 @@ live long v11 / short v7 rule unchanged, plus:
   open run on to their own exit.
 - **`B-35K`** (`BREAKOUT_RETRACE_21EMA_B35K`, book `b-35k`): setup B alone, the normal day
   (entries till 13:00, 15 a day).
+- **Break-even at 1.5R (v2, 2026-11-23)** - on `-CAP`, `-35K` and `-SK` (v2, changed in place):
+  once the premium touches entry + 1.5R, the stop moves to the entry price, cost to cost
+  (`breakevenAtR`, `position.move_to_cost`); exit reason `breakeven`. Then 1:2 -> +1R as before.
+  Backtest only - the live desk does not do it.
 - **Both: a ₹35,000 budget** (`capitalRupees`). A signal whose premium (price × qty) plus the
   premium already in open trades would go over ₹35,000 is skipped - open trades are never closed
   to make room - and does not count toward the day's 3. Max 3 open as always.

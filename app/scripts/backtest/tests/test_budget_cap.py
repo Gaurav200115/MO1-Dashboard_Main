@@ -58,8 +58,9 @@ check("-CAP short: the same params", CAP_SHORT["params"], CAP_LONG["params"])
 check("-35K: the live params exactly (normal day)", B35["params"], live_params)
 check("-35K: B only", (B35["setups"], B35["legs"]), (["B-35K"], {"B-35K": "B"}))
 for strategy in (CAP_LONG, CAP_SHORT, B35):
-    check(f"{strategy['id']}: the live 550 stop and ladder, plus the 35k budget",
-          strategy["risk"], dict(LIVE["risk"], capitalRupees=35000))
+    check(f"{strategy['id']}: the live 550 stop and ladder, plus the 35k budget and v2's break-even",
+          strategy["risk"], dict(LIVE["risk"], capitalRupees=35000, breakevenAtR=1.5))
+    check(f"{strategy['id']}: v2", strategy["version"], 2)
 check("max 3 open for both", (CAP_LONG["params"]["maxOpenTrades"], B35["params"]["maxOpenTrades"]), (3, 3))
 check("the live rule itself has no budget and no run-wide cap",
       (LIVE["risk"].get("capitalRupees"), live_params.get("maxTradesPerDayBook")), (None, None))
@@ -208,6 +209,59 @@ trades, _ = run([Stock(symbol="SHORTY", ohlc=OHLC, chain=CHAIN, prices=SHORT, se
 check("C-CAP buys a put under its own strategy",
       [(p.setup, p.option_type, p.strategy_id) for p in trades],
       [("C-CAP", "PE", "breakdown-retrace-21ema-cap")])
+
+
+# ---------------- the break-even at 1.5R (v2) ----------------
+from backtest.position import Position, apply_bar  # noqa: E402
+
+BE_RISK = CAP_LONG["risk"]
+
+
+def be_position(entry=30.0, rpu=2.2):
+    return Position(symbol="X", setup="A-CAP", trading_date=str(DAY), strategy_id="s",
+                    strategy_version=2, option_type="CE", expiry=None, strike=1000.0, qty=250,
+                    entry=entry, entry_at=at(DAY, 9, 20), risk_per_unit=rpu, risk_capped=False,
+                    stop=entry - rpu, target=entry + 2 * rpu)
+
+
+def bar(o, h, l, c):
+    return {"open": o, "high": h, "low": l, "close": c}
+
+
+# Entry 30.00, R 2.20 a unit: 1.5R is 33.30, 1:2 is 34.40.
+p = be_position()
+apply_bar(p, bar(30, 33.29, 30, 33), BE_RISK, at(DAY, 9, 21))
+check("33.29 (under 1.5R): the stop stays at 27.80", round(p.stop, 2), 27.8)
+apply_bar(p, bar(33, 33.30, 32.5, 33), BE_RISK, at(DAY, 9, 22))
+check("33.30 (1.5R): the stop moves to cost, 30.00", p.stop, 30.0)
+check("and the move is recorded", p.context["breakeven"]["atR"], 1.5)
+verdict = apply_bar(p, bar(31, 31, 29.9, 30), BE_RISK, at(DAY, 9, 23))
+check("back to 30.00: out at cost, as a break-even stop", (verdict["action"], verdict["price"], verdict["reason"]),
+      ("exit", 30.0, "breakeven"))
+
+p = be_position()
+verdict = apply_bar(p, bar(30, 33.5, 27.5, 28), BE_RISK, at(DAY, 9, 21))
+check("a minute that hits 1.5R and the old stop: stopped at the old stop (conservative)",
+      (verdict["action"], round(verdict["price"], 2), verdict["reason"]), ("exit", 27.8, "stop"))
+
+p = be_position()
+apply_bar(p, bar(30, 34.4, 30, 34), BE_RISK, at(DAY, 9, 21))
+check("straight to 1:2: the ladder's +1R wins, break-even never lowers it", round(p.stop, 2), 32.2)
+
+p = be_position()
+apply_bar(p, bar(30, 33.3, 30, 33), S.BREAKOUT_RETRACE_21EMA["risk"], at(DAY, 9, 21))
+check("the live rule has no break-even: 1.5R moves nothing", round(p.stop, 2), 27.8)
+
+p = be_position()
+apply_bar(p, bar(30, 33.3, 30, 33), S.BREAKOUT_RETRACE_21EMA_SK["risk"], at(DAY, 9, 21))
+check("-SK v2 has it too", p.stop, 30.0)
+check("and -35K", S.BREAKOUT_RETRACE_21EMA_B35K["risk"]["breakevenAtR"], 1.5)
+
+p = be_position()
+verdict = apply_bar(p, bar(30, 33.3, 30, 33), BE_RISK, at(DAY, 9, 21))
+verdict = apply_bar(p, bar(29, 29, 28.5, 28.8), BE_RISK, at(DAY, 9, 22))
+check("a minute that opens below cost fills at its open, not at cost",
+      (verdict["price"], verdict["reason"]), (29, "breakeven"))
 
 
 # ---------------- runs are one book or another ----------------

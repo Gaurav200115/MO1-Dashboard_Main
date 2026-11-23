@@ -266,7 +266,8 @@ const BACKTEST_ONLY: SetupOption[] = [
    * levels are unchanged.
    *
    * Went live unchanged on 2026-11-15 as long v10 / short v6; v11 / v7 then added
-   * only the step-cost gate. These stay as the record of what was backtested.
+   * only the step-cost gate. v2 (2026-11-23, backtest only): the stop moves to the
+   * entry price once the trade is up 1.5R - cost to cost. -CAP / -35K v2 too.
    *
    * Python: `BREAKOUT_RETRACE_21EMA_SK` / `BREAKDOWN_RETRACE_21EMA_SK` in
    * backtest/strategies.py; tests/test_pivot_skew.py checks these three entries match.
@@ -275,46 +276,46 @@ const BACKTEST_ONLY: SetupOption[] = [
     setup: "A-SK",
     strategy: "breakout-retrace-21ema-adr-pskew",
     strategyName: "Level Break → 21 EMA Retrace [ADR, skew 5x R1/R3/S1/S3]",
-    version: 1,
+    version: 2,
     label: "Break & retrace",
     side: "LONG",
     option: "CE",
     description:
       "Live setup A, but the major resistance needs 5x skew if it is R1 or R3, and any skew if " +
-      "it is R2 or P; closest gap wins. ADR retrace, ₹550 SL, 1:2 → +1R ladder.",
+      "it is R2 or P; closest gap wins. ADR retrace, ₹550 SL, 1:2 → +1R ladder. v2: SL to cost once up 1.5R.",
     backtestOnly: true,
     book: "adr-pivot-skew",
-    tag: "ADR · skew 5x R1/R3/S1/S3",
+    tag: "ADR · skew 5x R1/R3/S1/S3 · BE 1.5R",
   },
   {
     setup: "B-SK",
     strategy: "breakout-retrace-21ema-adr-pskew",
     strategyName: "Level Break → 21 EMA Retrace [ADR, skew 5x R1/R3/S1/S3]",
-    version: 1,
+    version: 2,
     label: "Support hold & level cross",
     side: "LONG",
     option: "CE",
     description:
       "Live setup B: still crosses any confirmed level at any skew. The support it holds above " +
-      "is the major support under the per-pivot rule (5x for S1/S3, any skew for S2/P).",
+      "is the major support under the per-pivot rule (5x for S1/S3, any skew for S2/P). v2: SL to cost once up 1.5R.",
     backtestOnly: true,
     book: "adr-pivot-skew",
-    tag: "ADR · skew 5x R1/R3/S1/S3",
+    tag: "ADR · skew 5x R1/R3/S1/S3 · BE 1.5R",
   },
   {
     setup: "C-SK",
     strategy: "breakdown-retrace-21ema-adr-pskew",
     strategyName: "Support Break → 21 EMA Retrace (Short) [ADR, skew 5x R1/R3/S1/S3]",
-    version: 1,
+    version: 2,
     label: "Breakdown & retrace",
     side: "SHORT",
     option: "PE",
     description:
       "Live setup C, but the major support needs 5x skew if it is S1 or S3, and any skew if " +
-      "it is S2 or P; closest gap wins. ADR retrace, ₹550 SL, 1:2 → +1R ladder.",
+      "it is S2 or P; closest gap wins. ADR retrace, ₹550 SL, 1:2 → +1R ladder. v2: SL to cost once up 1.5R.",
     backtestOnly: true,
     book: "adr-pivot-skew",
-    tag: "ADR · skew 5x R1/R3/S1/S3",
+    tag: "ADR · skew 5x R1/R3/S1/S3 · BE 1.5R",
   },
 
   /*
@@ -395,61 +396,61 @@ const BACKTEST_ONLY: SetupOption[] = [
     setup: "A-CAP",
     strategy: "breakout-retrace-21ema-cap",
     strategyName: "Level Break → 21 EMA Retrace [3 a day till 10:30, ₹35k]",
-    version: 1,
+    version: 2,
     label: "Break & retrace",
     side: "LONG",
     option: "CE",
     description:
       "Live setup A. At most 3 entries a day across A, B and C (first come), none from 10:30. " +
-      "₹35k budget: a trade that would put more than ₹35k of premium in open trades is skipped.",
+      "₹35k budget: a trade that would put more than ₹35k of premium in open trades is skipped. v2: SL to cost once up 1.5R.",
     backtestOnly: true,
     book: "cap-35k",
-    tag: "3 a day till 10:30 · ₹35k",
+    tag: "3 a day till 10:30 · ₹35k · BE 1.5R",
   },
   {
     setup: "B-CAP",
     strategy: "breakout-retrace-21ema-cap",
     strategyName: "Level Break → 21 EMA Retrace [3 a day till 10:30, ₹35k]",
-    version: 1,
+    version: 2,
     label: "Support hold & level cross",
     side: "LONG",
     option: "CE",
     description:
       "Live setup B. At most 3 entries a day across A, B and C (first come), none from 10:30. " +
-      "₹35k budget: a trade that would put more than ₹35k of premium in open trades is skipped.",
+      "₹35k budget: a trade that would put more than ₹35k of premium in open trades is skipped. v2: SL to cost once up 1.5R.",
     backtestOnly: true,
     book: "cap-35k",
-    tag: "3 a day till 10:30 · ₹35k",
+    tag: "3 a day till 10:30 · ₹35k · BE 1.5R",
   },
   {
     setup: "C-CAP",
     strategy: "breakdown-retrace-21ema-cap",
     strategyName: "Support Break → 21 EMA Retrace (Short) [3 a day till 10:30, ₹35k]",
-    version: 1,
+    version: 2,
     label: "Breakdown & retrace",
     side: "SHORT",
     option: "PE",
     description:
       "Live setup C. At most 3 entries a day across A, B and C (first come), none from 10:30. " +
-      "₹35k budget: a trade that would put more than ₹35k of premium in open trades is skipped.",
+      "₹35k budget: a trade that would put more than ₹35k of premium in open trades is skipped. v2: SL to cost once up 1.5R.",
     backtestOnly: true,
     book: "cap-35k",
-    tag: "3 a day till 10:30 · ₹35k",
+    tag: "3 a day till 10:30 · ₹35k · BE 1.5R",
   },
   {
     setup: "B-35K",
     strategy: "breakout-retrace-21ema-b35k",
     strategyName: "Support Hold → Level Cross [B only, ₹35k]",
-    version: 1,
+    version: 2,
     label: "Support hold & level cross",
     side: "LONG",
     option: "CE",
     description:
       "Live setup B alone, the normal day (entries till 13:00). ₹35k budget: a trade that would " +
-      "put more than ₹35k of premium in open trades is skipped. Max 3 open.",
+      "put more than ₹35k of premium in open trades is skipped. Max 3 open. v2: SL to cost once up 1.5R.",
     backtestOnly: true,
     book: "b-35k",
-    tag: "B only · ₹35k",
+    tag: "B only · ₹35k · BE 1.5R",
   },
 ];
 
