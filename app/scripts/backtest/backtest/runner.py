@@ -310,6 +310,13 @@ def replay_session(conn, day, strategies, floors, log=None, setups=None):
                        if st["risk"].get("dailyLossLimitRupees")), None)
     limit_reached = False
 
+    # The -CAP variant: entries a day across every setup in the run, not per rule.
+    book_cap = next((st["params"]["maxTradesPerDayBook"] for st in strategies
+                     if st["params"].get("maxTradesPerDayBook")), None)
+    # The -CAP and -35K variants: premium that may sit in open trades at once.
+    budget = next((st["risk"]["capitalRupees"] for st in strategies
+                   if st["risk"].get("capitalRupees")), None)
+
     for minute in minutes:
         # The open book first: a stop that fires this minute frees a slot this
         # minute, exactly as it would live.
@@ -380,11 +387,19 @@ def replay_session(conn, day, strategies, floors, log=None, setups=None):
                 if day_cap is not None and taken[sid] >= day_cap:
                     notes["rejected"]["daily cap"] += 1
                     continue
+                if book_cap is not None and sum(taken.values()) >= book_cap:
+                    notes["rejected"][f"{book_cap} a day reached (all setups)"] += 1
+                    continue
 
                 position = _try_fill(conn, day, prev, strategy, signal, plans[sid][symbol],
                                      minute, floors, option_data, gate_cache, notes,
                                      bar_at[symbol])
                 if position is None:
+                    continue
+                # Over budget: skipped, never made room for by closing an open trade.
+                # Not counted as taken, so it does not use up one of the day's 3.
+                if budget is not None and over_budget(open_positions, position, budget):
+                    notes["rejected"][f"over the Rs {budget:g} budget"] += 1
                     continue
 
                 state.trades_today += 1
@@ -402,6 +417,16 @@ def replay_session(conn, day, strategies, floors, log=None, setups=None):
         log(f"{day}  {len(symbols)} stocks, {notes['signals']} signals, "
             f"{len(closed)} trades")
     return closed, notes
+
+
+def premium_in(position):
+    """The money a position ties up: the premium paid for it."""
+    return position.entry * position.qty
+
+
+def over_budget(open_positions, position, budget):
+    """Whether taking `position` would put more than `budget` in open trades."""
+    return sum(premium_in(p) for p in open_positions) + premium_in(position) > budget
 
 
 def day_net(closed):

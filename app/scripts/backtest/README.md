@@ -284,6 +284,26 @@ python run.py now --from 2025-11-10 --to 2026-10-30 --setups A-NIFTY B-NIFTY C-N
 Trade analysis can split the result by setup, by trade number of the day (1st, 2nd … uncapped)
 and by days to expiry (expiry day, 1 … 6, 7+).
 
+## Backtest-only rules: fewer trades on a ₹35k budget (`-CAP`, `-35K`)
+
+As Gaurav specified it on 2026-11-23, to cut the trade count and the drawdown. Both are the
+live long v11 / short v7 rule unchanged, plus:
+
+- **`A-CAP B-CAP C-CAP`** (`BREAKOUT_RETRACE_21EMA_CAP` / `BREAKDOWN_RETRACE_21EMA_CAP`, book
+  `cap-35k`): at most **3 entries a day across A, B and C together** (first come, first taken;
+  `maxTradesPerDayBook`), and **no new entry from 10:30** (`entryCutoffIst`). Trades already
+  open run on to their own exit.
+- **`B-35K`** (`BREAKOUT_RETRACE_21EMA_B35K`, book `b-35k`): setup B alone, the normal day
+  (entries till 13:00, 15 a day).
+- **Both: a ₹35,000 budget** (`capitalRupees`). A signal whose premium (price × qty) plus the
+  premium already in open trades would go over ₹35,000 is skipped - open trades are never closed
+  to make room - and does not count toward the day's 3. Max 3 open as always.
+
+```
+python run.py now --from 2025-10-23 --to 2026-11-12 --setups A-CAP B-CAP C-CAP
+python run.py now --from 2025-10-23 --to 2026-11-12 --setups B-35K
+```
+
 ## Tests
 
 No database and no network — the pure parts of the engine, plus one whole session replayed against
@@ -301,6 +321,7 @@ python tests/test_daily_loss.py  the ₹1,700 day stop: net of closed trades, op
 python tests/test_pivot_skew.py  5x for R1/R3/S1/S3, any for R2/S2/P: the pick, plans, sessions
 python tests/test_step_cost.py   v11 / v7: skip when one price step across the lot is over 0.2R
 python tests/test_nifty_abc.py   A/B/C-NIFTY: the scan on the index, 1 per setup/day, R 650, 0 DTE, OPTIDX gate
+python tests/test_budget_cap.py  -CAP / -35K: 3 a day across setups, 10:30 cut-off, the Rs 35k budget
 ```
 
 500 checks, plus, for the live desk, `node scripts/test-live-desk.mjs` (76), `node scripts/test-levels-ts.mjs` (20) and `node scripts/test-feed.mjs` (26 - the Kite feed and the 09:00 reminder). `test_strategies.py` is the one that keeps the pair honest: each rule can be
