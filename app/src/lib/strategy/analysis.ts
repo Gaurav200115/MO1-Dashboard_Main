@@ -635,6 +635,7 @@ export const HOLD_LABELS: Record<HoldKey, string> = {
 export const EXIT_LABELS: Record<string, string> = {
   stop: "Stop-loss",
   "trail-stop": "Trailing stop",
+  breakeven: "Break-even stop (cost to cost)",
   "eod-flatten": "End-of-day flatten",
   manual: "Manual",
   "no-quote": "No quote",

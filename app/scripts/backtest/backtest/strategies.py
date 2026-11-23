@@ -380,6 +380,12 @@ BREAKDOWN_RETRACE_21EMA_DL = {
 #   - Everything else is the live ADR rule: ADR retrace, 550 stop, 1:2 -> +1R.
 PIVOT_SKEW_TAG = "ADR, skew 5x R1/R3/S1/S3"
 
+# Break-even (2026-11-23, as Gaurav specified it): once a trade is up 1.5R the
+# stop moves to the entry price - cost to cost. Then 1:2 -> +1R as before.
+# Added to -SK in place (v2; its v1 runs predate it), -CAP and -35K (v2).
+# position.move_to_cost. Backtest only - the live desk does not do this.
+BREAKEVEN_AT_R = 1.5
+
 PIVOT_SKEW_PARAMS = {
     # The per-side bars are dropped rather than left in, so the record of this
     # rule does not show a 4x / 5x it never applies.
@@ -389,7 +395,7 @@ PIVOT_SKEW_PARAMS = {
 
 BREAKOUT_RETRACE_21EMA_SK = {
     "id": "breakout-retrace-21ema-adr-pskew",
-    "version": 1,
+    "version": 2,
     "name": f"Level Break -> 21 EMA Retrace [{PIVOT_SKEW_TAG}]",
     "backtestOnly": True,
     "book": "adr-pivot-skew",
@@ -399,12 +405,12 @@ BREAKOUT_RETRACE_21EMA_SK = {
     "sides": {"A-SK": "LONG", "B-SK": "LONG"},
     "legs": {"A-SK": "A", "B-SK": "B"},
     "params": dict(PIVOT_SKEW_PARAMS),
-    "risk": dict(ADR_RISK),
+    "risk": dict(ADR_RISK, breakevenAtR=BREAKEVEN_AT_R),
 }
 
 BREAKDOWN_RETRACE_21EMA_SK = {
     "id": "breakdown-retrace-21ema-adr-pskew",
-    "version": 1,
+    "version": 2,
     "name": f"Support Break -> 21 EMA Retrace (Short) [{PIVOT_SKEW_TAG}]",
     "backtestOnly": True,
     "book": "adr-pivot-skew",
@@ -413,7 +419,7 @@ BREAKDOWN_RETRACE_21EMA_SK = {
     "sides": {"C-SK": "SHORT"},
     "legs": {"C-SK": "C"},
     "params": dict(PIVOT_SKEW_PARAMS),
-    "risk": dict(ADR_RISK),
+    "risk": dict(ADR_RISK, breakevenAtR=BREAKEVEN_AT_R),
 }
 
 # The live A, B and C traded on NIFTY instead of the stocks - as Gaurav specified
@@ -492,16 +498,17 @@ NIFTY_BREAKDOWN_RETRACE_21EMA = {
 # open trades would go over Rs 35,000 is skipped - open trades are never closed
 # to make room. The money comes back when a trade closes. A skipped signal does
 # not count toward the 3 a day. Max 3 open still holds.
+# v2: plus the break-even at 1.5R (BREAKEVEN_AT_R, above).
 BUDGET_RUPEES = 35000
 
 CAP_TAG = "3 a day till 10:30, Rs 35k"
 CAP_PARAMS = dict(SHARED_PARAMS, pivotMinSkew=dict(PIVOT_MIN_SKEW),
                   entryCutoffIst="10:30", maxTradesPerDayBook=3)
-BUDGET_RISK = dict(SHARED_RISK, capitalRupees=BUDGET_RUPEES)
+BUDGET_RISK = dict(SHARED_RISK, capitalRupees=BUDGET_RUPEES, breakevenAtR=BREAKEVEN_AT_R)
 
 BREAKOUT_RETRACE_21EMA_CAP = {
     "id": "breakout-retrace-21ema-cap",
-    "version": 1,
+    "version": 2,
     "name": f"Level Break -> 21 EMA Retrace [{CAP_TAG}]",
     "backtestOnly": True,
     "book": "cap-35k",
@@ -516,7 +523,7 @@ BREAKOUT_RETRACE_21EMA_CAP = {
 
 BREAKDOWN_RETRACE_21EMA_CAP = {
     "id": "breakdown-retrace-21ema-cap",
-    "version": 1,
+    "version": 2,
     "name": f"Support Break -> 21 EMA Retrace (Short) [{CAP_TAG}]",
     "backtestOnly": True,
     "book": "cap-35k",
@@ -532,7 +539,7 @@ B_ONLY_TAG = "B only, Rs 35k"
 
 BREAKOUT_RETRACE_21EMA_B35K = {
     "id": "breakout-retrace-21ema-b35k",
-    "version": 1,
+    "version": 2,
     "name": f"Support Hold -> Level Cross [{B_ONLY_TAG}]",
     "backtestOnly": True,
     "book": "b-35k",

@@ -96,6 +96,11 @@ def trade_document(position, run_id):
     if context.get("pullbackStop"):
         trigger["pullbackStop"] = dict(context["pullbackStop"])
 
+    # Break-even variants only: when the stop moved to the entry price.
+    if context.get("breakeven"):
+        trigger["breakeven"] = {"at": _ms(context["breakeven"]["at"]),
+                                "atR": context["breakeven"]["atR"]}
+
     return {
         "_id": f"{run_id}:{position.symbol}:{_ms(position.entry_at)}:{position.setup}",
         "runId": run_id,
