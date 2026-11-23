@@ -34,8 +34,8 @@ export interface SetupOption {
    * Which book the leg trades on. A run holds exactly one: the desk's own legs
    * ("desk"), the ADR variant of them ("adr"), the pullback-stop variant
    * ("pullback-stop"), the daily-loss-limit variant ("adr-daily-loss"), the
-   * per-pivot skew variant ("adr-pivot-skew"), or NIFTY's opening range
-   * ("nifty"). Mirrors `book_of` in backtest/strategies.py.
+   * per-pivot skew variant ("adr-pivot-skew"), the 3-a-day / ₹35k variant
+   * ("cap-35k"), B alone on ₹35k ("b-35k"), or NIFTY's opening range ("nifty"). Mirrors `book_of` in backtest/strategies.py.
    */
   book: string;
   /** A short label shown beside the leg, e.g. what a variant changes. */
@@ -378,6 +378,79 @@ const BACKTEST_ONLY: SetupOption[] = [
     tag: "NIFTY · R ₹650 · 1 per setup/day",
     instrument: "NIFTY",
   },
+
+  /*
+   * Fewer trades, less drawdown (2026-11-23). Both on the live long v11 / short v7
+   * rule unchanged, both under a ₹35,000 budget: a signal whose premium plus the
+   * premium already in open trades would go over ₹35k is skipped (open trades are
+   * never closed to make room) and does not count toward the day. Max 3 open.
+   *   -CAP  A, B, C: at most 3 entries a day across all three, none from 10:30.
+   *   -35K  B only, the normal day (till 13:00, the usual 15 a day).
+   *
+   * Python: `BREAKOUT_RETRACE_21EMA_CAP` / `BREAKDOWN_RETRACE_21EMA_CAP` /
+   * `BREAKOUT_RETRACE_21EMA_B35K` in backtest/strategies.py;
+   * tests/test_budget_cap.py checks these four entries match.
+   */
+  {
+    setup: "A-CAP",
+    strategy: "breakout-retrace-21ema-cap",
+    strategyName: "Level Break → 21 EMA Retrace [3 a day till 10:30, ₹35k]",
+    version: 1,
+    label: "Break & retrace",
+    side: "LONG",
+    option: "CE",
+    description:
+      "Live setup A. At most 3 entries a day across A, B and C (first come), none from 10:30. " +
+      "₹35k budget: a trade that would put more than ₹35k of premium in open trades is skipped.",
+    backtestOnly: true,
+    book: "cap-35k",
+    tag: "3 a day till 10:30 · ₹35k",
+  },
+  {
+    setup: "B-CAP",
+    strategy: "breakout-retrace-21ema-cap",
+    strategyName: "Level Break → 21 EMA Retrace [3 a day till 10:30, ₹35k]",
+    version: 1,
+    label: "Support hold & level cross",
+    side: "LONG",
+    option: "CE",
+    description:
+      "Live setup B. At most 3 entries a day across A, B and C (first come), none from 10:30. " +
+      "₹35k budget: a trade that would put more than ₹35k of premium in open trades is skipped.",
+    backtestOnly: true,
+    book: "cap-35k",
+    tag: "3 a day till 10:30 · ₹35k",
+  },
+  {
+    setup: "C-CAP",
+    strategy: "breakdown-retrace-21ema-cap",
+    strategyName: "Support Break → 21 EMA Retrace (Short) [3 a day till 10:30, ₹35k]",
+    version: 1,
+    label: "Breakdown & retrace",
+    side: "SHORT",
+    option: "PE",
+    description:
+      "Live setup C. At most 3 entries a day across A, B and C (first come), none from 10:30. " +
+      "₹35k budget: a trade that would put more than ₹35k of premium in open trades is skipped.",
+    backtestOnly: true,
+    book: "cap-35k",
+    tag: "3 a day till 10:30 · ₹35k",
+  },
+  {
+    setup: "B-35K",
+    strategy: "breakout-retrace-21ema-b35k",
+    strategyName: "Support Hold → Level Cross [B only, ₹35k]",
+    version: 1,
+    label: "Support hold & level cross",
+    side: "LONG",
+    option: "CE",
+    description:
+      "Live setup B alone, the normal day (entries till 13:00). ₹35k budget: a trade that would " +
+      "put more than ₹35k of premium in open trades is skipped. Max 3 open.",
+    backtestOnly: true,
+    book: "b-35k",
+    tag: "B only · ₹35k",
+  },
 ];
 
 export function listSetups(): SetupOption[] {
@@ -412,7 +485,7 @@ export function mixError(setupIds: string[]): string | null {
     setupIds.map((id) => all.find((s) => s.setup === id)?.book).filter(Boolean)
   );
   if (books.size > 1) {
-    return "A/B/C, its variants (-ADR, -PB, -DL, -SK) and the -NIFTY legs are alternatives, not additions — replay each set in a run of its own";
+    return "A/B/C, its variants (-ADR, -PB, -DL, -SK, -CAP, -35K) and the -NIFTY legs are alternatives, not additions — replay each set in a run of its own";
   }
   return null;
 }

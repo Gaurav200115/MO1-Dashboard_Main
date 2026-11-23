@@ -478,12 +478,80 @@ NIFTY_BREAKDOWN_RETRACE_21EMA = {
     "risk": dict(NIFTY_ABC_RISK),
 }
 
+# Fewer trades, less drawdown (2026-11-23), as Gaurav specified it. Two
+# alternatives, both on the live long v11 / short v7 rule unchanged, both under
+# a Rs 35,000 budget:
+#
+#   -CAP   A, B and C, at most 3 entries a day across all three (first come,
+#          first taken), and no new entry from 10:30. Trades already open run on
+#          to their own exit.
+#   -35K   setup B only, the normal day (entries till 13:00, the usual 15 per
+#          rule a day).
+#
+# The budget: a signal whose premium (price x qty) plus the premium already in
+# open trades would go over Rs 35,000 is skipped - open trades are never closed
+# to make room. The money comes back when a trade closes. A skipped signal does
+# not count toward the 3 a day. Max 3 open still holds.
+BUDGET_RUPEES = 35000
+
+CAP_TAG = "3 a day till 10:30, Rs 35k"
+CAP_PARAMS = dict(SHARED_PARAMS, pivotMinSkew=dict(PIVOT_MIN_SKEW),
+                  entryCutoffIst="10:30", maxTradesPerDayBook=3)
+BUDGET_RISK = dict(SHARED_RISK, capitalRupees=BUDGET_RUPEES)
+
+BREAKOUT_RETRACE_21EMA_CAP = {
+    "id": "breakout-retrace-21ema-cap",
+    "version": 1,
+    "name": f"Level Break -> 21 EMA Retrace [{CAP_TAG}]",
+    "backtestOnly": True,
+    "book": "cap-35k",
+    "setups": ["A-CAP", "B-CAP"],
+    "setupLabels": {"A-CAP": f"Break & retrace [{CAP_TAG}]",
+                    "B-CAP": f"Support hold & level cross [{CAP_TAG}]"},
+    "sides": {"A-CAP": "LONG", "B-CAP": "LONG"},
+    "legs": {"A-CAP": "A", "B-CAP": "B"},
+    "params": dict(CAP_PARAMS),
+    "risk": dict(BUDGET_RISK),
+}
+
+BREAKDOWN_RETRACE_21EMA_CAP = {
+    "id": "breakdown-retrace-21ema-cap",
+    "version": 1,
+    "name": f"Support Break -> 21 EMA Retrace (Short) [{CAP_TAG}]",
+    "backtestOnly": True,
+    "book": "cap-35k",
+    "setups": ["C-CAP"],
+    "setupLabels": {"C-CAP": f"Breakdown & retrace [{CAP_TAG}]"},
+    "sides": {"C-CAP": "SHORT"},
+    "legs": {"C-CAP": "C"},
+    "params": dict(CAP_PARAMS),
+    "risk": dict(BUDGET_RISK),
+}
+
+B_ONLY_TAG = "B only, Rs 35k"
+
+BREAKOUT_RETRACE_21EMA_B35K = {
+    "id": "breakout-retrace-21ema-b35k",
+    "version": 1,
+    "name": f"Support Hold -> Level Cross [{B_ONLY_TAG}]",
+    "backtestOnly": True,
+    "book": "b-35k",
+    "setups": ["B-35K"],
+    "setupLabels": {"B-35K": f"Support hold & level cross [{B_ONLY_TAG}]"},
+    "sides": {"B-35K": "LONG"},
+    "legs": {"B-35K": "B"},
+    "params": dict(SHARED_PARAMS, pivotMinSkew=dict(PIVOT_MIN_SKEW)),
+    "risk": dict(BUDGET_RISK),
+}
+
 ALL_STRATEGIES = (BREAKOUT_RETRACE_21EMA, BREAKDOWN_RETRACE_21EMA, NIFTY_ORB_15M,
                   BREAKOUT_RETRACE_21EMA_ADR, BREAKDOWN_RETRACE_21EMA_ADR,
                   BREAKOUT_RETRACE_21EMA_PB, BREAKDOWN_RETRACE_21EMA_PB,
                   BREAKOUT_RETRACE_21EMA_DL, BREAKDOWN_RETRACE_21EMA_DL,
                   BREAKOUT_RETRACE_21EMA_SK, BREAKDOWN_RETRACE_21EMA_SK,
-                  NIFTY_BREAKOUT_RETRACE_21EMA, NIFTY_BREAKDOWN_RETRACE_21EMA)
+                  NIFTY_BREAKOUT_RETRACE_21EMA, NIFTY_BREAKDOWN_RETRACE_21EMA,
+                  BREAKOUT_RETRACE_21EMA_CAP, BREAKDOWN_RETRACE_21EMA_CAP,
+                  BREAKOUT_RETRACE_21EMA_B35K)
 STRATEGIES = {s["id"]: s for s in ALL_STRATEGIES}
 
 
@@ -570,7 +638,7 @@ def selection(setup_ids):
     # The variants (ADR, pullback stop, daily loss limit, pivot skew) are other
     # versions of the desk's legs, so no two of those books ever share a run.
     if len({book_of(STRATEGIES[sid]) for sid in chosen}) > 1:
-        raise SystemExit("A/B/C, its variants (-ADR, -PB, -DL, -SK) and the -NIFTY legs are alternatives, not "
+        raise SystemExit("A/B/C, its variants (-ADR, -PB, -DL, -SK, -CAP, -35K) and the -NIFTY legs are alternatives, not "
                          "additions - replay each set in a run of its own")
     return sorted(chosen), chosen
 
