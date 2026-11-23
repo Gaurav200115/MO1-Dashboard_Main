@@ -427,20 +427,21 @@ BREAKDOWN_RETRACE_21EMA_SK = {
 # 21 EMA on 5-minute bars. What differs:
 #   - R is Rs 650 a trade (1 lot), so the 1:2 target is Rs 1,300 and the ladder
 #     steps in Rs 650 - his number, not the stocks' Rs 550
-#   - any number of trades a day: a leg that fires waits for a fresh setup
-#     straight away (a new break for A and C, a new level cross for B), taken or
-#     not; no per-day or per-symbol cap. Max 3 open is the only limit.
+#   - v2 (2026-11-23): one trade of each setup a day - A, B and C each at most
+#     once, and only when its own setup forms. A leg that fires (taken or
+#     refused) is spent for the day, exactly as live; A firing does not use up
+#     B, because there is no per-symbol cap across legs. Max 3 open still holds.
+#     (v1 re-armed a leg straight after each signal: any number a day.)
 #   - the gate's monthly stock-liquidity proxies do not apply to an index and are
 #     skipped; its exact checks (volume, strike OI >= 3% of the chain's heaviest)
 #     run on the index options
-NIFTY_ABC_TAG = "NIFTY weekly, R 650, re-arm"
+NIFTY_ABC_TAG = "NIFTY weekly, R 650, 1 per setup/day"
 
 NIFTY_ABC_PARAMS = {
     **BREAKOUT_RETRACE_21EMA["params"],
     "instrument": "NIFTY",
     "maxTradesPerDay": None,
     "maxTradesPerSymbolPerDay": None,
-    "rearmAfterSignal": True,
     "skipStockLiquidity": True,
 }
 
@@ -448,7 +449,7 @@ NIFTY_ABC_RISK = dict(SHARED_RISK, rupeesPerTrade=650)
 
 NIFTY_BREAKOUT_RETRACE_21EMA = {
     "id": "nifty-breakout-retrace-21ema",
-    "version": 1,
+    "version": 2,
     "name": f"NIFTY Level Break -> 21 EMA Retrace [{NIFTY_ABC_TAG}]",
     "backtestOnly": True,
     "instrument": "NIFTY",
@@ -464,7 +465,7 @@ NIFTY_BREAKOUT_RETRACE_21EMA = {
 
 NIFTY_BREAKDOWN_RETRACE_21EMA = {
     "id": "nifty-breakdown-retrace-21ema",
-    "version": 1,
+    "version": 2,
     "name": f"NIFTY Support Break -> 21 EMA Retrace (Short) [{NIFTY_ABC_TAG}]",
     "backtestOnly": True,
     "instrument": "NIFTY",

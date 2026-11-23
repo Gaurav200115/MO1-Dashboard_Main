@@ -29,8 +29,8 @@ Every command that replays takes --setups, defaulting to all of them:
                       R1/R3/S1/S3 and any skew for R2/S2/P - backtest only
     --setups A-NIFTY B-NIFTY C-NIFTY
                       the live A, B and C on NIFTY's weekly options: NIFTY's own
-                      pivots + weekly-chain OI, R 650, re-arm after each signal,
-                      max 3 open - backtest only
+                      pivots + weekly-chain OI, R 650, each setup at most once
+                      a day, max 3 open - backtest only
 
 `levels` and `session` print and store nothing. `now` and `queue` write to Mongo.
 """

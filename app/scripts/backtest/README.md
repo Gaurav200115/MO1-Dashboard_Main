@@ -254,7 +254,8 @@ the level it traded under `trigger.level` (`pivot`, `skew`), so the result can b
 ## Backtest-only rule: A, B and C on NIFTY (`--setups A-NIFTY B-NIFTY C-NIFTY`)
 
 Defined as `NIFTY_BREAKOUT_RETRACE_21EMA` / `NIFTY_BREAKDOWN_RETRACE_21EMA` in `strategies.py`,
-tagged **NIFTY weekly, R 650, re-arm**, book `nifty-abc`. As Gaurav specified it on 2026-11-21.
+tagged **NIFTY weekly, R 650, 1 per setup/day**, book `nifty-abc`. As Gaurav specified it on
+2026-11-21; v2 on 2026-11-23.
 On the dashboard: Backtest → Instrument **NIFTY**.
 
 - **The live long v11 / short v7, on one instrument:** NIFTY's weekly options (the nearest
@@ -266,10 +267,12 @@ On the dashboard: Backtest → Instrument **NIFTY**.
   1.8x / ATM±8 / 0.8% band / per-pivot 5x as the stocks. ADR from NIFTY's own 14 sessions.
   Lot size from the bhavcopy (`index_lot_size`). 21 EMA on 5-minute bars, seeded the same way.
 - **R = ₹650** a trade at 1 lot (10 points on a 65 lot): 1:2 target ₹1,300, ladder in ₹650 steps.
-- **Any number of trades a day.** A leg that fires is re-armed at once (`rearmAfterSignal`) -
-  A and C need price back through the level and a fresh break, B a fresh cross - whether the
-  signal was taken or refused. No per-day or per-symbol cap; **max 3 open** is the only limit.
-  Entries until 13:00, flat 15:15, as live.
+- **One trade of each setup a day (v2).** A, B and C each trade at most once a day, and only
+  when their own setup forms. A leg that fires is spent for the day whether the signal was
+  taken or refused (book full, gate), as live. There is no cap across legs, so A firing does
+  not use up B - up to three trades a day, **max 3 open**. Entries until 13:00, flat 15:15.
+  (v1 re-armed a leg straight after each signal - `rearmAfterSignal` - for any number a day;
+  the switch is still in the engine, unused.)
 - **The gate** runs its exact checks on the index options (OPTIDX: entry-minute volume, strike
   OI ≥ 3% of the chain's heaviest) and its per-contract proxies; the two monthly stock-liquidity
   proxies do not exist for an index and are skipped (`skipStockLiquidity`).
@@ -297,10 +300,10 @@ python tests/test_pullback.py    the pullback stop: R, floor, cap, stock stop, b
 python tests/test_daily_loss.py  the ₹1,700 day stop: net of closed trades, open trades run on
 python tests/test_pivot_skew.py  5x for R1/R3/S1/S3, any for R2/S2/P: the pick, plans, sessions
 python tests/test_step_cost.py   v11 / v7: skip when one price step across the lot is over 0.2R
-python tests/test_nifty_abc.py   A/B/C-NIFTY: the scan on the index, re-arm, R 650, 0 DTE, OPTIDX gate
+python tests/test_nifty_abc.py   A/B/C-NIFTY: the scan on the index, 1 per setup/day, R 650, 0 DTE, OPTIDX gate
 ```
 
-499 checks, plus, for the live desk, `node scripts/test-live-desk.mjs` (76), `node scripts/test-levels-ts.mjs` (20) and `node scripts/test-feed.mjs` (26 - the Kite feed and the 09:00 reminder). `test_strategies.py` is the one that keeps the pair honest: each rule can be
+500 checks, plus, for the live desk, `node scripts/test-live-desk.mjs` (76), `node scripts/test-levels-ts.mjs` (20) and `node scripts/test-feed.mjs` (26 - the Kite feed and the 09:00 reminder). `test_strategies.py` is the one that keeps the pair honest: each rule can be
 correct on its own and the two still wrong together. Give the long rule three slots and the
 short rule three more and the replay runs six positions where the desk runs three, on twice
 the risk, with every figure downstream of it inflated.

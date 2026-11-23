@@ -2,12 +2,13 @@
 
 What this file pins down:
 
-  - the definition: live long v11 / short v7 plus R 650, re-arm, no daily caps,
+  - the definition: live long v11 / short v7 plus R 650, no cross-leg cap,
     NIFTY as the instrument, and nothing else
   - the overnight scan on the index: pivots from NIFTY's previous session, the
     official close, the OPTIDX weekly chain, NIFTY's own ADR, the index lot size
-  - a whole session through replay_session: A fires, re-arms, and fires again on
-    a fresh break the same day; without re-arm it would fire once
+  - a whole session through replay_session: v2 takes each setup at most once a
+    day - a second fresh break of A the same day is not traded (v1 re-armed and
+    took it); A firing does not use up B
   - Rs 650 a trade on a 65 lot (10 premium points), the weekly contract, 0 DTE
   - the gate asks the index options (OPTIDX), never the stock ones
   - one book, its own run; the dashboard lists the same legs
@@ -49,7 +50,9 @@ def at(day, h, m):
 
 live = S.BREAKOUT_RETRACE_21EMA
 changed = {"instrument": "NIFTY", "maxTradesPerDay": None, "maxTradesPerSymbolPerDay": None,
-           "rearmAfterSignal": True, "skipStockLiquidity": True}
+           "skipStockLiquidity": True}
+check("v2: no re-arm - each setup once a day", ("rearmAfterSignal" in LONG["params"],
+                                               LONG["version"], SHORT["version"]), (False, 2, 2))
 check("everything not changed is the live rule",
       {k: v for k, v in LONG["params"].items() if k not in changed},
       {k: v for k, v in live["params"].items() if k not in changed})
@@ -160,8 +163,8 @@ def path(spec):
 
 
 # Breaks R1 at 09:20, back to 24050 at 09:25 (EMA 24023.6), turns at 09:26: A.
-# Re-armed under the level at 09:27, breaks again at 09:30, back to 24080 at
-# 09:35 (EMA 24049.4), turns at 09:36: A again.
+# Under the level again at 09:27, breaks again at 09:30, back to 24080 at 09:35
+# (EMA 24049.4), turns at 09:36 - a second A setup, which v2 does not trade.
 TWICE = path([(15, 19, 24000), (20, 24, 24260), (25, 25, 24050), (26, 26, 24075),
               (27, 29, 24075), (30, 34, 24260), (35, 35, 24080), (36, 59, 24105)])
 
@@ -190,35 +193,37 @@ check("NIFTY's own 14-session ADR", round(plan.adr_pct, 3), round((13 * 1.0 + 2.
 # ---------------- whole sessions ----------------
 
 trades, notes, arch = run(TWICE)
-check("A fires, re-arms, and fires again on a fresh break",
-      [(t.setup, t.entry_at.strftime("%H:%M")) for t in trades], [("A-NIFTY", "09:26"), ("A-NIFTY", "09:36")])
-check("both on the weekly NIFTY call, ATM at entry",
+check("A trades its first setup at 09:26 and not the second one at 09:36",
+      [(t.setup, t.entry_at.strftime("%H:%M")) for t in trades], [("A-NIFTY", "09:26")])
+check("on the weekly NIFTY call, ATM at entry",
       [(t.symbol, t.option_type, t.expiry, t.strike) for t in trades],
-      [("NIFTY", "CE", DAY + dt.timedelta(days=5), 24100.0), ("NIFTY", "CE", DAY + dt.timedelta(days=5), 24100.0)])
+      [("NIFTY", "CE", DAY + dt.timedelta(days=5), 24100.0)])
 check("Rs 650 on 65 = 10 premium points of risk",
       [(t.qty, round(t.risk_per_unit, 4), round(t.risk_per_unit * t.qty, 2)) for t in trades],
-      [(65, 10.0, 650.0), (65, 10.0, 650.0)])
+      [(65, 10.0, 650.0)])
 from backtest.position import size_trade  # noqa: E402
 sized = size_trade(120.0, 65, LONG["risk"])
 check("opening stop 10 under, 1:2 target 20 over (Rs 1,300)",
       (round(sized.stop, 4), round(sized.target, 4)), (110.0, 140.0))
 check("the gate read the index options only", arch.instruments, {"OPTIDX"})
 check("the stock liquidity proxies are not applied: clear, not approx",
-      [t.gate for t in trades], ["clear", "clear"])
-check("two signals, no refusals", (notes["signals"], dict(notes["rejected"])), (2, {}))
+      [t.gate for t in trades], ["clear"])
+check("one signal: the spent leg never signals again that day",
+      (notes["signals"], dict(notes["rejected"])), (1, {}))
 
-no_rearm = [dict(LONG, params=dict(LONG["params"], rearmAfterSignal=False))]
-once, _, _ = run(TWICE, strategies=no_rearm)
-check("without re-arm the same path trades once", [t.entry_at.strftime("%H:%M") for t in once], ["09:26"])
+v1 = [dict(LONG, params=dict(LONG["params"], rearmAfterSignal=True))]
+twice, _, _ = run(TWICE, strategies=v1)
+check("v1's re-arm would have taken the 09:36 setup too",
+      [t.entry_at.strftime("%H:%M") for t in twice], ["09:26", "09:36"])
 
 zero, _, _ = run(TWICE, expiry=DAY)
 check("expiry day trades the expiring weekly (0 DTE)",
-      [(t.expiry, t.entry_at.strftime("%H:%M")) for t in zero], [(DAY, "09:26"), (DAY, "09:36")])
+      [(t.expiry, t.entry_at.strftime("%H:%M")) for t in zero], [(DAY, "09:26")])
 
 together, _, _ = run(TWICE, setups=("A-NIFTY", "B-NIFTY", "C-NIFTY"))
-check("all three legs: B also takes the R1 cross at 09:20 and the re-cross at 09:30",
+check("all three legs: one A and one B; B's 09:30 re-cross is not traded; no C setup, no C",
       sorted((t.setup, t.entry_at.strftime("%H:%M")) for t in together),
-      [("A-NIFTY", "09:26"), ("A-NIFTY", "09:36"), ("B-NIFTY", "09:20"), ("B-NIFTY", "09:30")])
+      [("A-NIFTY", "09:26"), ("B-NIFTY", "09:20")])
 check("the 09:20 B was stopped when NIFTY fell back, freeing its slot",
       [t.exit_reason for t in together if t.entry_at == at(DAY, 9, 20)], ["stop"])
 
@@ -238,8 +243,7 @@ crowded = path([(15, 19, 24000), (20, 24, 24260), (25, 25, 24050), (26, 26, 2407
                 (27, 29, 24075), (30, 34, 24260), (35, 35, 24080), (36, 59, 24105)])
 one_slot = [dict(st, params=dict(st["params"], maxOpenTrades=1)) for st in (LONG,)]
 single, notes1, _ = run(crowded, setups=("A-NIFTY", "B-NIFTY"), strategies=one_slot)
-check("with one slot, later signals are refused 'book full' while it is held",
-      notes1["rejected"].get("book full", 0) > 0, True)
+check("with one slot, never more than one open", most_open(single) <= 1, True)
 
 
 # ---------------- the dashboard lists the same legs ----------------
