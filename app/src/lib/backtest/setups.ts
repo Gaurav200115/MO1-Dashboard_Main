@@ -321,9 +321,10 @@ const BACKTEST_ONLY: SetupOption[] = [
    * The live A, B and C on NIFTY (2026-11-21). Long v11 / short v7 run on NIFTY's
    * weekly options instead of the stocks: pivots from NIFTY's previous session,
    * confirmed by the NIFTY weekly chain's OI; ADR from NIFTY's own range; 21 EMA
-   * on 5-minute bars. R is ₹650 (1:2 target ₹1,300, ladder in ₹650 steps). Any
-   * number of trades a day — a leg that fires waits for a fresh setup straight
-   * away; max 3 open is the only limit. Expiry day trades the expiring weekly.
+   * on 5-minute bars. R is ₹650 (1:2 target ₹1,300, ladder in ₹650 steps). v2
+   * (2026-11-23): A, B and C each trade at most once a day, only when the setup
+   * forms; max 3 open. (v1 re-armed after every signal.) Expiry day trades the
+   * expiring weekly.
    *
    * Python: `NIFTY_BREAKOUT_RETRACE_21EMA` / `NIFTY_BREAKDOWN_RETRACE_21EMA` in
    * backtest/strategies.py; tests/test_nifty_abc.py checks these three entries match.
@@ -331,50 +332,50 @@ const BACKTEST_ONLY: SetupOption[] = [
   {
     setup: "A-NIFTY",
     strategy: "nifty-breakout-retrace-21ema",
-    strategyName: "NIFTY Level Break → 21 EMA Retrace [NIFTY weekly, R 650, re-arm]",
-    version: 1,
+    strategyName: "NIFTY Level Break → 21 EMA Retrace [NIFTY weekly, R 650, 1 per setup/day]",
+    version: 2,
     label: "Break & retrace",
     side: "LONG",
     option: "CE",
     description:
       "Live setup A on NIFTY: breaks NIFTY's major resistance (pivots + weekly-chain OI), " +
       "retraces to the 5-min 21 EMA, enters on the ADR turn. ATM weekly call, ₹650 SL, " +
-      "1:2 → +1R ladder. Re-arms on a fresh break; any number a day.",
+      "1:2 → +1R ladder. At most one A trade a day, only when the setup forms.",
     backtestOnly: true,
     book: "nifty-abc",
-    tag: "NIFTY · R ₹650 · re-arm",
+    tag: "NIFTY · R ₹650 · 1 per setup/day",
     instrument: "NIFTY",
   },
   {
     setup: "B-NIFTY",
     strategy: "nifty-breakout-retrace-21ema",
-    strategyName: "NIFTY Level Break → 21 EMA Retrace [NIFTY weekly, R 650, re-arm]",
-    version: 1,
+    strategyName: "NIFTY Level Break → 21 EMA Retrace [NIFTY weekly, R 650, 1 per setup/day]",
+    version: 2,
     label: "Support hold & level cross",
     side: "LONG",
     option: "CE",
     description:
       "Live setup B on NIFTY: holding above the major support, crosses another confirmed level " +
-      "above the 21 EMA. ATM weekly call, ₹650 SL. Re-arms on a fresh cross.",
+      "above the 21 EMA. ATM weekly call, ₹650 SL. At most one B trade a day.",
     backtestOnly: true,
     book: "nifty-abc",
-    tag: "NIFTY · R ₹650 · re-arm",
+    tag: "NIFTY · R ₹650 · 1 per setup/day",
     instrument: "NIFTY",
   },
   {
     setup: "C-NIFTY",
     strategy: "nifty-breakdown-retrace-21ema",
-    strategyName: "NIFTY Support Break → 21 EMA Retrace (Short) [NIFTY weekly, R 650, re-arm]",
-    version: 1,
+    strategyName: "NIFTY Support Break → 21 EMA Retrace (Short) [NIFTY weekly, R 650, 1 per setup/day]",
+    version: 2,
     label: "Breakdown & retrace",
     side: "SHORT",
     option: "PE",
     description:
       "Live setup C on NIFTY: breaks the major support, rallies to the 5-min 21 EMA, enters on " +
-      "the ADR roll-over. ATM weekly put, ₹650 SL, 1:2 → +1R ladder. Re-arms on a fresh break.",
+      "the ADR roll-over. ATM weekly put, ₹650 SL, 1:2 → +1R ladder. At most one C trade a day.",
     backtestOnly: true,
     book: "nifty-abc",
-    tag: "NIFTY · R ₹650 · re-arm",
+    tag: "NIFTY · R ₹650 · 1 per setup/day",
     instrument: "NIFTY",
   },
 ];
