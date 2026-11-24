@@ -117,6 +117,60 @@ check("and recovers", feed.state().status, "live");
 check("through every drop, still nothing that could exit the process",
       [fake.state.exits, fake.state.autoReconnectCalls.every((t) => t === false)], [0, true]);
 
+// ------------------------------------------------------------ watch(): the 60-second signal tape
+// One option watched on the socket already up: full mode, its own ticks, and
+// never a change to the desk's own subscription.
+{
+  const OPTION = 15_000_001;
+  const DESK = 738561; // RELIANCE, the desk's symbol in the fake dump
+  let sock = fake.state.tickers.at(-1);
+  sock.subs = [];
+  const seen = [];
+  const stop = feed.watch(OPTION, (t) => seen.push(t.last_price));
+  check("watch: subscribes the option, in full mode (best bid and offer)",
+        sock.subs, [["subscribe", [OPTION]], ["mode", "full", [OPTION]]]);
+  check("a desk symbol cannot be watched (its subscription is never touched)",
+        [typeof feed.watch(DESK, () => {}), sock.subs.length], ["function", 2]);
+
+  fake.emit("ticks", [{ instrument_token: OPTION, last_price: 30.5 },
+                      { instrument_token: DESK, last_price: 1500, ohlc: { open: 1490, high: 1510, low: 1480, close: 1495 } }]);
+  check("the option's ticks go to the watcher", seen, [30.5]);
+  check("and never into the desk's quote table", feed.snapshot().some((q) => q.symbol === String(OPTION)), false);
+  check("the desk's own ticks still arrive", feed.snapshot().some((q) => q.symbol === "RELIANCE" && q.ltp === 1500), true);
+
+  const second = [];
+  const stop2 = feed.watch(OPTION, (t) => second.push(t.last_price));
+  check("a second watch on the same option shares the subscription", sock.subs.length, 2);
+  stop();
+  check("stopping one of two keeps the subscription", sock.subs.length, 2);
+  fake.emit("ticks", [{ instrument_token: OPTION, last_price: 31 }]);
+  check("and the other still hears it", [seen, second], [[30.5], [31]]);
+  stop2();
+  check("stopping the last drops exactly that option",
+        sock.subs.at(-1), ["unsubscribe", [OPTION]]);
+  check("the desk's symbol was never unsubscribed",
+        sock.subs.some((x) => x[0] === "unsubscribe" && x[1].includes(DESK)), false);
+  stop2();
+  check("stopping twice does nothing more", sock.subs.filter((x) => x[0] === "unsubscribe").length, 1);
+
+  // A watch alive across a reconnect is carried onto the new socket.
+  const third = [];
+  const stop3 = feed.watch(OPTION, (t) => third.push(t.last_price));
+  fake.emit("disconnect");
+  mock.timers.tick(5_000);
+  await settle();
+  fake.emit("connect");
+  sock = fake.state.tickers.at(-1);
+  check("after a reconnect the desk subscribes first, then the watched option again",
+        sock.subs, [["subscribe", [DESK]], ["mode", "quote", [DESK]], ["subscribe", [OPTION]], ["mode", "full", [OPTION]]]);
+  const bad = feed.watch(15_000_002, () => { throw new Error("boom"); });
+  fake.emit("ticks", [{ instrument_token: 15_000_002, last_price: 1 }, { instrument_token: OPTION, last_price: 32 }]);
+  check("a watcher that throws costs nothing else", third, [32]);
+  bad();
+  stop3();
+  check("still live through all of it", feed.state().status, "live");
+}
+
 // The token dies at 06:00 IST. The socket may stay up past it; the desk must not.
 const sockets = fake.state.tickers.length;
 mock.timers.tick(session.nextTokenExpiry(start) - Date.now() + 61_000);

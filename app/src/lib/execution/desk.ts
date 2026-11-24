@@ -5,7 +5,7 @@ import type { ExitReason, StrategyTrade } from "@/lib/strategy/types";
 import { kiteBroker } from "./broker";
 import { readDay, saveDay } from "./journal";
 import { liveAllowed, liveEntriesOn, liveMaxOpen, readMode, writeMode, type ExecutionMode } from "./mode";
-import { chaseCeiling, DEFAULT_TICK, entryLimit, exitPrice, limitUnder, orderTag, stopPrices, tickDown } from "./orderMath";
+import { DEFAULT_TICK, entryLimit, exitPrice, limitUnder, orderTag, stopPrices, tickDown } from "./orderMath";
 import {
   BrokerError,
   type AlertLevel,
@@ -13,6 +13,15 @@ import {
   type BrokerOrder,
   type LivePosition,
 } from "./types";
+
+/** Zerodha's floor for MIS limit orders on an option: open interest of 500 lots. */
+export const MIN_OI_LOTS = 500;
+
+/** Open interest in lots, or null when it is not known (the order is then sent as before). */
+export function oiLots(oi: number | null | undefined, lotSize: number | null | undefined): number | null {
+  if (oi == null || !Number.isFinite(oi) || !lotSize || lotSize <= 0) return null;
+  return oi / lotSize;
+}
 
 /**
  * The live desk: real orders at Zerodha, following the paper engine.
@@ -113,6 +122,21 @@ export class LiveDesk {
     }
     if (quote.ask == null || !(quote.ask > 0)) return;
 
+    // Zerodha refuses MIS limit orders on a contract with open interest under
+    // 500 lots (MFSL, COLPAL, HAL, MUTHOOTFIN, PIIND so far). Checked on the
+    // quote the entry is priced from - no extra request - and never sent.
+    // Kite's OI is in units, like the exchange's, so lots = OI / lot size. Paper
+    // keeps the trade, as it does for any refusal.
+    const lots = oiLots(quote.oi, trade.instrument.lotSize);
+    if (lots != null && lots < MIN_OI_LOTS) {
+      this.log(`${trade.symbol}: OI ${Math.round(lots)} lots < ${MIN_OI_LOTS} - Zerodha blocks MIS limit orders, not sent`);
+      this.deps.alert(
+        "info",
+        `BUY ${trade.instrument.tradingsymbol} not sent: open interest ${Math.round(lots)} lots (${quote.oi} units), under Zerodha's ${MIN_OI_LOTS}-lot minimum for MIS. Paper keeps the trade.`
+      );
+      return;
+    }
+
     const now = this.deps.now();
     const tick = trade.instrument.tickSize ?? DEFAULT_TICK;
     const position: LivePosition = {
@@ -155,10 +179,7 @@ export class LiveDesk {
     await this.sendEntry(position);
   }
 
-  /**
-   * Sends the entry IOC held in `position.entry` and settles it. Used for the
-   * first order and for the one chase after it.
-   */
+  /** Sends the entry IOC held in `position.entry` and settles it. The only buy an entry sends. */
   private async sendEntry(position: LivePosition): Promise<void> {
     try {
       position.entry.placedAt = this.deps.now();
@@ -339,7 +360,7 @@ export class LiveDesk {
       state.halted ? "warning" : "info",
       state.halted
         ? `Live orders are HALTED (${state.halted}). Switch them off and on again at the desk to resume.`
-        : `Live orders ON today: max ${this.deps.maxOpen()} open, entries IOC at the ask plus room capped at 0.1R, one chase up to 0.3R, MIS, exchange stop on every fill.`
+        : `Live orders ON today: max ${this.deps.maxOpen()} open, entries one IOC at the ask + 0.3R (no chase), contracts under 500 lots of OI skipped, MIS, exchange stop on every fill.`
     );
     this.ensureLoop();
   }
@@ -466,80 +487,14 @@ export class LiveDesk {
     }
 
     if (order.status === "CANCELLED") {
-      // Cancelled with nothing bought - the first order is dead, so one chase
-      // cannot double the position. Only ever once.
-      if ((position.entry.tries ?? []).length === 0) {
-        await this.chase(position, order.statusMessage ?? "IOC: nothing at our price");
-        return;
-      }
+      // No seller at or under ask + 0.3R. There is no second order: the room a
+      // chase used to add is already in this one.
       this.endEntry(position, "cancelled", order.statusMessage ?? "IOC: nothing at our price");
       await this.save(position);
       this.deps.alert(
         "info",
-        `BUY ${position.tradingsymbol} not filled on the chase either: no seller at or under ${position.entry.price} (ask ${position.entry.ask}). Paper keeps the trade.`
+        `BUY ${position.tradingsymbol} not filled: no seller at or under ${position.entry.price} (ask ${position.entry.ask} + 0.3R). Paper keeps the trade.`
       );
-    }
-  }
-
-  /**
-   * One more IOC after the first was cancelled for want of a seller: re-read the
-   * book, and buy at the fresh ask plus the usual room - but never more than
-   * 0.3R (165 on 550) above the ask the signal was priced at. Past that the
-   * move has already run too far to be worth chasing.
-   */
-  private async chase(position: LivePosition, firstReason: string): Promise<void> {
-    const e = position.entry;
-    const tick = position.tick ?? DEFAULT_TICK;
-    position.entry.tries = [
-      { tag: e.tag, orderId: e.orderId, ask: e.ask, price: e.price, status: "cancelled", reason: firstReason,
-        quoteAt: e.quoteAt, sentAt: e.sentAt, doneAt: this.deps.now() },
-    ];
-    const ceiling = chaseCeiling(e.ask, position.riskPerUnit, tick);
-    const fresh = await this.freshQuote(position.tradingsymbol);
-
-    if (!fresh || fresh.ask == null || !(fresh.ask > 0) || fresh.ask > ceiling) {
-      const seen = fresh?.ask != null ? `fresh ask ${fresh.ask}` : "no fresh ask";
-      this.endEntry(position, "cancelled", `${firstReason}; not chased: ${seen}, limit ${ceiling}`);
-      await this.save(position);
-      this.deps.alert(
-        "info",
-        `BUY ${position.tradingsymbol} not filled at ${e.price} (ask ${e.ask}); ${seen} is past the chase limit ${ceiling}. Paper keeps the trade.`
-      );
-      return;
-    }
-
-    const now = this.deps.now();
-    position.entry = {
-      ...e,
-      tag: this.nextTag("E", position.symbol),
-      orderId: null,
-      ask: fresh.ask,
-      price: Math.min(entryLimit(fresh.ask, position.riskPerUnit, tick), ceiling),
-      status: "sending",
-      reason: null,
-      quoteAt: fresh.at,
-      sentAt: now,
-      placedAt: null,
-      ackAt: null,
-      doneAt: null,
-      tries: position.entry.tries,
-    };
-    await this.save(position);
-    this.deps.alert(
-      "info",
-      `BUY ${position.tradingsymbol}: first IOC found no seller at ${e.price}; chasing once at ${position.entry.price} (ask now ${fresh.ask}, was ${e.ask}).`
-    );
-    await this.sendEntry(position);
-  }
-
-  private async freshQuote(tradingsymbol: string): Promise<PremiumQuote | null> {
-    try {
-      const key = quoteKey({ tradingsymbol });
-      const quote = (await this.deps.quotes([key])).get(key) ?? null;
-      if (quote) this.remember(tradingsymbol, quote);
-      return quote;
-    } catch {
-      return null;
     }
   }
 

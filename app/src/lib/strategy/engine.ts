@@ -11,6 +11,7 @@ import { BarEngine } from "./bars";
 import { istClock, istDate, istMinutes, parseIstTime } from "./ist";
 import { buildWatchPlan, toTriggerLevel, type SymbolPlan, type WatchPlan } from "./levels";
 import { fetchPremiums, fillPrice, quoteKey, resolveAtm, type PremiumQuote } from "./options";
+import { recordSignal } from "./signalTape";
 import { evaluate, profitAt, sizeTrade } from "./position";
 import { assessBook, describeRejection } from "./tradeable";
 import { activeStrategies, MAX_OPEN_POSITIONS } from "./registry";
@@ -708,6 +709,10 @@ export class StrategyEngine {
       void liveDesk()
         .onEntry(trade, quote)
         .catch((err) => this.note(`${symbol}: live entry failed — ${message(err)}`));
+
+      // The next 60 seconds of this option, tick by tick, for choosing a TTL
+      // order's cancel levels later. Read-only, on the websocket, never throws.
+      recordSignal(trade, quote.ask);
 
       try {
         await insertTrade(trade);

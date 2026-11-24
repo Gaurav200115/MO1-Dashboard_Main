@@ -147,6 +147,7 @@ export async function resolveAtm(
     expiry: best.expiry,
     lotSize: best.lotSize,
     tickSize: best.tickSize,
+    token: best.token,
   };
 }
 

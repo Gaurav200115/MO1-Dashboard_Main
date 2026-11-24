@@ -84,7 +84,8 @@ export interface LivePosition {
     doneAt: number | null;
     /**
      * An earlier IOC for this entry that was cancelled for want of a seller,
-     * before the one chase. Kept so the ask's real move can be measured.
+     * before the one chase. Only on entries from 19-24 Nov 2026: the chase was
+     * removed when the first order took the whole 0.3R. Kept so old journals read.
      */
     tries?: {
       tag: string;
