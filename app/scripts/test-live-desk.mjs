@@ -49,19 +49,20 @@ check("a tiny R still leaves two ticks between trigger and limit",
 check("exit at the bid, rounded down", math.exitPrice(25.13, 25.5, 0), 25.1);
 check("each retry gives up 1% more", math.exitPrice(25, 25, 2), 24.5);
 check("no bid: the last price", math.exitPrice(null, 20, 0), 20);
-// Room = 1% of the premium, capped at 0.1R (55 of 550), at least one tick.
-check("entry limit: ask 30.00, lot 250 (R 2.20/unit): 1% = 0.30, cap 0.22 -> +0.20 = 30.20",
-      math.entryLimit(30, 550 / 250), 30.2);
-check("entry limit: lot 750 at 15.10: cap 0.07 -> one tick, 15.15 (37.50 at most)",
-      math.entryLimit(15.1, 550 / 750), 15.15);
-check("entry limit: lot 500 at 140.60: 1% would be 1.45 (725!), capped at 0.10 -> 140.70",
-      math.entryLimit(140.6, 550 / 500), 140.7);
-check("entry limit: lot 800 at 5.50: 1% = 0.055 -> one tick, 5.55", math.entryLimit(5.5, 550 / 800), 5.55);
-check("entry limit: IDFCFIRSTB lot 9,275 at 1.26 on a one-paisa tick: +1 paisa, 1.27 (93 at most)",
+// Room = 0.3R (165 of 550), at least one tick, on the contract's tick. No 1% cap, no chase.
+check("entry limit: ask 30.00, lot 250 (R 2.20/unit): 0.3R = 0.66 -> +0.65 = 30.65",
+      math.entryLimit(30, 550 / 250), 30.65);
+check("entry limit: lot 750 at 15.10: 0.3R = 0.22 -> +0.20 = 15.30", math.entryLimit(15.1, 550 / 750), 15.3);
+check("entry limit: lot 500 at 140.60: 0.3R = 0.33 -> +0.30 = 140.90", math.entryLimit(140.6, 550 / 500), 140.9);
+check("entry limit: lot 800 at 5.50: 0.3R = 0.206 -> +0.20 = 5.70", math.entryLimit(5.5, 550 / 800), 5.7);
+check("entry limit: IDFCFIRSTB lot 9,275 at 1.26 on a one-paisa tick: 0.3R = 0.018 -> +1 paisa, 1.27",
       math.entryLimit(1.26, 550 / 9275, 0.01), 1.27);
-check("the most an entry can overpay, lot 250 / 750 / 500: never over 55",
-      [Math.round((math.entryLimit(30, 2.2) - 30) * 250), Math.round((math.entryLimit(15.1, 550 / 750) - 15.1) * 750),
-       Math.round((math.entryLimit(140.6, 1.1) - 140.6) * 500)], [50, 38, 50]);
+check("a big lot on a five-paise tick still gets one tick (ETERNAL 2,425 at 3.90: 0.3R = 0.068 -> 3.95)",
+      math.entryLimit(3.9, 550 / 2425), 3.95);
+check("the most an entry can overpay, lot 250 / 750 / 500: never over 0.3R = 165",
+      [(math.entryLimit(30, 2.2) - 30) * 250, (math.entryLimit(15.1, 550 / 750) - 15.1) * 750,
+       (math.entryLimit(140.6, 1.1) - 140.6) * 500].every((x) => x <= 165 + 1e-6), true);
+check("the chase maths is gone", [math.chaseCeiling, math.CHASE_MAX_R, math.ENTRY_ROOM_R], [undefined, undefined, 0.3]);
 check("one-paisa stop: fill 1.26, R 0.0593 -> trigger 1.20, limit 1.17",
       math.stopPrices(1.26, 550 / 9275, 0.01), { trigger: 1.2, limit: 1.17 });
 const tag = math.orderTag("2026-11-16", "E", 7, "TVSMOTOR");
@@ -175,8 +176,9 @@ function makeDesk(kite, opts = {}) {
   return { desk, alerts };
 }
 
-function quote(last, bid, ask = last + 0.1) {
-  return { key: "NFO:X", last, bid, ask, oi: 1000, volume: 100, lastTradeAt: clock, at: clock };
+// OI defaults to 10,000 lots of 250, so the under-500-lots skip stays out of every other test.
+function quote(last, bid, ask = last + 0.1, oi = 2_500_000) {
+  return { key: "NFO:X", last, bid, ask, oi, volume: 100, lastTradeAt: clock, at: clock };
 }
 
 let seq = 0;
@@ -213,10 +215,10 @@ fresh("monday");
   const t = trade();
   await desk.onEntry(t, quote(29.95, 29.9, 30.0));
   const [p] = (await desk.status()).positions;
-  check("Monday: one BUY sent - LIMIT, IOC, at the ask plus capped room, with a tag",
+  check("Monday: one BUY sent - LIMIT, IOC, at the ask + 0.3R, with a tag",
         kite.calls.filter((c) => c[0] === "place").map((c) => [c[1].transactionType, c[1].orderType, c[1].validity, c[1].price, c[1].quantity, /^M11116E001TVSMOTOR$/.test(c[1].tag)]),
-        [["BUY", "LIMIT", "IOC", 30.2, 250, true]]);
-  check("Monday: the ask it was priced from is kept beside the limit", [p.entry.ask, p.entry.price], [30, 30.2]);
+        [["BUY", "LIMIT", "IOC", 30.65, 250, true]]);
+  check("Monday: the ask it was priced from is kept beside the limit", [p.entry.ask, p.entry.price], [30, 30.65]);
   check("Monday: every step is timed - quote, signal, sent to Kite, answered",
         [typeof p.entry.quoteAt, p.entry.placedAt >= p.entry.sentAt, p.entry.ackAt >= p.entry.placedAt], ["number", true, true]);
   check("Monday: recorded as rejected, nothing entered", [p.state, p.entry.status], ["not-entered", "rejected"]);
@@ -228,6 +230,8 @@ fresh("monday");
   check("Monday: reconciliation finds nothing wrong", await desk.reconcile(), []);
   check("Monday: written to the day's journal on disk", (await journal.readDay(DAY)).map((x) => x.entry.status), ["rejected"]);
 }
+
+const buys = (kite) => kite.calls.filter((c) => c[0] === "place" && c[1].transactionType === "BUY").map((c) => [c[1].price, c[1].tag.slice(6, 10)]);
 
 // ------------------------------------------------------------ refusals and lost replies
 
@@ -288,21 +292,39 @@ fresh("stale-ask");
   const { desk } = makeDesk(kite);
   await desk.onEntry(trade(), quote(29.95, 29.9, 30.0));
   const [p] = (await desk.status()).positions;
-  check("the offer moved up a step: limit 30.20 still fills, at the real offer 30.10",
-        [p.entry.status, p.entry.price, p.entry.fillPrice], ["filled", 30.2, 30.1]);
+  check("the offer moved up a step: limit 30.65 fills, at the real offer 30.10 - not at the limit",
+        [p.entry.status, p.entry.price, p.entry.fillPrice], ["filled", 30.65, 30.1]);
   check("and the stop is set from what was actually paid: 30.10 - 2.20 = 27.90",
         [p.stop.trigger, p.stop.limit], [27.9, 26.8]);
+}
+
+// 23 Nov: the offer ran 0.60 past the signal's ask. With 0.1R of room that was
+// cancelled and the chase came a second late; 0.3R up front buys it at once.
+fresh("ran-0.60");
+{
+  const kite = new FakeKite();
+  kite.ask = 30.6;
+  const { desk } = makeDesk(kite);
+  await desk.onEntry(trade(), quote(29.95, 29.9, 30.0));
+  const [p] = (await desk.status()).positions;
+  check("the offer ran to 30.60, inside 30.65: filled on the first and only order, at 30.60",
+        [buys(kite), p.entry.status, p.entry.fillPrice], [[[30.65, "E001"]], "filled", 30.6]);
+  check("the stop is 550 under what was paid", [p.stop.trigger, p.stop.limit], [28.4, 27.3]);
 }
 
 fresh("ran-away");
 {
   const kite = new FakeKite();
-  kite.ask = 30.5;
-  const { desk } = makeDesk(kite);
+  kite.ask = 30.7;
+  const { desk, alerts } = makeDesk(kite, { quoteAsk: 30.7 });
   await desk.onEntry(trade(), quote(29.95, 29.9, 30.0));
   const [p] = (await desk.status()).positions;
-  check("the offer ran past the room (30.50 > 30.20): not chased, cancelled",
-        [p.entry.status, p.state], ["cancelled", "not-entered"]);
+  check("the offer ran past 0.3R (30.70 > 30.65): cancelled, and NO second order",
+        [buys(kite).length, p.entry.status, p.state, p.entry.tries ?? null], [1, "cancelled", "not-entered", null]);
+  check("reported as not filled, paper keeps it",
+        alerts.some(([, x]) => x.includes("not filled") && x.includes("30.65") && x.includes("Paper keeps")), true);
+  clock += 120_000;
+  check("nothing held at Zerodha", await desk.reconcile(), []);
 }
 
 // A one-paisa contract, end to end: every price sent sits on its own tick.
@@ -313,7 +335,7 @@ fresh("one-paisa");
   const { desk } = makeDesk(kite, { quoteBid: 1.3, quoteLast: 1.31 });
   const t = trade("IDFCFIRSTB", { qty: 9275, riskPerUnit: 550 / 9275, stop: 1.26 - 550 / 9275,
     instrument: { tradingsymbol: "IDFCFIRSTB26NOV70CE", lotSize: 9275, strike: 70, type: "CE", expiry: "2026-11-26", tickSize: 0.01 } });
-  await desk.onEntry(t, quote(1.25, 1.24, 1.26));
+  await desk.onEntry(t, quote(1.25, 1.24, 1.26, 9275 * 1000)); // 1,000 lots
   let [p] = (await desk.status()).positions;
   const placed = kite.calls.filter((c) => c[0] === "place").map((c) => [c[1].transactionType, c[1].orderType, c[1].price, c[1].triggerPrice ?? null]);
   check("one-paisa contract: BUY at 1.27 fills at 1.26; stop SL 1.20 / 1.17",
@@ -326,59 +348,25 @@ fresh("one-paisa");
         [p.exit.fillPrice, Math.round(p.profit)], [1.3, 371]);
 }
 
-// ------------------------------------------------------------ the one chase
+// ------------------------------------------------------------ one entry, one buy
 
-const buys = (kite) => kite.calls.filter((c) => c[0] === "place" && c[1].transactionType === "BUY").map((c) => [c[1].price, c[1].tag.slice(6, 10)]);
-
-fresh("chase-fills");
-{
+// Every way an entry can end sends exactly one BUY: filled, cancelled,
+// rejected, refused, or lost and looked up by its tag.
+for (const [name, setup, wantStatus] of [
+  ["filled", (k) => { k.ask = 30.2; }, "filled"],
+  ["cancelled (no seller)", (k) => { k.ask = 31; }, "cancelled"],
+  ["rejected", (k) => { k.onPlace = (o) => (o.transactionType === "BUY" ? { status: "REJECTED", message: "Insufficient funds" } : {}); }, "rejected"],
+  ["refused (IP)", (k) => { k.onPlace = () => ({ refuse: "Order from an unregistered IP is not allowed" }); }, "rejected"],
+  ["lost, found by tag", (k) => { k.onPlace = (o) => (o.transactionType === "BUY" ? { lostReply: true, reachedZerodha: true, status: "CANCELLED" } : {}); }, "cancelled"],
+  ["lost, never reached", (k) => { k.onPlace = () => ({ lostReply: true, reachedZerodha: false }); }, "not-placed"],
+]) {
+  fresh(`one-buy-${name}`);
   const kite = new FakeKite();
-  kite.ask = 30.6; // the offer ran 0.60 past the signal's 30.00
-  const { desk, alerts } = makeDesk(kite, { quoteAsk: 30.6 });
-  await desk.onEntry(trade(), quote(29.95, 29.9, 30.0));
-  const [p] = (await desk.status()).positions;
-  check("first IOC 30.20 cancelled; chase at the fresh 30.60 + room, capped at 30.00 + 0.3R = 30.65",
-        buys(kite), [[30.2, "E001"], [30.65, "E002"]]);
-  check("one position, filled at the real offer 30.60", [p.state, p.entry.status, p.entry.fillPrice, p.entry.filledQty], ["open", "filled", 30.6, 250]);
-  check("the first try is kept, with the ask's move", p.entry.tries.map((t) => [t.ask, t.price, t.status]), [[30, 30.2, "cancelled"]]);
-  check("the stop is 550 under what was actually paid", [p.stop.trigger, p.stop.limit], [28.4, 27.3]);
-  check("the chase is reported", alerts.some(([, x]) => x.includes("chasing once at 30.65")), true);
-  clock += 120_000;
-  check("Zerodha holds exactly one lot", await desk.reconcile(), []);
-}
-
-fresh("chase-too-far");
-{
-  const kite = new FakeKite();
-  kite.ask = 31;
+  setup(kite);
   const { desk } = makeDesk(kite, { quoteAsk: 31 });
   await desk.onEntry(trade(), quote(29.95, 29.9, 30.0));
   const [p] = (await desk.status()).positions;
-  check("fresh ask 31.00 is past the 30.65 limit: no second order", [buys(kite).length, p.entry.status, p.state], [1, "cancelled", "not-entered"]);
-}
-
-fresh("chase-cancelled");
-{
-  const kite = new FakeKite();
-  kite.ask = 30.9; // keeps running while we chase
-  const { desk, alerts } = makeDesk(kite, { quoteAsk: 30.5 });
-  await desk.onEntry(trade(), quote(29.95, 29.9, 30.0));
-  const [p] = (await desk.status()).positions;
-  check("the chase is cancelled too: two orders, then stop - never a third",
-        [buys(kite).length, p.entry.status, p.state], [2, "cancelled", "not-entered"]);
-  check("and says so", alerts.some(([, x]) => x.includes("not filled on the chase either")), true);
-}
-
-fresh("chase-rejected");
-{
-  const kite = new FakeKite();
-  let n = 0;
-  kite.onPlace = (o) => (o.transactionType === "BUY" && ++n === 2 ? { status: "REJECTED", message: "Insufficient funds" } : {});
-  kite.ask = 30.4;
-  const { desk } = makeDesk(kite, { quoteAsk: 30.4 });
-  await desk.onEntry(trade(), quote(29.95, 29.9, 30.0));
-  const [p] = (await desk.status()).positions;
-  check("the chase rejected: two orders, nothing bought, no third", [buys(kite).length, p.entry.status, p.state], [2, "rejected", "not-entered"]);
+  check(`one entry, one BUY - ${name}`, [buys(kite).length, p.entry.status], [1, wantStatus]);
 }
 
 fresh("no-chase-on-reject");
@@ -387,7 +375,7 @@ fresh("no-chase-on-reject");
   kite.onPlace = () => ({ status: "REJECTED", message: "MIS LIMIT orders are blocked" });
   const { desk } = makeDesk(kite);
   await desk.onEntry(trade(), quote(29.95, 29.9, 30.0));
-  check("a rejected first order is never chased", buys(kite).length, 1);
+  check("a rejected order is never sent again", buys(kite).length, 1);
 }
 
 fresh("no-chase-on-unknown");
@@ -396,7 +384,35 @@ fresh("no-chase-on-unknown");
   kite.onPlace = () => ({ lostReply: true, reachedZerodha: false });
   const { desk } = makeDesk(kite);
   await desk.onEntry(trade(), quote(29.95, 29.9, 30.0));
-  check("an order with no reply is looked up, never chased", [buys(kite).length, (await desk.status()).positions[0].entry.status], [1, "not-placed"]);
+  check("an order with no reply is looked up, never sent again", [buys(kite).length, (await desk.status()).positions[0].entry.status], [1, "not-placed"]);
+}
+
+// ------------------------------------------------------------ open interest under 500 lots
+
+fresh("low-oi");
+{
+  const kite = new FakeKite();
+  const { desk, alerts } = makeDesk(kite);
+  await desk.onEntry(trade(), quote(29.95, 29.9, 30.0, 499 * 250)); // 499 lots of 250
+  check("OI 499 lots: no order sent, nothing journalled", [kite.calls.length, (await desk.status()).positions.length], [0, 0]);
+  check("and the phone is told why, with the numbers",
+        alerts.some(([l, x]) => l === "info" && x.includes("not sent") && x.includes("499 lots") && x.includes("124750 units")), true);
+}
+
+fresh("oi-500");
+{
+  const kite = new FakeKite();
+  const { desk } = makeDesk(kite);
+  await desk.onEntry(trade(), quote(29.95, 29.9, 30.0, 500 * 250));
+  check("exactly 500 lots: sent", buys(kite).length, 1);
+}
+
+fresh("oi-unknown");
+{
+  const kite = new FakeKite();
+  const { desk } = makeDesk(kite);
+  await desk.onEntry(trade(), quote(29.95, 29.9, 30.0, null));
+  check("OI not in the quote: sent as before (Zerodha decides)", buys(kite).length, 1);
 }
 
 fresh("off");

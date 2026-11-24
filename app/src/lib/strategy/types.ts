@@ -184,6 +184,8 @@ export interface TradeInstrument {
   lotSize: number;
   /** The contract's price step, from Kite's dump. Absent on trades from before 19 Nov. */
   tickSize?: number;
+  /** Kite's instrument token - what the websocket subscribes by. Absent before 24 Nov. */
+  token?: number;
 }
 
 /** The level that produced the signal, kept so a trade can be audited. */

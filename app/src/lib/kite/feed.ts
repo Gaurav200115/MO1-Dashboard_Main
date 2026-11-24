@@ -35,13 +35,17 @@ type Listener = (event: FeedEvent) => void;
  * admits — its QuoteTick declares neither volume nor average traded price, but
  * the 44-byte packet carries both at offsets 16 and 12.
  */
-type WireTick = Tick & {
+export type WireTick = Tick & {
   ohlc?: { open: number; high: number; low: number; close: number };
   change?: number;
   volume_traded?: number;
   average_traded_price?: number;
   exchange_timestamp?: Date | null;
+  /** Full mode only: five levels each side. */
+  depth?: { buy?: { price: number; quantity: number }[]; sell?: { price: number; quantity: number }[] };
 };
+
+export type TickWatcher = (tick: WireTick) => void;
 
 const PERSIST_MS = 30_000;
 
@@ -101,6 +105,14 @@ class KiteFeed {
   private tokenToSymbol = new Map<number, string>();
   private tokens: number[] = [];
 
+  /**
+   * Extra instruments watched for a short while - the option a signal priced,
+   * for the 60 seconds after it (lib/strategy/signalTape.ts). Kept apart from
+   * `tokens`: they never reach the desk's quote table, and the desk's own
+   * subscriptions are never touched by adding or dropping one.
+   */
+  private watched = new Map<number, Set<TickWatcher>>();
+
   private status: FeedStatus = "stopped";
   private detail: string | null = null;
   private unresolved: string[] = [];
@@ -136,6 +148,55 @@ class KiteFeed {
   subscribe(listener: Listener): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
+  }
+
+  /**
+   * Streams one more instrument, in full mode (best bid and offer), to `onTick`
+   * until the returned function is called. Read-only: it opens no socket and
+   * sends no request - it rides the socket already up, and is re-subscribed if
+   * that socket reconnects. A desk symbol's token is refused, so the desk's own
+   * subscription can never be dropped by it.
+   */
+  watch(token: number, onTick: TickWatcher): () => void {
+    if (!Number.isFinite(token) || this.tokenToSymbol.has(token)) return () => {};
+    let set = this.watched.get(token);
+    const isNew = !set;
+    if (!set) {
+      set = new Set();
+      this.watched.set(token, set);
+    }
+    set.add(onTick);
+    if (isNew) this.subscribeWatched([token]);
+
+    let done = false;
+    return () => {
+      if (done) return;
+      done = true;
+      const current = this.watched.get(token);
+      if (!current) return;
+      current.delete(onTick);
+      if (current.size > 0) return;
+      this.watched.delete(token);
+      const ticker = this.ticker;
+      if (ticker && this.status === "live") {
+        try {
+          ticker.unsubscribe([token]);
+        } catch {
+          // the socket is going anyway
+        }
+      }
+    };
+  }
+
+  private subscribeWatched(tokens: number[]): void {
+    const ticker = this.ticker;
+    if (!ticker || this.status !== "live" || tokens.length === 0) return;
+    try {
+      ticker.subscribe(tokens);
+      ticker.setMode("full", tokens);
+    } catch {
+      // a watch is a measurement; failing to start one changes nothing else
+    }
   }
 
   /**
@@ -231,6 +292,8 @@ class KiteFeed {
       ticker.subscribe(this.tokens);
       ticker.setMode("quote", this.tokens);
       this.setStatus("live", null);
+      // Watches started before, or during a reconnect, carry on on this socket.
+      this.subscribeWatched([...this.watched.keys()]);
     });
 
     ticker.on("ticks", (ticks: Tick[]) => {
@@ -259,6 +322,17 @@ class KiteFeed {
   private ingest(ticks: Tick[]): void {
     const now = Date.now();
     for (const tick of ticks) {
+      const watchers = this.watched.get(tick.instrument_token);
+      if (watchers) {
+        for (const watcher of watchers) {
+          try {
+            watcher(tick as WireTick);
+          } catch {
+            // one broken watcher must not cost the desk its prices
+          }
+        }
+        continue;
+      }
       const symbol = this.tokenToSymbol.get(tick.instrument_token);
       if (!symbol) continue;
 

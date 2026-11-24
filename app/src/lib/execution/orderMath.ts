@@ -31,37 +31,25 @@ function toPaise(x: number): number {
 }
 
 /**
- * How far above the ask an entry may pay: 1% of the option's own price, but
- * never more than a tenth of the trade's risk, and at least one tick.
+ * How far above the ask an entry may pay: 0.3R (165 on the desk's 550), at least
+ * one tick. One IOC at this limit, and no chase.
  *
- * The ask is read a moment before the order arrives; an IOC at exactly that
- * ask is cancelled the moment the best offer moves a step - four of five
- * entries on 18 Nov. Some room fixes that, but on a big lot 1% of the premium
- * could cost more than the strategy earns (its edge is about 0.2R a trade), so
- * the room is capped in rupees by the risk: 0.1R, 55 on the desk's 550.
+ * History. 18 Nov: an IOC at exactly the ask was cancelled whenever the offer
+ * moved a step before the order arrived. Then 1% of room capped at 0.1R, with
+ * one chase up to 0.3R a second later. By 24 Nov the record was 13 IOCs
+ * cancelled for want of a seller - 8 of them winners on paper, +6,693 between
+ * them - against 5 fills, 2 winners, -228: the trades that work are the ones
+ * whose offer is running away, and the chase arrived a second too late for
+ * them. So the whole 0.3R goes on the first and only order. A buy limit fills
+ * at the best offer up to it, so the room is only spent when the price has
+ * really moved.
  */
-export const ENTRY_BUFFER_PCT = 1;
-export const ENTRY_BUFFER_MAX_R = 0.1;
+export const ENTRY_ROOM_R = 0.3;
 
-/**
- * The entry's IOC limit. A buy limit fills at the best offer up to it, so the
- * room is only spent when the price really moved.
- */
+/** The entry's IOC limit: the ask plus 0.3R, on the contract's tick. */
 export function entryLimit(ask: number, riskPerUnit: number, tick = DEFAULT_TICK): number {
-  const room = Math.min(ask * (ENTRY_BUFFER_PCT / 100), ENTRY_BUFFER_MAX_R * riskPerUnit);
-  const buffer = Math.max(tick, Math.floor(round6(room / tick)) * tick);
-  return tickUp(ask + buffer, tick);
-}
-
-/**
- * How far above the signal's ask the one chase may buy: 0.3R, 165 on the
- * desk's 550. A cancelled IOC is re-sent once at the fresh ask plus the usual
- * room, but never above this - past it the move has run too far to chase.
- */
-export const CHASE_MAX_R = 0.3;
-
-export function chaseCeiling(firstAsk: number, riskPerUnit: number, tick = DEFAULT_TICK): number {
-  return tickDown(firstAsk + CHASE_MAX_R * riskPerUnit, tick);
+  const room = Math.max(tick, Math.floor(round6((ENTRY_ROOM_R * riskPerUnit) / tick)) * tick);
+  return tickUp(ask + room, tick);
 }
 
 /**

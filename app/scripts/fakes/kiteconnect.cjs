@@ -37,8 +37,17 @@ class KiteTicker {
     state.shouldReconnect = false;
     this.disconnected = true;
   }
-  subscribe() {}
-  setMode() {}
+  // Recorded so the feed's watch() can be checked: what was subscribed, in
+  // which mode, and what was dropped - per socket.
+  subscribe(tokens) {
+    (this.subs ??= []).push(["subscribe", [...tokens]]);
+  }
+  unsubscribe(tokens) {
+    (this.subs ??= []).push(["unsubscribe", [...tokens]]);
+  }
+  setMode(mode, tokens) {
+    (this.subs ??= []).push(["mode", mode, [...tokens]]);
+  }
 }
 
 function emit(event, ...args) {
