@@ -551,6 +551,100 @@ BREAKOUT_RETRACE_21EMA_B35K = {
     "risk": dict(BUDGET_RISK),
 }
 
+# The -SK legs with the stop sized by the stock's ATR, as Gaurav specified it
+# (2026-11-25). Backtest only.
+#
+#   - Entries are A-SK / B-SK / C-SK v2 exactly: per-pivot skew, ADR retrace,
+#     13:00 cutoff, 1 lot of the ATM option.
+#   - The stop is the stock's ATR(14) on 5-minute bars / 3, applied straight to
+#     the option premium in points: ATR 14.40 puts it 4.80 under the fill. R is
+#     that x the lot quantity. No 550, no floor, no ceiling. atr_stop.py has the
+#     ATR's exact definition.
+#   - -ATR    stop to cost at +1.5R, at +2R the stop goes to +1R, then one rung
+#             behind - all in the trade's own R.
+#   - -ATR600 the same ladder in fixed Rs 600 steps: cost at +900, +600 locked at
+#             +1,200, then every +600 - whatever the ATR stop is.
+#   - The spread-of-risk check he was asked about does not exist here: the
+#     archive holds no quotes (gate.py), and the -SK params carry no step-cost
+#     gate, so nothing else reads R before entry.
+ATR_TAG = "ATR/3 SL, ladder in own R"
+ATR600_TAG = "ATR/3 SL, ladder Rs 600"
+
+ATR_STOP_RISK = {
+    "lots": 1,
+    "moneyness": "ATM",
+    "rewardMultiple": 2,
+    "trailStartMultiple": 2,
+    "trailLockMultiple": 1,
+    "trail": "ladder",
+    "breakevenAtR": BREAKEVEN_AT_R,
+    "stopBasis": "atr",
+    "atrPeriod": 14,
+    "atrIntervalMinutes": 5,
+    "atrStopDivisor": 3,
+    "ladderBasis": "own-r",
+}
+
+ATR600_RISK = dict(ATR_STOP_RISK, ladderBasis="fixed", rupeesPerTrade=600)
+
+BREAKOUT_RETRACE_21EMA_ATR = {
+    "id": "breakout-retrace-21ema-atr",
+    "version": 1,
+    "name": f"Level Break -> 21 EMA Retrace [{ATR_TAG}]",
+    "backtestOnly": True,
+    "book": "atr-stop",
+    "setups": ["A-ATR", "B-ATR"],
+    "setupLabels": {"A-ATR": f"Break & retrace [{ATR_TAG}]",
+                    "B-ATR": f"Support hold & level cross [{ATR_TAG}]"},
+    "sides": {"A-ATR": "LONG", "B-ATR": "LONG"},
+    "legs": {"A-ATR": "A", "B-ATR": "B"},
+    "params": dict(PIVOT_SKEW_PARAMS),
+    "risk": dict(ATR_STOP_RISK),
+}
+
+BREAKDOWN_RETRACE_21EMA_ATR = {
+    "id": "breakdown-retrace-21ema-atr",
+    "version": 1,
+    "name": f"Support Break -> 21 EMA Retrace (Short) [{ATR_TAG}]",
+    "backtestOnly": True,
+    "book": "atr-stop",
+    "setups": ["C-ATR"],
+    "setupLabels": {"C-ATR": f"Breakdown & retrace [{ATR_TAG}]"},
+    "sides": {"C-ATR": "SHORT"},
+    "legs": {"C-ATR": "C"},
+    "params": dict(PIVOT_SKEW_PARAMS),
+    "risk": dict(ATR_STOP_RISK),
+}
+
+BREAKOUT_RETRACE_21EMA_ATR600 = {
+    "id": "breakout-retrace-21ema-atr600",
+    "version": 1,
+    "name": f"Level Break -> 21 EMA Retrace [{ATR600_TAG}]",
+    "backtestOnly": True,
+    "book": "atr-stop-600",
+    "setups": ["A-ATR600", "B-ATR600"],
+    "setupLabels": {"A-ATR600": f"Break & retrace [{ATR600_TAG}]",
+                    "B-ATR600": f"Support hold & level cross [{ATR600_TAG}]"},
+    "sides": {"A-ATR600": "LONG", "B-ATR600": "LONG"},
+    "legs": {"A-ATR600": "A", "B-ATR600": "B"},
+    "params": dict(PIVOT_SKEW_PARAMS),
+    "risk": dict(ATR600_RISK),
+}
+
+BREAKDOWN_RETRACE_21EMA_ATR600 = {
+    "id": "breakdown-retrace-21ema-atr600",
+    "version": 1,
+    "name": f"Support Break -> 21 EMA Retrace (Short) [{ATR600_TAG}]",
+    "backtestOnly": True,
+    "book": "atr-stop-600",
+    "setups": ["C-ATR600"],
+    "setupLabels": {"C-ATR600": f"Breakdown & retrace [{ATR600_TAG}]"},
+    "sides": {"C-ATR600": "SHORT"},
+    "legs": {"C-ATR600": "C"},
+    "params": dict(PIVOT_SKEW_PARAMS),
+    "risk": dict(ATR600_RISK),
+}
+
 ALL_STRATEGIES = (BREAKOUT_RETRACE_21EMA, BREAKDOWN_RETRACE_21EMA, NIFTY_ORB_15M,
                   BREAKOUT_RETRACE_21EMA_ADR, BREAKDOWN_RETRACE_21EMA_ADR,
                   BREAKOUT_RETRACE_21EMA_PB, BREAKDOWN_RETRACE_21EMA_PB,
@@ -558,7 +652,9 @@ ALL_STRATEGIES = (BREAKOUT_RETRACE_21EMA, BREAKDOWN_RETRACE_21EMA, NIFTY_ORB_15M
                   BREAKOUT_RETRACE_21EMA_SK, BREAKDOWN_RETRACE_21EMA_SK,
                   NIFTY_BREAKOUT_RETRACE_21EMA, NIFTY_BREAKDOWN_RETRACE_21EMA,
                   BREAKOUT_RETRACE_21EMA_CAP, BREAKDOWN_RETRACE_21EMA_CAP,
-                  BREAKOUT_RETRACE_21EMA_B35K)
+                  BREAKOUT_RETRACE_21EMA_B35K,
+                  BREAKOUT_RETRACE_21EMA_ATR, BREAKDOWN_RETRACE_21EMA_ATR,
+                  BREAKOUT_RETRACE_21EMA_ATR600, BREAKDOWN_RETRACE_21EMA_ATR600)
 STRATEGIES = {s["id"]: s for s in ALL_STRATEGIES}
 
 
@@ -645,7 +741,7 @@ def selection(setup_ids):
     # The variants (ADR, pullback stop, daily loss limit, pivot skew) are other
     # versions of the desk's legs, so no two of those books ever share a run.
     if len({book_of(STRATEGIES[sid]) for sid in chosen}) > 1:
-        raise SystemExit("A/B/C, its variants (-ADR, -PB, -DL, -SK, -CAP, -35K) and the -NIFTY legs are alternatives, not "
+        raise SystemExit("A/B/C, its variants (-ADR, -PB, -DL, -SK, -CAP, -35K, -ATR, -ATR600) and the -NIFTY legs are alternatives, not "
                          "additions - replay each set in a run of its own")
     return sorted(chosen), chosen
 

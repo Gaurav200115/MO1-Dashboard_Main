@@ -310,6 +310,28 @@ def spot_closes(conn, days, symbol):
     return dict(out)
 
 
+def spot_ohlc(conn, days, symbol):
+    """1-minute bars of each session in `days`, with high and low - the ATR seed.
+
+    Same sessions as `spot_closes`; read only when a run holds an ATR-stop leg.
+    """
+    if not days:
+        return {}
+    start = dt.datetime.combine(min(days), dt.time(0, 0), tzinfo=IST)
+    end = dt.datetime.combine(max(days), dt.time(0, 0), tzinfo=IST) + dt.timedelta(days=1)
+    rows = conn.execute(
+        "SELECT ts, high_paise, low_paise, close_paise FROM spot_1min "
+        "WHERE symbol = %s AND ts >= %s AND ts < %s ORDER BY ts",
+        (symbol, start, end))
+    out = defaultdict(list)
+    for ts, h, l, c in rows:
+        if None in (h, l, c):
+            continue
+        at = _ist(ts)
+        out[at.date()].append({"at": at, "high": _rs(h), "low": _rs(l), "close": _rs(c)})
+    return dict(out)
+
+
 def entry_expiry(conn, day, symbol):
     """The expiry a trade taken on `day` buys: nearest **on or after** the trading day.
 
