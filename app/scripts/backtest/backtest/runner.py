@@ -26,7 +26,7 @@ import json
 import math
 from collections import defaultdict
 
-from . import charges, db, orb, pullback_stop
+from . import atr_stop, charges, db, orb, pullback_stop
 from .adr import adr_pct
 from .config import S, ist_time
 from .fills import step_position
@@ -182,9 +182,8 @@ def _index_plans(conn, day, prev, strategies, symbol):
     return plans
 
 
-def _seed_closes(conn, day, prev, symbols, period, interval):
-    """{symbol: [closes]} - the last period*4 settled interval bars before `day`."""
-    need = period * SEED_BAR_MULTIPLE
+def _seed_days(conn, prev):
+    """The sessions the morning seeds read: `prev` and the two before it."""
     days = []
     d = prev
     # A session is 375 minutes = 75 five-minute bars, so 84 bars reaches into the
@@ -194,6 +193,29 @@ def _seed_closes(conn, day, prev, symbols, period, interval):
             break
         days.append(d)
         d = db.previous_trading_day(conn, d)
+    return days
+
+
+def _seed_atr(conn, day, prev, symbols, period, interval):
+    """{symbol: AtrClock} seeded from the same three sessions as the EMA."""
+    days = _seed_days(conn, prev)
+    factors = db.adjust_factors(conn, symbols, min(days), day) if days else {}
+    out = {}
+    for symbol in symbols:
+        by_day = db.spot_ohlc(conn, days, symbol) if days else {}
+        factor = factors.get(symbol, 1.0)
+        bars = []
+        for d in sorted(by_day):
+            bars.extend((start, h * factor, l * factor, c * factor)
+                        for start, h, l, c in atr_stop.fold_ohlc(by_day[d], interval))
+        out[symbol] = atr_stop.AtrClock(period, interval, bars)
+    return out
+
+
+def _seed_closes(conn, day, prev, symbols, period, interval):
+    """{symbol: [closes]} - the last period*4 settled interval bars before `day`."""
+    need = period * SEED_BAR_MULTIPLE
+    days = _seed_days(conn, prev)
     if not days:
         return {}
 
@@ -272,6 +294,9 @@ def replay_session(conn, day, strategies, floors, log=None, setups=None):
         return [], notes
 
     clocks = {s: SymbolClock(period, interval, seeds.get(s, [])) for s in symbols}
+    # ATR-stop variant only: each stock's 5-minute ATR, read at the entry minute.
+    atr_spec = atr_stop.in_run(strategies)
+    atrs = _seed_atr(conn, day, prev, symbols, *atr_spec) if atr_spec else {}
     states = {(st["id"], s): initial_state(plans[st["id"]][s])
               for st in strategies for s in symbols if s in plans[st["id"]]}
 
@@ -327,6 +352,7 @@ def replay_session(conn, day, strategies, floors, log=None, setups=None):
             # is looked at before the option's. No-op for every other rule.
             pullback_stop.watch_stock(position, bar_at[position.symbol].get(minute), minute)
             risk, apply = pullback_stop.exit_rule(position, STRATEGIES[position.strategy_id]["risk"])
+            risk = atr_stop.ladder_risk(position, risk)
             done = step_position(position, by_strike, band, minute, flatten, risk, apply)
             (closed if done is not None else still_open).append(done or position)
         open_positions = still_open
@@ -346,6 +372,8 @@ def replay_session(conn, day, strategies, floors, log=None, setups=None):
             bar = bar_at[symbol].get(minute)
             if bar is not None:
                 clocks[symbol].push_minute(bar)
+                if symbol in atrs:
+                    atrs[symbol].push_minute(bar)
 
         for strategy in strategies:
             sid = strategy["id"]
@@ -393,7 +421,8 @@ def replay_session(conn, day, strategies, floors, log=None, setups=None):
 
                 position = _try_fill(conn, day, prev, strategy, signal, plans[sid][symbol],
                                      minute, floors, option_data, gate_cache, notes,
-                                     bar_at[symbol])
+                                     bar_at[symbol],
+                                     atrs[symbol].value if symbol in atrs else None)
                 if position is None:
                     continue
                 # Over budget: skipped, never made room for by closing an open trade.
@@ -435,9 +464,19 @@ def day_net(closed):
 
 
 def _try_fill(conn, day, prev, strategy, signal, plan, minute, floors,
-              option_data, gate_cache, notes, spot_bars=None):
+              option_data, gate_cache, notes, spot_bars=None, atr=None):
     """Picks the contract, runs the gate, and opens the position - or explains why not."""
     side = option_type(strategy, signal.setup)
+
+    # ATR-stop variant: the stop is the stock's 5-minute ATR / 3, known before any
+    # contract is looked at. A stock without 14 closed bars yet has no ATR, and
+    # the signal is turned away rather than given a made-up stop.
+    atr_plan = None
+    if atr_stop.applies(strategy):
+        atr_plan = atr_stop.plan(atr, plan.lot_size * strategy["risk"]["lots"], strategy["risk"])
+        if atr_plan is None:
+            notes["rejected"]["no 5-min ATR yet"] += 1
+            return None
 
     # Pullback-stop variant: R is known from the stock alone, so a trade whose
     # stop would cost more than the cap is turned away before any contract is
@@ -493,6 +532,13 @@ def _try_fill(conn, day, prev, strategy, signal, plan, minute, floors,
                            strategy["risk"]["rupeesPerTrade"], step_cap):
             notes["rejected"]["step-too-costly"] += 1
             return None
+
+    if atr_plan is not None:
+        sized = dict(strategy, risk=atr_stop.sized_risk(strategy["risk"], atr_plan))
+        position = open_position(signal, sized, {"price": fill_price(entry_bar)},
+                                 plan.lot_size, expiry, strike, side, result.mark,
+                                 day.isoformat())
+        return atr_stop.arm(position, atr_plan, strategy["risk"])
 
     if stop is None:
         return open_position(signal, strategy, {"price": fill_price(entry_bar)},

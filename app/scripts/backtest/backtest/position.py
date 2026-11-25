@@ -123,6 +123,11 @@ class Position:
     stock_stop: object = None
     stock_stop_hit: object = None
 
+    # ATR-stop variant with a fixed ladder (A/B/C-ATR600, atr_stop.py): the
+    # premium per unit each rung steps in, when that is not the stop distance.
+    # None everywhere else - the ladder steps in risk_per_unit.
+    ladder_unit: float | None = None
+
     def __post_init__(self):
         if self.last_price is None:
             self.last_price = self.entry
@@ -172,6 +177,15 @@ def open_position(signal, strategy, fill, lot_size, expiry, strike, option_type,
     )
 
 
+def ladder_unit(position):
+    """Premium per unit the ladder and the break-even step in: the stop distance,
+    except under the ATR stop's fixed Rs 600 ladder (atr_stop.py)."""
+    # getattr: `evaluate` is also handed bare stand-ins carrying only the fields
+    # it has always read (tests/test_core.py).
+    unit = getattr(position, "ladder_unit", None)
+    return unit if unit is not None else position.risk_per_unit
+
+
 def advance_ladder(position, premium, risk, at):
     """Walks the ladder forward to wherever the premium has reached.
 
@@ -183,7 +197,7 @@ def advance_ladder(position, premium, risk, at):
     if risk["trail"] == "single" and position.step >= 2:
         return None
 
-    entry, unit = position.entry, position.risk_per_unit
+    entry, unit = position.entry, ladder_unit(position)
     step, stop, target = position.step, position.stop, position.target
     steps = []
 
@@ -269,7 +283,7 @@ def move_to_cost(position, high, risk, at):
     multiple = risk.get("breakevenAtR")
     if multiple is None or position.stop >= position.entry:
         return
-    if high >= position.entry + multiple * position.risk_per_unit:
+    if high >= position.entry + multiple * ladder_unit(position):
         position.stop = position.entry
         position.context["breakeven"] = {"at": at, "atR": multiple}
 

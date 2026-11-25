@@ -35,7 +35,8 @@ export interface SetupOption {
    * ("desk"), the ADR variant of them ("adr"), the pullback-stop variant
    * ("pullback-stop"), the daily-loss-limit variant ("adr-daily-loss"), the
    * per-pivot skew variant ("adr-pivot-skew"), the 3-a-day / ₹35k variant
-   * ("cap-35k"), B alone on ₹35k ("b-35k"), or NIFTY's opening range ("nifty"). Mirrors `book_of` in backtest/strategies.py.
+   * ("cap-35k"), B alone on ₹35k ("b-35k"), the ATR-stop variants ("atr-stop",
+   * "atr-stop-600"), or NIFTY's opening range ("nifty"). Mirrors `book_of` in backtest/strategies.py.
    */
   book: string;
   /** A short label shown beside the leg, e.g. what a variant changes. */
@@ -452,6 +453,113 @@ const BACKTEST_ONLY: SetupOption[] = [
     book: "b-35k",
     tag: "B only · ₹35k · BE 1.5R",
   },
+
+  /*
+   * The -SK legs with an ATR stop (2026-11-25). Entries are A/B/C-SK v2 exactly;
+   * the SL is the stock's ATR(14) on 5-minute bars / 3, applied straight to the
+   * option premium in points, so R = ATR/3 × lot - no ₹550, no floor, no ceiling.
+   *   -ATR     ladder in the trade's own R: cost at +1.5R, +1R at +2R, then one behind
+   *   -ATR600  the same ladder in fixed ₹600 steps: cost at +900, +600 at +1,200 ...
+   *
+   * Python: `BREAKOUT_RETRACE_21EMA_ATR` / `_ATR600` and the BREAKDOWN pair in
+   * backtest/strategies.py; tests/test_atr_stop.py checks these six entries match.
+   */
+  {
+    setup: "A-ATR",
+    strategy: "breakout-retrace-21ema-atr",
+    strategyName: "Level Break → 21 EMA Retrace [ATR/3 SL, ladder in own R]",
+    version: 1,
+    label: "Break & retrace",
+    side: "LONG",
+    option: "CE",
+    description:
+      "Setup A-SK (per-pivot skew, ADR retrace). " +
+      "SL = the stock's 5-min ATR(14) / 3, in option premium points (ATR 14.40 → SL 4.80 under the fill); R = that × lot. No ₹550. " +
+      "Ladder in the trade's own R: SL to cost at +1.5R, +1R locked at +2R, then one rung behind.",
+    backtestOnly: true,
+    book: "atr-stop",
+    tag: "ATR/3 SL · ladder in own R · BE 1.5R",
+  },
+  {
+    setup: "B-ATR",
+    strategy: "breakout-retrace-21ema-atr",
+    strategyName: "Level Break → 21 EMA Retrace [ATR/3 SL, ladder in own R]",
+    version: 1,
+    label: "Support hold & level cross",
+    side: "LONG",
+    option: "CE",
+    description:
+      "Setup B-SK. " +
+      "SL = the stock's 5-min ATR(14) / 3, in option premium points (ATR 14.40 → SL 4.80 under the fill); R = that × lot. No ₹550. " +
+      "Ladder in the trade's own R: SL to cost at +1.5R, +1R locked at +2R, then one rung behind.",
+    backtestOnly: true,
+    book: "atr-stop",
+    tag: "ATR/3 SL · ladder in own R · BE 1.5R",
+  },
+  {
+    setup: "C-ATR",
+    strategy: "breakdown-retrace-21ema-atr",
+    strategyName: "Support Break → 21 EMA Retrace (Short) [ATR/3 SL, ladder in own R]",
+    version: 1,
+    label: "Breakdown & retrace",
+    side: "SHORT",
+    option: "PE",
+    description:
+      "Setup C-SK (per-pivot skew, ADR retrace). " +
+      "SL = the stock's 5-min ATR(14) / 3, in option premium points (ATR 14.40 → SL 4.80 under the fill); R = that × lot. No ₹550. " +
+      "Ladder in the trade's own R: SL to cost at +1.5R, +1R locked at +2R, then one rung behind.",
+    backtestOnly: true,
+    book: "atr-stop",
+    tag: "ATR/3 SL · ladder in own R · BE 1.5R",
+  },
+  {
+    setup: "A-ATR600",
+    strategy: "breakout-retrace-21ema-atr600",
+    strategyName: "Level Break → 21 EMA Retrace [ATR/3 SL, ladder Rs 600]",
+    version: 1,
+    label: "Break & retrace",
+    side: "LONG",
+    option: "CE",
+    description:
+      "Setup A-SK (per-pivot skew, ADR retrace). " +
+      "SL = the stock's 5-min ATR(14) / 3, in option premium points (ATR 14.40 → SL 4.80 under the fill); R = that × lot. No ₹550. " +
+      "Ladder in fixed ₹600 steps: SL to cost at +₹900, +₹600 locked at +₹1,200, then every +₹600.",
+    backtestOnly: true,
+    book: "atr-stop-600",
+    tag: "ATR/3 SL · ladder ₹600 · BE ₹900",
+  },
+  {
+    setup: "B-ATR600",
+    strategy: "breakout-retrace-21ema-atr600",
+    strategyName: "Level Break → 21 EMA Retrace [ATR/3 SL, ladder Rs 600]",
+    version: 1,
+    label: "Support hold & level cross",
+    side: "LONG",
+    option: "CE",
+    description:
+      "Setup B-SK. " +
+      "SL = the stock's 5-min ATR(14) / 3, in option premium points (ATR 14.40 → SL 4.80 under the fill); R = that × lot. No ₹550. " +
+      "Ladder in fixed ₹600 steps: SL to cost at +₹900, +₹600 locked at +₹1,200, then every +₹600.",
+    backtestOnly: true,
+    book: "atr-stop-600",
+    tag: "ATR/3 SL · ladder ₹600 · BE ₹900",
+  },
+  {
+    setup: "C-ATR600",
+    strategy: "breakdown-retrace-21ema-atr600",
+    strategyName: "Support Break → 21 EMA Retrace (Short) [ATR/3 SL, ladder Rs 600]",
+    version: 1,
+    label: "Breakdown & retrace",
+    side: "SHORT",
+    option: "PE",
+    description:
+      "Setup C-SK (per-pivot skew, ADR retrace). " +
+      "SL = the stock's 5-min ATR(14) / 3, in option premium points (ATR 14.40 → SL 4.80 under the fill); R = that × lot. No ₹550. " +
+      "Ladder in fixed ₹600 steps: SL to cost at +₹900, +₹600 locked at +₹1,200, then every +₹600.",
+    backtestOnly: true,
+    book: "atr-stop-600",
+    tag: "ATR/3 SL · ladder ₹600 · BE ₹900",
+  },
 ];
 
 export function listSetups(): SetupOption[] {
@@ -486,7 +594,7 @@ export function mixError(setupIds: string[]): string | null {
     setupIds.map((id) => all.find((s) => s.setup === id)?.book).filter(Boolean)
   );
   if (books.size > 1) {
-    return "A/B/C, its variants (-ADR, -PB, -DL, -SK, -CAP, -35K) and the -NIFTY legs are alternatives, not additions — replay each set in a run of its own";
+    return "A/B/C, its variants (-ADR, -PB, -DL, -SK, -CAP, -35K, -ATR, -ATR600) and the -NIFTY legs are alternatives, not additions — replay each set in a run of its own";
   }
   return null;
 }

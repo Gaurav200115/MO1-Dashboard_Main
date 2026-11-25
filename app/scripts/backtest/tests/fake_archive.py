@@ -65,6 +65,10 @@ class Stock:
     # Previous sessions' (high, low, close), oldest first, for the ADR rule's
     # average daily range. Left out: default_history(close) - see DEFAULT_ADR_PCT.
     history: tuple | None = None
+    # High minus low of every 1-minute bar in the three seed sessions, centred on
+    # `seed`. Zero (the default) is the flat seed every other test was written on;
+    # the ATR-stop tests set it so the seeded 5-minute ATR is exactly this.
+    seed_range: float = 0.0
 
 
 class Result:
@@ -178,6 +182,19 @@ class FakeArchive:
                 for minute, price in sorted(stock.prices.items()):
                     p = int(round(price * 100))
                     rows.append((stock.symbol, minute, p, p, p, p, 10_000))
+            return Result(rows)
+        if "FROM spot_1min" in q and "high_paise" in q:
+            # The ATR seed: the same three sessions, each bar `seed_range` high to low.
+            stock = self.stocks[params[0]]
+            half = stock.seed_range / 2
+            rows = []
+            for back in (3, 2, 1):
+                d = self.day - dt.timedelta(days=back)
+                for minute in range(200):
+                    rows.append((at(d, 9, 15) + dt.timedelta(minutes=minute),
+                                 int(round((stock.seed + half) * 100)),
+                                 int(round((stock.seed - half) * 100)),
+                                 int(round(stock.seed * 100))))
             return Result(rows)
         if "FROM spot_1min" in q:
             # The EMA seed: three previous sessions, flat at the stock's seed level.

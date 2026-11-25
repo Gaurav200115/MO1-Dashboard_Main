@@ -96,6 +96,11 @@ def trade_document(position, run_id):
     if context.get("pullbackStop"):
         trigger["pullbackStop"] = dict(context["pullbackStop"])
 
+    # ATR-stop variants only: the ATR read at entry, the stop it set and the
+    # rupee unit the ladder stepped in (this trade's own R, or the fixed 600).
+    if context.get("atrStop"):
+        trigger["atrStop"] = dict(context["atrStop"])
+
     # Break-even variants only: when the stop moved to the entry price.
     if context.get("breakeven"):
         trigger["breakeven"] = {"at": _ms(context["breakeven"]["at"]),

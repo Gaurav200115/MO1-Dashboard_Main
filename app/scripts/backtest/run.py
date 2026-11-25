@@ -31,6 +31,12 @@ Every command that replays takes --setups, defaulting to all of them:
                       the live A, B and C on NIFTY's weekly options: NIFTY's own
                       pivots + weekly-chain OI, R 650, each setup at most once
                       a day, max 3 open - backtest only
+    --setups A-ATR B-ATR C-ATR
+                      the -SK legs with the SL at the stock's 5-min ATR(14) / 3
+                      in premium points, ladder in each trade's own R
+    --setups A-ATR600 B-ATR600 C-ATR600
+                      the same ATR SL, ladder in fixed Rs 600 steps - both
+                      backtest only
 
 `levels` and `session` print and store nothing. `now` and `queue` write to Mongo.
 """

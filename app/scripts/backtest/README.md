@@ -251,6 +251,37 @@ python run.py now --from 2025-11-10 --to 2026-10-30 --setups A-SK B-SK C-SK
 Compare with the ADR run on the same dates: only the major-level pick differs. Each trade stores
 the level it traded under `trigger.level` (`pivot`, `skew`), so the result can be split by pivot.
 
+## Backtest-only rule: the -SK legs with an ATR stop (`--setups A-ATR B-ATR C-ATR`, `A-ATR600 B-ATR600 C-ATR600`)
+
+Defined as `BREAKOUT_RETRACE_21EMA_ATR` / `BREAKDOWN_RETRACE_21EMA_ATR` (book `atr-stop`) and
+`..._ATR600` (book `atr-stop-600`) in `strategies.py`; the arithmetic is in `atr_stop.py`. As
+Gaurav specified it on 2026-11-25.
+
+- **Entries are A-SK / B-SK / C-SK v2 exactly.** Only the stop and the ladder change.
+- **SL = the stock's ATR(14) on 5-minute bars / 3, applied straight to the option premium in
+  points** - premium 133, ATR 14.40 → SL 128.20. Not converted through a delta. R = that × the
+  lot; no ₹550, no floor, no ceiling. A trade's `riskPerUnit` is this stop.
+- The ATR is the chart's: true range with the previous bar's close, Wilder-smoothed, seeded with
+  the mean of the first 14. Bars run on across sessions - the same three earlier sessions seed it
+  as seed the 21 EMA, so the first bar of the day carries the overnight gap. Only closed bars
+  count (an entry at 10:02 reads the ATR as of the 09:55 bar). A stock with no ATR yet is turned
+  away, counted as `no 5-min ATR yet`.
+- **-ATR**: ladder in the trade's own R - cost at +1.5R, +1R locked at +2R, then one rung behind.
+- **-ATR600**: the same ladder in fixed ₹600 steps whatever the stop - cost at +₹900, +₹600
+  locked at +₹1,200, then every +₹600 (`Position.ladder_unit`). The dashboard's "peak R" counts
+  these ₹600 rungs; its actual R (profit / riskPerUnit × qty) is in the ATR stop.
+- Each trade stores `trigger.atrStop`: the ATR, the stop in points and rupees, and the ladder unit.
+- The spread-of-risk check does not exist in the backtest (no quotes in the archive), and the -SK
+  params carry no step-cost gate, so nothing else reads R before entry.
+
+```
+python run.py now --from 2025-11-10 --to 2026-10-30 --setups A-ATR B-ATR C-ATR
+python run.py now --from 2025-11-10 --to 2026-10-30 --setups A-ATR600 B-ATR600 C-ATR600
+```
+
+Compare both with an A-SK B-SK C-SK run on the same dates: the trades taken are the same, only
+the exits differ. `tests/test_atr_stop.py`.
+
 ## Backtest-only rule: A, B and C on NIFTY (`--setups A-NIFTY B-NIFTY C-NIFTY`)
 
 Defined as `NIFTY_BREAKOUT_RETRACE_21EMA` / `NIFTY_BREAKDOWN_RETRACE_21EMA` in `strategies.py`,
