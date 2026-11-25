@@ -41,6 +41,8 @@ import {
   slotLabel,
   SLOT_MIN,
   compareTrails,
+  NAMED_TRAILS,
+  runExitTrail,
   peakBreakdown,
   peakLabel,
   sortPeaks,
@@ -59,6 +61,8 @@ import {
   type HoldKey,
   type Stats,
 } from "@/lib/strategy/analysis";
+import { BACKTEST_CHARGE_RATES, CHARGE_RATES, brokerName } from "@/lib/strategy/charges";
+import { runExit } from "@/lib/backtest/setups";
 import type { StrategyTrade } from "@/lib/strategy/types";
 
 /*
@@ -156,7 +160,11 @@ export default function TradeAnalysis({
     return out;
   }, [notes.notes]);
 
-  const all = useMemo(() => analyse(raw ?? [], tagsById), [raw, tagsById]);
+  // A backtest run is costed at Kotak Neo's charges; the live record stays on Zerodha's.
+  const chargeRates = runId ? BACKTEST_CHARGE_RATES : CHARGE_RATES;
+  const all = useMemo(() => analyse(raw ?? [], tagsById, chargeRates), [raw, tagsById, chargeRates]);
+  // The exit the run actually ran, when it had the backtest-only break-even.
+  const exit = useMemo(() => (run ? runExit(run.setups ?? []) : null), [run]);
   const rows = useMemo(() => applyFilters(all, f), [all, f]);
   // Every other filter applied, pivots not excluded — so the pivot panel can
   // still show an excluded pivot's figures and let it be switched back on.
@@ -245,6 +253,8 @@ export default function TradeAnalysis({
           peaks={options.peaks}
           tagStore={notes}
           runId={runId}
+          broker={brokerName(chargeRates)}
+          exit={exit}
         />
       )}
     </div>
@@ -264,6 +274,8 @@ function Results({
   peaks,
   tagStore,
   runId,
+  broker,
+  exit,
 }: {
   rows: AnalysedTrade[];
   set: (p: Partial<Filters>) => void;
@@ -274,6 +286,10 @@ function Results({
   /** Not `notes` — this component already has one, and it means insights. */
   tagStore: TradeNotes;
   runId: string | null;
+  /** Whose charges the after-charges figures are estimated at. */
+  broker: string;
+  /** A backtest run's own exit rule, for the trailing what-if's reference row. */
+  exit: { breakevenAtR: number; ladderRupees: number | null } | null;
 }) {
   const [tagging, setTagging] = useState<string | null>(null);
   const s = useMemo(() => statsOf(rows), [rows]);
@@ -342,21 +358,31 @@ function Results({
 
   const recent = [...rows].reverse().slice(0, TABLE_LIMIT);
 
+  const afterCharges = (
+    <Tile
+      label="Net after charges"
+      value={<Money v={s.netAfterCharges} />}
+      hint={`PF ${s.profitFactorAfterCharges === null ? DASH : s.profitFactorAfterCharges.toFixed(2)} · ${signed(s.expectancyAfterCharges)}/trade · DD ${grouped(Math.round(s.maxDrawdownAfterCharges))}`}
+    />
+  );
+
   return (
     <>
       {/* ---------------- headline ---------------- */}
       <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
-        <Tile label="Net P&L" value={<Money v={s.net} />} hint={`${grouped(Math.round(s.deployed))} premium deployed`} />
+        {/* A backtest run leads with the real result - after charges. The live record keeps its order. */}
+        {runId ? afterCharges : null}
+        <Tile
+          label={runId ? "Net P&L before charges" : "Net P&L"}
+          value={<Money v={s.net} />}
+          hint={`${grouped(Math.round(s.deployed))} premium deployed`}
+        />
         <Tile
           label="Charges (est.)"
           value={<Money v={-s.charges} />}
-          hint={`Zerodha · ${s.trades ? `₹${grouped(Math.round(s.charges / s.trades))} a trade` : DASH}`}
+          hint={`${broker} · ${s.trades ? `₹${grouped(Math.round(s.charges / s.trades))} a trade` : DASH}`}
         />
-        <Tile
-          label="Net after charges"
-          value={<Money v={s.netAfterCharges} />}
-          hint={`PF ${s.profitFactorAfterCharges === null ? DASH : s.profitFactorAfterCharges.toFixed(2)} · ${signed(s.expectancyAfterCharges)}/trade · DD ${grouped(Math.round(s.maxDrawdownAfterCharges))}`}
-        />
+        {runId ? null : afterCharges}
         <Tile
           label="Win rate"
           value={pct(s.winRate)}
@@ -443,7 +469,7 @@ function Results({
 
       <PeakPanel rows={rows} onPick={(k) => set({ peakOut: peaks.filter((x) => x !== k) })} />
 
-      <TrailPanel rows={rows} />
+      <TrailPanel rows={rows} exit={exit} />
 
       {/* ---------------- curves ---------------- */}
       <div className="grid gap-4 xl:grid-cols-2">
@@ -1463,8 +1489,22 @@ function PeakPanel({
  * configurations look best and are the least trustworthy — anyone reading this
  * table in six months needs that warning next to the number.
  */
-function TrailPanel({ rows }: { rows: AnalysedTrade[] }) {
+function TrailPanel({
+  rows,
+  exit,
+}: {
+  rows: AnalysedTrade[];
+  /**
+   * A backtest run's own exit (break-even at 1.5R, then 1:2 -> +1R). When given,
+   * it is the reference row in place of "Live today", so the what-if compares
+   * against the rule the run actually traded. The live record passes null and
+   * sees the panel exactly as before.
+   */
+  exit: { breakevenAtR: number; ladderRupees: number | null } | null;
+}) {
   const [gap, setGap] = useState(1);
+  const refKey = exit ? "run" : "live";
+  const refName = exit ? "this run's rule" : "live rule";
 
   const { live, sweep, traded } = useMemo(() => {
     const result = sweepTrail(rows, gap);
@@ -1476,7 +1516,14 @@ function TrailPanel({ rows }: { rows: AnalysedTrade[] }) {
 
   // The head-to-head that is actually on the table, independent of the sweep's
   // gap selector: today's rule against the ones the exit study put forward.
-  const named = useMemo(() => compareTrails(rows), [rows]);
+  const named = useMemo(
+    () =>
+      compareTrails(
+        rows,
+        exit ? [runExitTrail(exit.ladderRupees), ...NAMED_TRAILS.filter((x) => x.key !== "live")] : NAMED_TRAILS
+      ),
+    [rows, exit]
+  );
 
   if (rows.length === 0) return null;
 
@@ -1496,11 +1543,11 @@ function TrailPanel({ rows }: { rows: AnalysedTrade[] }) {
           ))}
         </Select>
         <div className="flex flex-wrap gap-5 text-[11.5px]">
-          <span className="text-muted">
-            As traded <Money v={traded} />
+          <span className="font-semibold text-ink">
+            As traded (the real result, before charges) <Money v={traded} />
           </span>
-          <span className="text-muted">
-            Live rule, modelled <Money v={live.net} />
+          <span className="text-muted" title="The reference rule re-priced from each trade's ladder. It differs from as traded where a stop gapped, a trade left the data band, or the peak is only known to the rung below.">
+            {exit ? "This run's rule" : "Live rule"}, modelled <Money v={live.net} />
           </span>
           <span className="text-muted">
             {live.untouched} of {rows.length} never reached 2R, so no start below touches them
@@ -1516,23 +1563,23 @@ function TrailPanel({ rows }: { rows: AnalysedTrade[] }) {
               <Th className="text-left">Where the stop goes</Th>
               <Th>Net R</Th>
               <Th>Net P&amp;L</Th>
-              <Th>vs live rule</Th>
+              <Th>vs {refName}</Th>
               <Th>Trades changed</Th>
             </tr>
           </thead>
           <tbody>
             {named.map((r) => (
-              <tr key={r.key} className={`border-t border-line ${r.key === "live" ? "" : "bg-sunken"}`}>
+              <tr key={r.key} className={`border-t border-line ${r.key === refKey ? "" : "bg-sunken"}`}>
                 <Td className="text-left font-semibold">{r.label}</Td>
                 <Td className="text-left font-sans text-[11px] text-muted">{r.detail}</Td>
                 <Td>{r.netR.toFixed(2)}</Td>
                 <Td><Money v={r.net} /></Td>
                 <Td className={r.vsLiveR > 0 ? "text-pos" : r.vsLiveR < 0 ? "text-neg" : "text-faint"}>
-                  {r.key === "live"
+                  {r.key === refKey
                     ? DASH
                     : `${r.vsLiveR >= 0 ? "+" : "−"}${Math.abs(r.vsLiveR).toFixed(2)}R`}
                 </Td>
-                <Td className="text-muted">{r.key === "live" ? DASH : r.changedVsLive}</Td>
+                <Td className="text-muted">{r.key === refKey ? DASH : r.changedVsLive}</Td>
               </tr>
             ))}
           </tbody>
@@ -1550,7 +1597,7 @@ function TrailPanel({ rows }: { rows: AnalysedTrade[] }) {
               <Th className="text-left">Trail starts at</Th>
               <Th>Net R</Th>
               <Th>Net P&amp;L</Th>
-              <Th>vs live rule</Th>
+              <Th>vs {refName}</Th>
               <Th>Trades changed</Th>
             </tr>
           </thead>

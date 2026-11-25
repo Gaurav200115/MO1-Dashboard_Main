@@ -33,7 +33,7 @@ export interface RunSummary {
   net: number;
   profitFactor: number | null;
   maxDrawdown: number;
-  /** Zerodha's estimated charges and the net after them. Absent on runs made before 19 Nov. */
+  /** Estimated charges and the net after them (whose: `BacktestRun.chargesBroker`). Absent on runs made before 19 Nov. */
   charges?: number;
   netAfterCharges?: number;
   profitFactorAfterCharges?: number | null;
@@ -74,6 +74,11 @@ export interface BacktestRun {
   rejected?: Record<string, number>;
   skipped?: Record<string, number>;
   incompleteStockDays?: number;
+  /**
+   * Whose charges the summaries were estimated at: "Kotak Neo" for runs made or
+   * re-priced (`run.py recharge`) from 2026-11-25; absent means Zerodha.
+   */
+  chargesBroker?: string;
 }
 
 /** A backtest trade is a live trade plus where it came from and how it was gated. */

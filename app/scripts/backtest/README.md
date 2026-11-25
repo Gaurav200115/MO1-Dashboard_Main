@@ -18,9 +18,17 @@ python run.py levels  --day 2026-10-15      the overnight levels for one session
 python run.py session --day 2026-10-15      replay one session and print the trades
 python run.py now   --from A --to B         replay a range here and now
 python run.py queue --from A --to B         hand it to the worker instead
+python run.py recharge                      re-price every stored run's charges at today's rates
 ```
 
-`check`, `coverage`, `levels` and `session` write nothing. `now` and `queue` write to Mongo.
+`check`, `coverage`, `levels` and `session` write nothing. `now`, `queue` and `recharge` write to Mongo.
+
+**Charges.** Backtest results are estimated at **Kotak Neo**'s charges since 2026-11-25: no
+brokerage and no GST, only STT, exchange charges, SEBI fee and stamp duty (`charges.py`, the same
+numbers as `BACKTEST_CHARGE_RATES` in `app/src/lib/strategy/charges.ts`). The live desk stays on
+Zerodha's. A run stores its charges when it finishes, so runs made before a rate change keep the
+old figures in the runs list until `run.py recharge` re-prices them from their stored trades; the
+Trade Analysis page always prices a run at today's rates.
 
 Start with `coverage`. The option minute data is the binding constraint — spot and the NSE files
 cover all ~200 stocks, options only the ~100 most liquid, chosen per month — and it decides which
