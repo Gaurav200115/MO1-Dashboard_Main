@@ -6,6 +6,8 @@
     py -3.12 run.py session  --day 2026-10-15     replay one session, print the trades
     py -3.12 run.py now      --from A --to B      replay a range here and now
     py -3.12 run.py queue    --from A --to B      hand it to the worker
+    py -3.12 run.py recharge                      re-price every stored run's charges
+                                                  at today's rates (Kotak Neo)
 
 Every command that replays takes --setups, defaulting to all of them:
 
@@ -348,6 +350,23 @@ def cmd_now(args):
     return 0
 
 
+def cmd_recharge(args):
+    """Every finished run, re-priced at charges.RATES - for when the rates change."""
+    from backtest import charges
+    from backtest.runner import summarise
+    results = _results()
+    mongo = results.client()
+    db = results.database(mongo)
+    runs = list(db[results.RUNS].find({"status": "done"}, {"setups": 1, "bySetup": 1, "from": 1, "to": 1}))
+    print(f"re-pricing {len(runs)} runs at {charges.BROKER} rates")
+    for run in runs:
+        s = results.recharge_run(db, run, summarise)
+        print(f"  {run['_id']}  {run.get('from')} .. {run.get('to')}  {','.join(run.get('setups') or [])}: "
+              f"{s['trades']} trades, charges {_money(-s['charges'])}, "
+              f"after charges {_money(s['netAfterCharges'])}")
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -355,6 +374,7 @@ def main():
 
     sub.add_parser("check").set_defaults(fn=cmd_check)
     sub.add_parser("coverage").set_defaults(fn=cmd_coverage)
+    sub.add_parser("recharge").set_defaults(fn=cmd_recharge)
 
     p = sub.add_parser("levels")
     p.add_argument("--day", type=_date, required=True)

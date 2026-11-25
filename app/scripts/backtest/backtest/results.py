@@ -15,6 +15,7 @@ there that are easy to get wrong and silently break the page:
   - `exit.reason` lives on the `sell` object, not beside it.
 """
 import datetime as dt
+from types import SimpleNamespace
 
 from pymongo import MongoClient, ReturnDocument, UpdateOne
 
@@ -269,8 +270,49 @@ def save_results(db, run_id, positions, report):
         "signals": report["signals"],
         "incompleteStockDays": report["incompleteStockDays"],
         "trades": report["summary"]["trades"],
+        "chargesBroker": charges.BROKER,
         "error": None,
     }})
+
+
+def _stored_position(doc):
+    """A stored trade, read back as just enough of a Position to be summarised."""
+    sell = doc.get("sell") or {}
+    return SimpleNamespace(entry=doc["buy"]["price"], exit_price=sell.get("price"), qty=doc["qty"],
+                           profit=doc.get("profit"), entry_at=doc.get("openedAt"),
+                           exit_at=doc.get("closedAt"), gate=doc.get("gate"), setup=doc.get("setup"))
+
+
+def recharge_run(db, run, summarise):
+    """Re-prices a finished run's charges at today's rates (charges.RATES).
+
+    Every trade's `charges` and the run's summaries are recomputed from the
+    stored trades; nothing else moves - the trades, the net before charges, the
+    win rate and the per-leg signal counts are what they were. Used when the
+    rates change (Zerodha -> Kotak Neo, 2026-11-25), so the runs list reads the
+    same as a fresh run would.
+    """
+    docs = list(db[TRADES].find({"runId": run["_id"]},
+                                {"buy": 1, "sell": 1, "qty": 1, "profit": 1, "openedAt": 1,
+                                 "closedAt": 1, "gate": 1, "setup": 1}))
+    positions = [_stored_position(d) for d in docs]
+    if docs:
+        db[TRADES].bulk_write(
+            [UpdateOne({"_id": d["_id"]}, {"$set": {"charges": round(charges.of_position(p), 2)}})
+             for d, p in zip(docs, positions)],
+            ordered=False)
+    stored_legs = run.get("bySetup") or {}
+    legs = sorted(set(run.get("setups") or []) | set(stored_legs))
+    summary = summarise(positions)
+    db[RUNS].update_one({"_id": run["_id"]}, {"$set": {
+        "summary": summary,
+        "summaryExApprox": summarise([p for p in positions if p.gate == "clear"]),
+        "bySetup": {s: dict(summarise([p for p in positions if p.setup == s]),
+                            signals=stored_legs.get(s, {}).get("signals", 0))
+                    for s in legs},
+        "chargesBroker": charges.BROKER,
+    }})
+    return summary
 
 
 def fail_run(db, run_id, message):

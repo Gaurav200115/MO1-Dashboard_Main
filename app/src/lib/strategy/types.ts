@@ -251,6 +251,18 @@ export interface TradeTrigger {
   spot: number;
   /** ADR-measured rules only: the stock's ADR and the bands it set. Absent otherwise. */
   adr?: TradeAdr;
+  /**
+   * Backtest ATR-stop legs only (-ATR, -ATR600): the 5-min ATR at entry, the
+   * stop it set, and the rupees the ladder stepped in - the trade's own R, or a
+   * fixed 600. Absent otherwise.
+   */
+  atrStop?: {
+    atr: number;
+    points: number;
+    rupees: number;
+    ladderBasis: "own-r" | "fixed";
+    ladderRupees: number;
+  };
 }
 
 export type ExitReason =

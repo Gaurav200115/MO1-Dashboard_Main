@@ -484,7 +484,7 @@ function Runs({
               <th className="py-1 pr-3 font-bold">Setups</th>
               <th className="py-1 pr-3 font-bold">State</th>
               <th className="py-1 pr-3 text-right font-bold">Trades</th>
-              <th className="py-1 pr-3 text-right font-bold">Net</th>
+              <th className="py-1 pr-3 text-right font-bold" title="Profit after estimated charges; before charges in small text under it">Net after charges</th>
               <th className="py-1 pr-3 text-right font-bold">Win</th>
               <th className="py-1 pr-3 text-right font-bold">PF</th>
               <th className="py-1 pr-3 text-right font-bold">Max DD</th>
@@ -513,6 +513,8 @@ function RunRow({
   onChanged: () => void;
 }) {
   const s = run.summary;
+  // The real result: after charges where the run stored them, before charges otherwise.
+  const real = s ? (s.netAfterCharges ?? s.net) : null;
   const gate = run.gateCounts ?? {};
   const approx = gate.approx ?? 0;
   const [openDetail, setOpenDetail] = useState(false);
@@ -552,16 +554,20 @@ function RunRow({
       <td className="py-1.5 pr-3 text-right font-mono">{s ? fmt(s.trades) : "—"}</td>
       <td
         className={`py-1.5 pr-3 text-right font-mono ${
-          s ? (s.net > 0 ? "text-pos" : s.net < 0 ? "text-neg" : "text-muted") : "text-muted"
+          s ? (real! > 0 ? "text-pos" : real! < 0 ? "text-neg" : "text-muted") : "text-muted"
         }`}
+        title={
+          s?.netAfterCharges != null
+            ? `${run.chargesBroker ?? "Zerodha"} estimated charges: ₹${Math.round(s.charges ?? 0)}. Profit factor after charges ${s.profitFactorAfterCharges != null ? s.profitFactorAfterCharges.toFixed(2) : "—"}, drawdown ${money(s.maxDrawdownAfterCharges ?? 0)}`
+            : "This run was made before charges were stored — the figure is before charges"
+        }
       >
-        {s ? money(s.net) : "—"}
-        {s?.netAfterCharges != null ? (
-          <div
-            className="text-[10px] text-muted"
-            title={`Zerodha's estimated charges: ₹${Math.round(s.charges ?? 0)}. Profit factor after charges ${s.profitFactorAfterCharges != null ? s.profitFactorAfterCharges.toFixed(2) : "—"}, drawdown ${money(s.maxDrawdownAfterCharges ?? 0)}`}
-          >
-            {money(s.netAfterCharges)} after charges
+        {s ? money(real!) : "—"}
+        {s ? (
+          <div className="text-[10px] text-muted">
+            {s.netAfterCharges != null
+              ? `${money(s.net)} before charges · ${run.chargesBroker ?? "Zerodha"}`
+              : "before charges (none stored)"}
           </div>
         ) : null}
       </td>
@@ -625,10 +631,13 @@ function RunRow({
                   <td className="py-0.5 pr-3 font-mono">{fmt(st.trades)} trades</td>
                   <td
                     className={`py-0.5 pr-3 font-mono ${
-                      st.net > 0 ? "text-pos" : st.net < 0 ? "text-neg" : "text-muted"
+                      (st.netAfterCharges ?? st.net) > 0 ? "text-pos" : (st.netAfterCharges ?? st.net) < 0 ? "text-neg" : "text-muted"
                     }`}
                   >
-                    {money(st.net)}
+                    {money(st.netAfterCharges ?? st.net)}
+                    <span className="ml-1 text-[10px] text-muted">
+                      {st.netAfterCharges != null ? `after charges (${money(st.net)} before)` : "before charges"}
+                    </span>
                   </td>
                   <td className="py-0.5 pr-3 font-mono">
                     {st.winRate != null ? `${Math.round(st.winRate * 100)}% win` : "—"}
