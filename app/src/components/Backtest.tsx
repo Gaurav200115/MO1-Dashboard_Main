@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ArchiveCoverage, BacktestRun } from "@/lib/backtest/store";
 import { instrumentOf, type Instrument, type SetupOption } from "@/lib/backtest/setups";
+import PaperShadow from "./PaperShadow";
 
 /**
  * Asking for a backtest, watching it run, and finding one that was already run.
@@ -174,6 +175,7 @@ export default function Backtest({ onOpenRun }: { onOpenRun?: (runId: string) =>
             onRun={submit}
           />
           <Runs runs={reply.runs ?? []} onOpenRun={onOpenRun} onChanged={load} />
+          <PaperShadow />
         </div>
       )}
     </section>
