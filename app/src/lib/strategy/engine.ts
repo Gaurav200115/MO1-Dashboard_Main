@@ -12,6 +12,7 @@ import { istClock, istDate, istMinutes, parseIstTime } from "./ist";
 import { buildWatchPlan, toTriggerLevel, type SymbolPlan, type WatchPlan } from "./levels";
 import { fetchPremiums, fillPrice, quoteKey, resolveAtm, type PremiumQuote } from "./options";
 import { recordSignal } from "./signalTape";
+import { openShadow, openShadows, saveShadow, stepShadow, type ShadowTrade } from "./shadowAtr";
 import { evaluate, profitAt, sizeTrade } from "./position";
 import { assessBook, describeRejection } from "./tradeable";
 import { activeStrategies, MAX_OPEN_POSITIONS } from "./registry";
@@ -124,6 +125,12 @@ export class StrategyEngine {
   private readonly states = new Map<string, SymbolState>();
   private readonly plans = new Map<string, SymbolPlan>();
   private readonly open = new Map<string, StrategyTrade>();
+  /**
+   * The ATR600 exit run in paper beside each paper trade (shadowAtr.ts). Holds
+   * no slot and touches neither the paper trade nor the live desk; may outlive
+   * its paper trade, so it is quoted until its own exit.
+   */
+  private readonly shadows = new Map<string, ShadowTrade>();
   /** Symbols with an entry in flight, so one signal cannot open two positions. */
   private readonly opening = new Set<string>();
 
@@ -255,6 +262,7 @@ export class StrategyEngine {
     // yesterday's positions and count must not survive into today.
     for (const id of this.open.keys()) book().remove(id);
     this.open.clear();
+    this.shadows.clear();
     this.openedToday = 0;
 
     const today = istDate();
@@ -469,6 +477,13 @@ export class StrategyEngine {
         }
       }
       if (existing.length > 0) this.note(`resumed ${this.open.size} open trades`);
+
+      // Today's ATR600 shadows still running, so a restart does not orphan them.
+      if (this.tradingDate) {
+        for (const shadow of await openShadows(this.tradingDate, this.strategy.id)) {
+          this.shadows.set(shadow._id, shadow);
+        }
+      }
 
       // Trades already closed today still count against the daily cap and still
       // spend their setup. Without this a mid-session reboot would reset both and
@@ -714,6 +729,9 @@ export class StrategyEngine {
       // order's cancel levels later. Read-only, on the websocket, never throws.
       recordSignal(trade, quote.ask);
 
+      // The ATR600 exit in paper beside it. Measurement only; never throws.
+      this.startShadow(trade, at);
+
       try {
         await insertTrade(trade);
       } catch (err) {
@@ -749,7 +767,7 @@ export class StrategyEngine {
    */
   private async track(): Promise<void> {
     if (this.trackingNow) return;
-    if (this.open.size === 0) return;
+    if (this.open.size === 0 && this.shadows.size === 0) return;
     this.trackingNow = true;
     try {
       await this.trackOnce();
@@ -764,7 +782,11 @@ export class StrategyEngine {
 
     let quotes: Map<string, PremiumQuote>;
     try {
-      quotes = await fetchPremiums([...this.open.values()].map(quoteKeyOf));
+      // The ATR600 shadows ride on the same batched call - one more key each at
+      // most, and only while a shadow outlives its paper trade.
+      const keys = new Set([...this.open.values()].map(quoteKeyOf));
+      for (const shadow of this.shadows.values()) keys.add(quoteKey(shadow.instrument));
+      quotes = await fetchPremiums([...keys]);
     } catch (err) {
       this.note(`tracking quote failed: ${message(err)}`);
       return;
@@ -822,6 +844,35 @@ export class StrategyEngine {
         await updateTrade(trade, patch);
       } catch (err) {
         this.note(`${trade.symbol}: update failed — ${mongoMessage(err)}`);
+      }
+    }
+
+    this.trackShadows(quotes, flatten);
+  }
+
+  /** Starts the ATR600 shadow for a paper trade just opened. Never throws. */
+  private startShadow(trade: StrategyTrade, at: number): void {
+    try {
+      const shadow = openShadow(trade, this.bars.get(trade.symbol)?.closed ?? null, at);
+      if (shadow.status === "open") this.shadows.set(shadow._id, shadow);
+      void saveShadow(shadow);
+    } catch (err) {
+      this.note(`${trade.symbol}: ATR600 shadow not started — ${message(err)}`);
+    }
+  }
+
+  /** Applies this pass's quotes to the ATR600 shadows. Never throws, never awaits the store. */
+  private trackShadows(quotes: Map<string, PremiumQuote>, flatten: boolean): void {
+    for (const shadow of [...this.shadows.values()]) {
+      try {
+        const quote = quotes.get(quoteKey(shadow.instrument));
+        if (!quote) continue;
+        if (!stepShadow(shadow, quote, this.strategy.risk, flatten)) continue;
+        if (shadow.status !== "open") this.shadows.delete(shadow._id);
+        void saveShadow(shadow);
+      } catch (err) {
+        this.note(`${shadow.symbol}: ATR600 shadow failed — ${message(err)}`);
+        this.shadows.delete(shadow._id);
       }
     }
   }
