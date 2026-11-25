@@ -40,9 +40,9 @@ import {
   slotKey,
   slotLabel,
   SLOT_MIN,
+  changedBetween,
   compareTrails,
-  NAMED_TRAILS,
-  runExitTrail,
+  replayedTrail,
   peakBreakdown,
   peakLabel,
   sortPeaks,
@@ -62,7 +62,7 @@ import {
   type Stats,
 } from "@/lib/strategy/analysis";
 import { BACKTEST_CHARGE_RATES, CHARGE_RATES, brokerName } from "@/lib/strategy/charges";
-import { runExit } from "@/lib/backtest/setups";
+import type { NamedTrailRow } from "@/lib/strategy/analysis";
 import type { StrategyTrade } from "@/lib/strategy/types";
 
 /*
@@ -163,8 +163,7 @@ export default function TradeAnalysis({
   // A backtest run is costed at Kotak Neo's charges; the live record stays on Zerodha's.
   const chargeRates = runId ? BACKTEST_CHARGE_RATES : CHARGE_RATES;
   const all = useMemo(() => analyse(raw ?? [], tagsById, chargeRates), [raw, tagsById, chargeRates]);
-  // The exit the run actually ran, when it had the backtest-only break-even.
-  const exit = useMemo(() => (run ? runExit(run.setups ?? []) : null), [run]);
+
   const rows = useMemo(() => applyFilters(all, f), [all, f]);
   // Every other filter applied, pivots not excluded — so the pivot panel can
   // still show an excluded pivot's figures and let it be switched back on.
@@ -254,7 +253,6 @@ export default function TradeAnalysis({
           tagStore={notes}
           runId={runId}
           broker={brokerName(chargeRates)}
-          exit={exit}
         />
       )}
     </div>
@@ -275,7 +273,6 @@ function Results({
   tagStore,
   runId,
   broker,
-  exit,
 }: {
   rows: AnalysedTrade[];
   set: (p: Partial<Filters>) => void;
@@ -288,8 +285,6 @@ function Results({
   runId: string | null;
   /** Whose charges the after-charges figures are estimated at. */
   broker: string;
-  /** A backtest run's own exit rule, for the trailing what-if's reference row. */
-  exit: { breakevenAtR: number; ladderRupees: number | null } | null;
 }) {
   const [tagging, setTagging] = useState<string | null>(null);
   const s = useMemo(() => statsOf(rows), [rows]);
@@ -469,7 +464,7 @@ function Results({
 
       <PeakPanel rows={rows} onPick={(k) => set({ peakOut: peaks.filter((x) => x !== k) })} />
 
-      <TrailPanel rows={rows} exit={exit} />
+      <TrailPanel rows={rows} backtest={runId !== null} />
 
       {/* ---------------- curves ---------------- */}
       <div className="grid gap-4 xl:grid-cols-2">
@@ -1491,20 +1486,20 @@ function PeakPanel({
  */
 function TrailPanel({
   rows,
-  exit,
+  backtest,
 }: {
   rows: AnalysedTrade[];
   /**
-   * A backtest run's own exit (break-even at 1.5R, then 1:2 -> +1R). When given,
-   * it is the reference row in place of "Live today", so the what-if compares
-   * against the rule the run actually traded. The live record passes null and
-   * sees the panel exactly as before.
+   * A backtest run. Its trades were also replayed under the live exit and the
+   * 1.5R break-even (backtest/what_if.py), so the panel adds the break-even row
+   * and prices both from the replay - exact, not modelled. The live record
+   * passes false and sees the panel exactly as before.
    */
-  exit: { breakevenAtR: number; ladderRupees: number | null } | null;
+  backtest: boolean;
 }) {
   const [gap, setGap] = useState(1);
-  const refKey = exit ? "run" : "live";
-  const refName = exit ? "this run's rule" : "live rule";
+  const refKey = "live";
+  const refName = "live rule";
 
   const { live, sweep, traded } = useMemo(() => {
     const result = sweepTrail(rows, gap);
@@ -1516,14 +1511,32 @@ function TrailPanel({
 
   // The head-to-head that is actually on the table, independent of the sweep's
   // gap selector: today's rule against the ones the exit study put forward.
-  const named = useMemo(
-    () =>
-      compareTrails(
-        rows,
-        exit ? [runExitTrail(exit.ladderRupees), ...NAMED_TRAILS.filter((x) => x.key !== "live")] : NAMED_TRAILS
-      ),
-    [rows, exit]
-  );
+  const modelled = useMemo(() => compareTrails(rows), [rows]);
+
+  // Backtest runs: Current live and SL to 0 at 1.5R from the replay, exact; the
+  // exit study and the previous rule stay modelled off the ladder, compared with
+  // the live rule modelled the same way so the model's own error cancels.
+  const named = useMemo((): (NamedTrailRow & { source: "replayed" | "modelled" | "missing" })[] => {
+    const tagged = modelled.map((r) => ({ ...r, source: "modelled" as const }));
+    if (!backtest) return tagged;
+    const live = replayedTrail(rows, "liveRule");
+    const be = replayedTrail(rows, "breakevenAt15");
+    const liveRow = live
+      ? { ...tagged[0], netR: live.netR, net: live.net, untouched: 0, source: "replayed" as const }
+      : tagged[0];
+    const beBase = {
+      key: "be15",
+      label: "SL to 0 at 1.5R",
+      detail: "SL to cost once up 1.5R · 1:2 locks +1R · one step behind",
+      untouched: 0,
+    };
+    const beRow =
+      live && be
+        ? { ...beBase, netR: be.netR, net: be.net, vsLiveR: be.netR - live.netR,
+            changedVsLive: changedBetween(be.perTrade, live.perTrade), source: "replayed" as const }
+        : { ...beBase, netR: NaN, net: NaN, vsLiveR: NaN, changedVsLive: 0, source: "missing" as const };
+    return [liveRow, beRow, ...tagged.slice(1)];
+  }, [modelled, rows, backtest]);
 
   if (rows.length === 0) return null;
 
@@ -1547,7 +1560,7 @@ function TrailPanel({
             As traded (the real result, before charges) <Money v={traded} />
           </span>
           <span className="text-muted" title="The reference rule re-priced from each trade's ladder. It differs from as traded where a stop gapped, a trade left the data band, or the peak is only known to the rung below.">
-            {exit ? "This run's rule" : "Live rule"}, modelled <Money v={live.net} />
+            Live rule, modelled <Money v={live.net} />
           </span>
           <span className="text-muted">
             {live.untouched} of {rows.length} never reached 2R, so no start below touches them
@@ -1570,16 +1583,31 @@ function TrailPanel({
           <tbody>
             {named.map((r) => (
               <tr key={r.key} className={`border-t border-line ${r.key === refKey ? "" : "bg-sunken"}`}>
-                <Td className="text-left font-semibold">{r.label}</Td>
-                <Td className="text-left font-sans text-[11px] text-muted">{r.detail}</Td>
-                <Td>{r.netR.toFixed(2)}</Td>
-                <Td><Money v={r.net} /></Td>
-                <Td className={r.vsLiveR > 0 ? "text-pos" : r.vsLiveR < 0 ? "text-neg" : "text-faint"}>
-                  {r.key === refKey
-                    ? DASH
-                    : `${r.vsLiveR >= 0 ? "+" : "−"}${Math.abs(r.vsLiveR).toFixed(2)}R`}
+                <Td className="text-left font-semibold">
+                  {r.key === "live" && backtest ? "Current live" : r.label}
+                  {backtest ? (
+                    <span className="ml-2 text-[10px] font-normal uppercase tracking-[0.08em] text-faint">
+                      {r.source === "replayed" ? "replayed" : r.source === "missing" ? "needs re-run" : "modelled"}
+                    </span>
+                  ) : null}
                 </Td>
-                <Td className="text-muted">{r.key === refKey ? DASH : r.changedVsLive}</Td>
+                <Td className="text-left font-sans text-[11px] text-muted">{r.detail}</Td>
+                {r.source === "missing" ? (
+                  <Td className="text-faint" colSpan={4}>
+                    Re-run this backtest to fill this row — runs before 25 Nov were not replayed under it
+                  </Td>
+                ) : (
+                  <>
+                    <Td>{r.netR.toFixed(2)}</Td>
+                    <Td><Money v={r.net} /></Td>
+                    <Td className={r.vsLiveR > 0 ? "text-pos" : r.vsLiveR < 0 ? "text-neg" : "text-faint"}>
+                      {r.key === refKey
+                        ? DASH
+                        : `${r.vsLiveR >= 0 ? "+" : "−"}${Math.abs(r.vsLiveR).toFixed(2)}R`}
+                    </Td>
+                    <Td className="text-muted">{r.key === refKey ? DASH : r.changedVsLive}</Td>
+                  </>
+                )}
               </tr>
             ))}
           </tbody>
@@ -2060,7 +2088,19 @@ function Th({ children, className = "" }: { children: React.ReactNode; className
   return <th className={`whitespace-nowrap px-3 py-2 font-medium ${align} ${className}`}>{children}</th>;
 }
 
-function Td({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+function Td({
+  children,
+  className = "",
+  colSpan,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  colSpan?: number;
+}) {
   const align = className.includes("text-left") ? "" : "text-right";
-  return <td className={`tnum whitespace-nowrap px-3 py-1.5 align-top font-mono ${align} ${className}`}>{children}</td>;
+  return (
+    <td colSpan={colSpan} className={`tnum whitespace-nowrap px-3 py-1.5 align-top font-mono ${align} ${className}`}>
+      {children}
+    </td>
+  );
 }

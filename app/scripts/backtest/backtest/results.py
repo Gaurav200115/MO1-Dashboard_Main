@@ -102,6 +102,14 @@ def trade_document(position, run_id):
     if context.get("atrStop"):
         trigger["atrStop"] = dict(context["atrStop"])
 
+    # Every trade, replayed again under the live exit and the 1.5R break-even
+    # (what_if.py), for the analysis page's what-if.
+    what = None
+    if context.get("whatIf"):
+        what = {key: {"exitPrice": w["exitPrice"], "exitAt": _ms(w["exitAt"]), "reason": w["reason"],
+                      "profit": w["profit"], "step": w["step"]}
+                for key, w in context["whatIf"].items()}
+
     # Break-even variants only: when the stop moved to the entry price.
     if context.get("breakeven"):
         trigger["breakeven"] = {"at": _ms(context["breakeven"]["at"]),
@@ -152,6 +160,7 @@ def trade_document(position, run_id):
                     "target": s["target"], "locked": s["locked"]}
                    for s in position.ladder],
         "trigger": trigger,
+        "whatIf": what,
 
         "paper": True,
         "openedAt": position.entry_at,

@@ -4,7 +4,7 @@
 //
 //   - a live-shaped trade prices exactly as before (the ladder unit is its R)
 //   - an -ATR600 trade's ladder rungs are Rs 600 each, not its ATR stop
-//   - a run with the 1.5R break-even gets "This run's rule" as its reference
+//   - Current live and SL to 0 at 1.5R come exactly from each trade's replay
 //   - a backtest run is costed at Kotak Neo (no brokerage, no GST), live at Zerodha
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -14,7 +14,6 @@ const src = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "sr
 const jiti = createJiti(import.meta.url, { alias: { "@": src } });
 const A = await jiti.import(path.join(src, "lib/strategy/analysis.ts"));
 const C = await jiti.import(path.join(src, "lib/strategy/charges.ts"));
-const S = await jiti.import(path.join(src, "lib/backtest/setups.ts"));
 
 let passed = 0;
 const failed = [];
@@ -55,17 +54,20 @@ check("-ATR (own R): rungs are the trade's own 300", near(A.simulateTrail(own, A
 const flat = A.analyse([trade({ id: "d", risk: 300, profit: 1500, steps: [2], reason: "eod-flatten", atrStop: atr })]);
 check("-ATR600 flatten above the rule's stop keeps its close", near(A.simulateTrail(flat, A.liveStopR).net), 1500);
 
-// The run's own reference.
-check("the -ATR600 legs ran break-even at 1.5 on a Rs 600 ladder",
-  S.runExit(["A-ATR600", "B-ATR600", "C-ATR600"]), { breakevenAtR: 1.5, ladderRupees: 600 });
-check("the -ATR and -SK legs: 1.5R in their own R",
-  [S.runExit(["A-ATR", "B-ATR", "C-ATR"]), S.runExit(["A-SK", "B-SK", "C-SK"])],
-  [{ breakevenAtR: 1.5, ladderRupees: null }, { breakevenAtR: 1.5, ladderRupees: null }]);
-check("runs without the break-even keep the live reference",
-  [S.runExit(["A-ADR", "B-ADR", "C-ADR"]), S.runExit(["A", "B", "C"]), S.runExit(["A-NIFTY"])], [null, null, null]);
-const rows = A.compareTrails(live, [A.runExitTrail(600), ...A.NAMED_TRAILS.filter((x) => x.key !== "live")]);
-check("its reference row, then the alternatives", rows.map((r) => r.key), ["run", "breakeven2", "prev"]);
-check("the reference row's detail in rupees", rows[0].detail, "SL to cost at +₹900 · +₹1200 locks +₹600 · then every +₹600");
+// The replayed exits (backtest/what_if.py): exact, from each trade's own replay.
+const replay = (live, be) => ({ liveRule: { profit: live, reason: "stop", exitPrice: 0, exitAt: 0, step: 1 },
+                                breakevenAt15: { profit: be, reason: "breakeven", exitPrice: 0, exitAt: 0, step: 1 } });
+const replayed = A.analyse([
+  { ...trade({ id: "r1", profit: 0, reason: "breakeven" }), whatIf: replay(-550, 0) },
+  { ...trade({ id: "r2", profit: 1100, steps: [2, 3] }), whatIf: replay(1100, 1100) },
+]);
+const rl = A.replayedTrail(replayed, "liveRule");
+const rb = A.replayedTrail(replayed, "breakevenAt15");
+check("Current live, replayed: -550 + 1,100", [near(rl.net), near(rl.netR)], [550, 1]);
+check("SL to 0 at 1.5R, replayed: 0 + 1,100", [near(rb.net), near(rb.netR)], [1100, 2]);
+check("one trade priced differently between them", A.changedBetween(rb.perTrade, rl.perTrade), 1);
+check("a run made before the replay has none - never a partial sum",
+  A.replayedTrail([...replayed, ...live], "liveRule"), null);
 check("the live record's rows are unchanged", A.compareTrails(live).map((r) => r.key), ["live", "breakeven2", "prev"]);
 
 // Charges.

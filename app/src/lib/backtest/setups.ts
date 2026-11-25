@@ -47,13 +47,6 @@ export interface SetupOption {
    * only that instrument's legs.
    */
   instrument?: Instrument;
-  /**
-   * Backtest-only break-even: the stop moves to the entry price once the trade
-   * is up this many R (in the ladder's unit). Absent where the rule has none.
-   */
-  breakevenAtR?: number;
-  /** The ladder steps in this many rupees instead of the trade's own R (-ATR600). */
-  ladderRupees?: number;
 }
 
 export type Instrument = "STOCKS" | "NIFTY";
@@ -293,7 +286,6 @@ const BACKTEST_ONLY: SetupOption[] = [
       "it is R2 or P; closest gap wins. ADR retrace, ₹550 SL, 1:2 → +1R ladder. v2: SL to cost once up 1.5R.",
     backtestOnly: true,
     book: "adr-pivot-skew",
-    breakevenAtR: 1.5,
     tag: "ADR · skew 5x R1/R3/S1/S3 · BE 1.5R",
   },
   {
@@ -309,7 +301,6 @@ const BACKTEST_ONLY: SetupOption[] = [
       "is the major support under the per-pivot rule (5x for S1/S3, any skew for S2/P). v2: SL to cost once up 1.5R.",
     backtestOnly: true,
     book: "adr-pivot-skew",
-    breakevenAtR: 1.5,
     tag: "ADR · skew 5x R1/R3/S1/S3 · BE 1.5R",
   },
   {
@@ -325,7 +316,6 @@ const BACKTEST_ONLY: SetupOption[] = [
       "it is S2 or P; closest gap wins. ADR retrace, ₹550 SL, 1:2 → +1R ladder. v2: SL to cost once up 1.5R.",
     backtestOnly: true,
     book: "adr-pivot-skew",
-    breakevenAtR: 1.5,
     tag: "ADR · skew 5x R1/R3/S1/S3 · BE 1.5R",
   },
 
@@ -416,7 +406,6 @@ const BACKTEST_ONLY: SetupOption[] = [
       "₹35k budget: a trade that would put more than ₹35k of premium in open trades is skipped. v2: SL to cost once up 1.5R.",
     backtestOnly: true,
     book: "cap-35k",
-    breakevenAtR: 1.5,
     tag: "3 a day till 10:30 · ₹35k · BE 1.5R",
   },
   {
@@ -432,7 +421,6 @@ const BACKTEST_ONLY: SetupOption[] = [
       "₹35k budget: a trade that would put more than ₹35k of premium in open trades is skipped. v2: SL to cost once up 1.5R.",
     backtestOnly: true,
     book: "cap-35k",
-    breakevenAtR: 1.5,
     tag: "3 a day till 10:30 · ₹35k · BE 1.5R",
   },
   {
@@ -448,7 +436,6 @@ const BACKTEST_ONLY: SetupOption[] = [
       "₹35k budget: a trade that would put more than ₹35k of premium in open trades is skipped. v2: SL to cost once up 1.5R.",
     backtestOnly: true,
     book: "cap-35k",
-    breakevenAtR: 1.5,
     tag: "3 a day till 10:30 · ₹35k · BE 1.5R",
   },
   {
@@ -464,7 +451,6 @@ const BACKTEST_ONLY: SetupOption[] = [
       "put more than ₹35k of premium in open trades is skipped. Max 3 open. v2: SL to cost once up 1.5R.",
     backtestOnly: true,
     book: "b-35k",
-    breakevenAtR: 1.5,
     tag: "B only · ₹35k · BE 1.5R",
   },
 
@@ -492,7 +478,6 @@ const BACKTEST_ONLY: SetupOption[] = [
       "Ladder in the trade's own R: SL to cost at +1.5R, +1R locked at +2R, then one rung behind.",
     backtestOnly: true,
     book: "atr-stop",
-    breakevenAtR: 1.5,
     tag: "ATR/3 SL · ladder in own R · BE 1.5R",
   },
   {
@@ -509,7 +494,6 @@ const BACKTEST_ONLY: SetupOption[] = [
       "Ladder in the trade's own R: SL to cost at +1.5R, +1R locked at +2R, then one rung behind.",
     backtestOnly: true,
     book: "atr-stop",
-    breakevenAtR: 1.5,
     tag: "ATR/3 SL · ladder in own R · BE 1.5R",
   },
   {
@@ -526,7 +510,6 @@ const BACKTEST_ONLY: SetupOption[] = [
       "Ladder in the trade's own R: SL to cost at +1.5R, +1R locked at +2R, then one rung behind.",
     backtestOnly: true,
     book: "atr-stop",
-    breakevenAtR: 1.5,
     tag: "ATR/3 SL · ladder in own R · BE 1.5R",
   },
   {
@@ -543,8 +526,6 @@ const BACKTEST_ONLY: SetupOption[] = [
       "Ladder in fixed ₹600 steps: SL to cost at +₹900, +₹600 locked at +₹1,200, then every +₹600.",
     backtestOnly: true,
     book: "atr-stop-600",
-    breakevenAtR: 1.5,
-    ladderRupees: 600,
     tag: "ATR/3 SL · ladder ₹600 · BE ₹900",
   },
   {
@@ -561,8 +542,6 @@ const BACKTEST_ONLY: SetupOption[] = [
       "Ladder in fixed ₹600 steps: SL to cost at +₹900, +₹600 locked at +₹1,200, then every +₹600.",
     backtestOnly: true,
     book: "atr-stop-600",
-    breakevenAtR: 1.5,
-    ladderRupees: 600,
     tag: "ATR/3 SL · ladder ₹600 · BE ₹900",
   },
   {
@@ -579,25 +558,9 @@ const BACKTEST_ONLY: SetupOption[] = [
       "Ladder in fixed ₹600 steps: SL to cost at +₹900, +₹600 locked at +₹1,200, then every +₹600.",
     backtestOnly: true,
     book: "atr-stop-600",
-    breakevenAtR: 1.5,
-    ladderRupees: 600,
     tag: "ATR/3 SL · ladder ₹600 · BE ₹900",
   },
 ];
-
-/**
- * The exit a backtest run actually ran, when its legs share a break-even rule:
- * what the analysis page's trailing what-if compares everything against. Null
- * when the run's legs have no break-even (or disagree), and for the live record.
- */
-export function runExit(setupIds: string[]): { breakevenAtR: number; ladderRupees: number | null } | null {
-  const legs = BACKTEST_ONLY.filter((s) => setupIds.includes(s.setup));
-  if (legs.length === 0 || legs.length !== setupIds.length) return null;
-  const first = legs[0];
-  if (first.breakevenAtR == null) return null;
-  const same = legs.every((s) => s.breakevenAtR === first.breakevenAtR && s.ladderRupees === first.ladderRupees);
-  return same ? { breakevenAtR: first.breakevenAtR, ladderRupees: first.ladderRupees ?? null } : null;
-}
 
 export function listSetups(): SetupOption[] {
   const out: SetupOption[] = [];

@@ -26,7 +26,7 @@ import json
 import math
 from collections import defaultdict
 
-from . import atr_stop, charges, db, orb, pullback_stop
+from . import atr_stop, charges, db, orb, pullback_stop, what_if
 from .adr import adr_pct
 from .config import S, ist_time
 from .fills import step_position
@@ -328,6 +328,20 @@ def replay_session(conn, day, strategies, floors, log=None, setups=None):
     open_positions = []
     closed = []
     taken = defaultdict(int)
+    # Every trade replayed again under the live exit and the 1.5R break-even
+    # (what_if.py). Never part of the book: no slot, budget or count.
+    shadows = []
+
+    def step_one(position, minute, extra=None):
+        expiry, by_strike, band = option_cache[(position.symbol, position.option_type)][0:3]
+        # The pullback-stop variant's stop is on the stock, so its minute bar
+        # is looked at before the option's. No-op for every other rule.
+        pullback_stop.watch_stock(position, bar_at[position.symbol].get(minute), minute)
+        risk, apply = pullback_stop.exit_rule(position, STRATEGIES[position.strategy_id]["risk"])
+        risk = atr_stop.ladder_risk(position, risk)
+        if extra is not None:
+            risk = what_if.risk_for(risk, extra)
+        return step_position(position, by_strike, band, minute, flatten, risk, apply)
 
     # The daily loss limit, on the -DL variant only: the day's net P&L on closed
     # trades. A run holds one book, so every strategy in it carries the same limit.
@@ -347,15 +361,17 @@ def replay_session(conn, day, strategies, floors, log=None, setups=None):
         # minute, exactly as it would live.
         still_open = []
         for position in open_positions:
-            expiry, by_strike, band = option_cache[(position.symbol, position.option_type)][0:3]
-            # The pullback-stop variant's stop is on the stock, so its minute bar
-            # is looked at before the option's. No-op for every other rule.
-            pullback_stop.watch_stock(position, bar_at[position.symbol].get(minute), minute)
-            risk, apply = pullback_stop.exit_rule(position, STRATEGIES[position.strategy_id]["risk"])
-            risk = atr_stop.ladder_risk(position, risk)
-            done = step_position(position, by_strike, band, minute, flatten, risk, apply)
+            done = step_one(position, minute)
             (closed if done is not None else still_open).append(done or position)
         open_positions = still_open
+
+        still_shadowed = []
+        for parent, key, shadow in shadows:
+            if step_one(shadow, minute, key) is None:
+                still_shadowed.append((parent, key, shadow))
+            else:
+                what_if.record(parent, key, shadow)
+        shadows = still_shadowed
 
         # Counted once per day, the first minute the line is crossed - even if a
         # later winner brings the day back above it.
@@ -434,6 +450,7 @@ def replay_session(conn, day, strategies, floors, log=None, setups=None):
                 state.trades_today += 1
                 taken[sid] += 1
                 open_positions.append(position)
+                shadows.extend(what_if.open_shadows(position))
 
     # Anything still open at the end of the data is flattened on its last price.
     for position in open_positions:
@@ -441,6 +458,10 @@ def replay_session(conn, day, strategies, floors, log=None, setups=None):
         position.exit_at = position.last_at
         position.exit_reason = "eod-flatten"
         closed.append(position)
+    for parent, key, shadow in shadows:
+        shadow.exit_price, shadow.exit_at, shadow.exit_reason = (
+            shadow.last_price, shadow.last_at, "eod-flatten")
+        what_if.record(parent, key, shadow)
 
     if log:
         log(f"{day}  {len(symbols)} stocks, {notes['signals']} signals, "
