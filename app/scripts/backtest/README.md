@@ -9,7 +9,9 @@ the module that departs; the two known ones are listed under **Departures from t
 
 ## Running it
 
-From this folder (`/opt/backtest` on the VPS, where `venv/bin/python` is the interpreter):
+From this folder - on the VPS that is the repo's `app/scripts/backtest` (the worker's
+`WorkingDirectory`), with `/opt/backtest/venv/bin/python` as the interpreter; `/opt/backtest` holds
+only the venv, `.env` and logs, not the code:
 
 ```
 python run.py check                         the strategy mirror, and both databases
@@ -258,6 +260,16 @@ python run.py now --from 2025-11-10 --to 2026-10-30 --setups A-SK B-SK C-SK
 
 Compare with the ADR run on the same dates: only the major-level pick differs. Each trade stores
 the level it traded under `trigger.level` (`pivot`, `skew`), so the result can be split by pivot.
+
+## Every trade replayed under two exits (`what_if.py`)
+
+From 2026-11-25 each backtest trade is also replayed - same contract, fill, stop and ladder
+unit, same option minutes - under the **live exit** (`liveRule`: -1R until 1:2, then +1R and one
+step behind) and the **1.5R break-even** (`breakevenAt15`: the same plus the stop to cost once up
+1.5R), and both results are stored on the trade as `whatIf`. The shadows hold no slot, budget or
+day count. The analysis page's trailing what-if shows, for a backtest run: **Current live** and
+**SL to 0 at 1.5R** from this replay (exact), then the exit study and the previous rule (modelled
+off the ladder). Runs made before this have no replay: re-run them to fill those two rows.
 
 ## Backtest-only rule: the -SK legs with an ATR stop (`--setups A-ATR B-ATR C-ATR`, `A-ATR600 B-ATR600 C-ATR600`)
 

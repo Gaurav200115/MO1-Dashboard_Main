@@ -17,7 +17,7 @@ import { CHARGE_RATES, tradeCharges, type ChargeRates } from "./charges";
 import { istDate, istMinutes } from "./ist";
 import { rungLevels } from "./position";
 import { BREAKOUT_RETRACE_21EMA } from "./registry";
-import type { StrategyTrade } from "./types";
+import type { StrategyTrade, WhatIfKey } from "./types";
 
 // ---------------------------------------------------------------------------
 // Rows
@@ -1122,25 +1122,32 @@ export const NAMED_TRAILS: NamedTrail[] = [
 ];
 
 /**
- * A backtest run's own exit, when it had the backtest-only break-even (-SK v2,
- * -CAP, -35K, -ATR, -ATR600): stop to cost at 1.5R, then 1:2 locks +1R and one
- * step behind. Used as the reference row in place of "Live today" for such a
- * run, so the what-if compares against the rule that was actually run.
- *
- * Its stop function is the live ladder's, and that is not an oversight. The
- * break-even acts only before 2R, on trades whose ladder never moved - and for
- * those the model already uses the actual result, which carries the move to
- * cost. From 2R up the two rules are the same ladder.
+ * A trailing rule's result taken from the backtest's own replay (what_if.py)
+ * rather than modelled off the ladder: exact, on every trade. Null when any
+ * trade lacks the replay - a run made before 2026-11-25 - so a partial sum is
+ * never shown as the whole.
  */
-export function runExitTrail(ladderRupees: number | null): NamedTrail {
-  return {
-    key: "run",
-    label: "This run's rule",
-    detail: ladderRupees
-      ? `SL to cost at +₹${Math.round(1.5 * ladderRupees)} · +₹${2 * ladderRupees} locks +₹${ladderRupees} · then every +₹${ladderRupees}`
-      : "SL to cost at 1.5R · 1:2 locks +1R · one step behind",
-    stopR: liveStopR,
-  };
+export function replayedTrail(rows: AnalysedTrade[], key: WhatIfKey): TrailOutcome | null {
+  let netR = 0;
+  let net = 0;
+  const perTrade: number[] = [];
+  for (const row of rows) {
+    const exit = row.trade.whatIf?.[key];
+    if (!exit) return null;
+    const risk = row.trade.riskPerUnit * row.trade.qty;
+    const r = risk > 0 ? exit.profit / risk : 0;
+    netR += r;
+    net += exit.profit;
+    perTrade.push(r);
+  }
+  return { netR, net, untouched: 0, perTrade };
+}
+
+/** Trades two outcomes priced differently, in R. */
+export function changedBetween(a: number[], b: number[]): number {
+  let n = 0;
+  for (let i = 0; i < a.length; i += 1) if (Math.abs(a[i] - b[i]) > 0.01) n += 1;
+  return n;
 }
 
 export interface NamedTrailRow extends Omit<TrailOutcome, "perTrade"> {
@@ -1154,11 +1161,9 @@ export interface NamedTrailRow extends Omit<TrailOutcome, "perTrade"> {
 /** Prices every named configuration, with the live rule as the reference point. */
 export function compareTrails(
   rows: AnalysedTrade[],
-  trails: NamedTrail[] = NAMED_TRAILS,
-  /** What every row is compared against. The live rule, unless a backtest run says otherwise. */
-  reference: (peak: number) => number = liveStopR
+  trails: NamedTrail[] = NAMED_TRAILS
 ): NamedTrailRow[] {
-  const live = simulateTrail(rows, reference);
+  const live = simulateTrail(rows, liveStopR);
   return trails.map((trail) => {
     const { perTrade, ...outcome } = simulateTrail(rows, trail.stopR);
     let changedVsLive = 0;

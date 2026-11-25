@@ -265,6 +265,17 @@ export interface TradeTrigger {
   };
 }
 
+/** The exits every backtest trade is also replayed under (backtest/what_if.py). */
+export type WhatIfKey = "liveRule" | "breakevenAt15";
+
+export interface WhatIfExit {
+  exitPrice: number;
+  exitAt: number;
+  reason: string;
+  profit: number;
+  step: number;
+}
+
 export type ExitReason =
   | "stop"
   | "trail-stop"
@@ -346,6 +357,13 @@ export interface StrategyTrade {
    * rather than silently accepted — it means the trade risked less than planned.
    */
   riskCapped: boolean;
+
+  /**
+   * Backtest trades only (from 2026-11-25): the same trade replayed under the
+   * live exit and under the 1.5R break-even, on the same option minutes. Read by
+   * the analysis page's trailing what-if. Absent on live trades and older runs.
+   */
+  whatIf?: Partial<Record<WhatIfKey, WhatIfExit>> | null;
 
   /** Last seen premium while open, so the blotter can show running P&L. */
   mtm: (Fill & { profit: number }) | null;
