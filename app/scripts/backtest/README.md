@@ -261,6 +261,20 @@ python run.py now --from 2025-11-10 --to 2026-10-30 --setups A-SK B-SK C-SK
 Compare with the ADR run on the same dates: only the major-level pick differs. Each trade stores
 the level it traded under `trigger.level` (`pivot`, `skew`), so the result can be split by pivot.
 
+## Backtest-only rules: A with a wider ATR stop (`--setups A-ATR2 B-ATR2 C-ATR2`, `A-ATR1 B-ATR1 C-ATR1`)
+
+After the A analysis of 2026-11-26 (half of A-ATR600's trades stopped, median 9 minutes, the SL
+inside the pullback's own wiggle in 75% of them), as Gaurav specified it. On the -ATR600 rule; for
+**A only** (`legRisk`, `legCutoffIst`; `strategies.risk_of`, `signals._a_open`):
+
+- SL = the stock's 5-min ATR **/ 2** (-ATR2, book `atr600-a-atr2`) or **/ 1** (-ATR1, book
+  `atr600-a-atr1`), in premium points
+- **no move to cost** - the ₹600 ladder from +₹1,200 is kept
+- **no new A entry from 12:00**
+
+B and C are -ATR600's exactly (ATR/3, cost at +₹900, entries till 13:00). Compare with the
+A-ATR600 B-ATR600 C-ATR600 run on the same dates. `tests/test_a_wide.py`.
+
 ## Backtest-only rules: A twice a stock, and A behind the option's EMA (`--setups A-2X B-2X C-2X`, `A-OEMA B-OEMA C-OEMA`)
 
 Both on the -ATR600 rule (ATR/3 SL, ₹600 ladder, cost at +₹900), as Gaurav specified them on

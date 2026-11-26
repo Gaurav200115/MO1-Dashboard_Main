@@ -144,6 +144,16 @@ def _can_trade(state, params):
     return limit is None or state.trades_today < limit
 
 
+def _a_open(params, at):
+    """Setup A's own entry cutoff (`legCutoffIst`, -ATR2 / -ATR1: none from
+    12:00), on top of the strategy's. Exclusive, like the strategy cutoff."""
+    cutoff = params.get("legCutoffIst", {}).get("A")
+    if cutoff is None or at is None:
+        return True
+    hh, mm = (int(x) for x in cutoff.split(":"))
+    return (at.hour, at.minute) < (hh, mm)
+
+
 def _can_trade_a(state, params):
     """Setup A's per-stock limit. -2X: A may take a stock up to
     maxATradesPerSymbolPerDay times, but only while every trade on it today was
@@ -266,7 +276,7 @@ def evaluate_symbol(plan, state, params, ltp, ema, last_bar_close, at, entries_o
                         # itself to be above the EMA keeps a long from being
                         # opened while price is still under it.
                         state.note = "rebounded but still under the EMA"
-                    elif entries_open and _can_trade_a(state, params):
+                    elif entries_open and _a_open(params, at) and _can_trade_a(state, params):
                         state.phase_a = "spent"
                         return Signal(
                             setup="A", symbol=plan.symbol, spot=ltp, ema=ema,

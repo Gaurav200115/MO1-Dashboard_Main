@@ -701,6 +701,38 @@ BREAKDOWN_RETRACE_21EMA_AOEMA = _atr600_variant(
     "breakdown-retrace-21ema-atr600-aoema", "Support Break -> 21 EMA Retrace (Short)", AOEMA_TAG,
     "atr600-aoema", "OEMA", AOEMA_PARAMS, "SHORT")
 
+# Setup A with a wider ATR stop (2026-11-26, as Gaurav specified it), after the
+# A analysis showed half of A's trades stopped inside the pullback's own wiggle.
+# Backtest only. Two versions, identical but for the divisor:
+#
+#   -ATR2  A's SL = the stock's 5-min ATR / 2, in premium points
+#   -ATR1  A's SL = the full ATR
+#
+# and in both, for A only: no new A entry from 12:00, and no move to cost at
+# +900 (the Rs 600 ladder from +1,200 is kept). B and C are -ATR600's exactly -
+# ATR/3, cost at +900, entries till 13:00 - in each run so the legs share the
+# three slots. `legRisk` / `legCutoffIst` carry the A-only changes.
+def _a_wide(divisor):
+    return {"atrStopDivisor": divisor, "breakevenAtR": None}
+
+
+ATR2_TAG = "ATR600, A: SL ATR/2, no cost move, none after 12:00"
+ATR1_TAG = "ATR600, A: SL ATR/1, no cost move, none after 12:00"
+A_WIDE_PARAMS = dict(PIVOT_SKEW_PARAMS, legCutoffIst={"A": "12:00"})
+
+BREAKOUT_RETRACE_21EMA_ATR2 = dict(
+    _atr600_variant("breakout-retrace-21ema-atr600-a2", "Level Break -> 21 EMA Retrace", ATR2_TAG, "atr600-a-atr2",
+                    "ATR2", A_WIDE_PARAMS, "LONG"), legRisk={"A": _a_wide(2)})
+BREAKDOWN_RETRACE_21EMA_ATR2 = _atr600_variant(
+    "breakdown-retrace-21ema-atr600-a2", "Support Break -> 21 EMA Retrace (Short)", ATR2_TAG, "atr600-a-atr2",
+    "ATR2", A_WIDE_PARAMS, "SHORT")
+BREAKOUT_RETRACE_21EMA_ATR1 = dict(
+    _atr600_variant("breakout-retrace-21ema-atr600-a1", "Level Break -> 21 EMA Retrace", ATR1_TAG, "atr600-a-atr1",
+                    "ATR1", A_WIDE_PARAMS, "LONG"), legRisk={"A": _a_wide(1)})
+BREAKDOWN_RETRACE_21EMA_ATR1 = _atr600_variant(
+    "breakdown-retrace-21ema-atr600-a1", "Support Break -> 21 EMA Retrace (Short)", ATR1_TAG, "atr600-a-atr1",
+    "ATR1", A_WIDE_PARAMS, "SHORT")
+
 ALL_STRATEGIES = (BREAKOUT_RETRACE_21EMA, BREAKDOWN_RETRACE_21EMA, NIFTY_ORB_15M,
                   BREAKOUT_RETRACE_21EMA_ADR, BREAKDOWN_RETRACE_21EMA_ADR,
                   BREAKOUT_RETRACE_21EMA_PB, BREAKDOWN_RETRACE_21EMA_PB,
@@ -712,13 +744,31 @@ ALL_STRATEGIES = (BREAKOUT_RETRACE_21EMA, BREAKDOWN_RETRACE_21EMA, NIFTY_ORB_15M
                   BREAKOUT_RETRACE_21EMA_ATR, BREAKDOWN_RETRACE_21EMA_ATR,
                   BREAKOUT_RETRACE_21EMA_ATR600, BREAKDOWN_RETRACE_21EMA_ATR600,
                   BREAKOUT_RETRACE_21EMA_A2X, BREAKDOWN_RETRACE_21EMA_A2X,
-                  BREAKOUT_RETRACE_21EMA_AOEMA, BREAKDOWN_RETRACE_21EMA_AOEMA)
+                  BREAKOUT_RETRACE_21EMA_AOEMA, BREAKDOWN_RETRACE_21EMA_AOEMA,
+                  BREAKOUT_RETRACE_21EMA_ATR2, BREAKDOWN_RETRACE_21EMA_ATR2,
+                  BREAKOUT_RETRACE_21EMA_ATR1, BREAKDOWN_RETRACE_21EMA_ATR1)
 STRATEGIES = {s["id"]: s for s in ALL_STRATEGIES}
 
 
 def leg_of(strategy, setup):
     """The state-machine leg a setup runs: "A-ADR" is leg A measured with the ADR ruler."""
     return strategy.get("legs", {}).get(setup, setup)
+
+
+def risk_of(strategy, setup):
+    """The risk a setup trades under: the strategy's, with that leg's own
+    overrides (`legRisk`) on top. A None override removes the key - e.g. no
+    break-even for that leg. Every rule without `legRisk` is unchanged."""
+    over = strategy.get("legRisk", {}).get(leg_of(strategy, setup))
+    if not over:
+        return strategy["risk"]
+    risk = dict(strategy["risk"])
+    for key, value in over.items():
+        if value is None:
+            risk.pop(key, None)
+        else:
+            risk[key] = value
+    return risk
 
 
 def setup_for_leg(strategy, leg):
@@ -799,7 +849,7 @@ def selection(setup_ids):
     # The variants (ADR, pullback stop, daily loss limit, pivot skew) are other
     # versions of the desk's legs, so no two of those books ever share a run.
     if len({book_of(STRATEGIES[sid]) for sid in chosen}) > 1:
-        raise SystemExit("A/B/C, its variants (-ADR, -PB, -DL, -SK, -CAP, -35K, -ATR, -ATR600, -2X, -OEMA) and the -NIFTY legs are alternatives, not "
+        raise SystemExit("A/B/C, its variants (-ADR, -PB, -DL, -SK, -CAP, -35K, -ATR, -ATR600, -2X, -OEMA, -ATR2, -ATR1) and the -NIFTY legs are alternatives, not "
                          "additions - replay each set in a run of its own")
     return sorted(chosen), chosen
 

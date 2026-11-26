@@ -34,7 +34,7 @@ from .gate import CLEAR, assess, contract_tick, fill_price, step_too_costly
 from .levels import chain_window, plan_for_stock
 from .position import open_position
 from .signals import Ema, evaluate_symbol, initial_state, rearm
-from .strategies import (NIFTY_ORB_15M, SETUPS, STRATEGIES, leg_of, option_type, selection,
+from .strategies import (NIFTY_ORB_15M, SETUPS, STRATEGIES, leg_of, option_type, risk_of, selection,
                          setup_for_leg)
 
 # bars.ts: the seed takes the last emaPeriod * 4 settled bars.
@@ -337,7 +337,8 @@ def replay_session(conn, day, strategies, floors, log=None, setups=None):
         # The pullback-stop variant's stop is on the stock, so its minute bar
         # is looked at before the option's. No-op for every other rule.
         pullback_stop.watch_stock(position, bar_at[position.symbol].get(minute), minute)
-        risk, apply = pullback_stop.exit_rule(position, STRATEGIES[position.strategy_id]["risk"])
+        risk, apply = pullback_stop.exit_rule(
+            position, risk_of(STRATEGIES[position.strategy_id], position.setup))
         risk = atr_stop.ladder_risk(position, risk)
         if extra is not None:
             risk = what_if.risk_for(risk, extra)
@@ -515,13 +516,15 @@ def _try_fill(conn, day, prev, strategy, signal, plan, minute, floors,
               option_data, gate_cache, notes, spot_bars=None, atr=None):
     """Picks the contract, runs the gate, and opens the position - or explains why not."""
     side = option_type(strategy, signal.setup)
+    # This setup's risk: the strategy's, with its leg's own overrides (legRisk).
+    leg_risk = risk_of(strategy, signal.setup)
 
     # ATR-stop variant: the stop is the stock's 5-minute ATR / 3, known before any
     # contract is looked at. A stock without 14 closed bars yet has no ATR, and
     # the signal is turned away rather than given a made-up stop.
     atr_plan = None
     if atr_stop.applies(strategy):
-        atr_plan = atr_stop.plan(atr, plan.lot_size * strategy["risk"]["lots"], strategy["risk"])
+        atr_plan = atr_stop.plan(atr, plan.lot_size * leg_risk["lots"], leg_risk)
         if atr_plan is None:
             notes["rejected"]["no 5-min ATR yet"] += 1
             return None
@@ -594,11 +597,11 @@ def _try_fill(conn, day, prev, strategy, signal, plan, minute, floors,
             return None
 
     if atr_plan is not None:
-        sized = dict(strategy, risk=atr_stop.sized_risk(strategy["risk"], atr_plan))
+        sized = dict(strategy, risk=atr_stop.sized_risk(leg_risk, atr_plan))
         position = open_position(signal, sized, {"price": fill_price(entry_bar)},
                                  plan.lot_size, expiry, strike, side, result.mark,
                                  day.isoformat())
-        return atr_stop.arm(position, atr_plan, strategy["risk"])
+        return atr_stop.arm(position, atr_plan, leg_risk)
 
     if stop is None:
         return open_position(signal, strategy, {"price": fill_price(entry_bar)},
