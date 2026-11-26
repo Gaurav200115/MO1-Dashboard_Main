@@ -194,6 +194,9 @@ function defaultPicks(setups: SetupOption[], instrument: Instrument): string[] {
   return setups.filter((s) => !s.backtestOnly && instrumentOf(s) === "STOCKS").map((s) => s.setup);
 }
 
+/** Strategy groups kept visible in the picker however old: ATR600, the current favourite. */
+const PINNED_BOOKS = ["atr-stop-600"];
+
 const INSTRUMENTS: { value: Instrument; label: string; hint: string }[] = [
   { value: "STOCKS", label: "Stocks", hint: "NIFTY 200 stock options (the top 100 archived each month)" },
   { value: "NIFTY", label: "NIFTY", hint: "NIFTY's own weekly options" },
@@ -234,6 +237,17 @@ function Ask({
   const options = (nifty ? coverage?.indexOptions : coverage?.options) ?? null;
   const ready = picked.length > 0 && !!from && !!to && from <= to && !busy;
 
+  // By default only the live legs, the two newest strategy groups and ATR600;
+  // everything older sits behind "Show older". A picked leg always stays visible.
+  const [showOlder, setShowOlder] = useState(false);
+  const shown = useMemo(() => {
+    const books = [...new Set(setups.filter((s) => s.backtestOnly).map((s) => s.book))];
+    const keep = new Set([...books.slice(-2), ...PINNED_BOOKS]);
+    return setups.filter((s) => !s.backtestOnly || keep.has(s.book) || picked.includes(s.setup));
+  }, [setups, picked]);
+  const hidden = setups.length - shown.length;
+  const listed = showOlder ? setups : shown;
+
   return (
     <div className="rounded-[5px] border border-line bg-sunken p-3">
       <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -268,7 +282,7 @@ function Ask({
           <legend className="mb-1 text-[10px] font-bold uppercase tracking-[0.13em] text-muted">
             Setups
           </legend>
-          {setups.map((s) => (
+          {listed.map((s) => (
             <label
               key={s.setup}
               title={s.description}
@@ -318,6 +332,15 @@ function Ask({
               ) : null}
             </label>
           ))}
+          {hidden > 0 || showOlder ? (
+            <button
+              type="button"
+              onClick={() => setShowOlder((v) => !v)}
+              className="mt-1 self-start rounded-[4px] border border-line px-2 py-0.5 text-[11px] text-muted hover:bg-surface2"
+            >
+              {showOlder ? "Hide older strategies" : `Show ${hidden} older strategies`}
+            </button>
+          ) : null}
         </fieldset>
 
         <label className="flex flex-col gap-1 text-[10px] font-bold uppercase tracking-[0.13em] text-muted">

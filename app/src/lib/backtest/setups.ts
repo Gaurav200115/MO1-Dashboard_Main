@@ -560,6 +560,104 @@ const BACKTEST_ONLY: SetupOption[] = [
     book: "atr-stop-600",
     tag: "ATR/3 SL · ladder ₹600 · BE ₹900",
   },
+
+  /*
+   * Two changes to setup A on the -ATR600 rule (2026-11-26). B and C are
+   * -ATR600's unchanged, in the run so the legs share the three slots.
+   *   -2X    A may trade a stock twice a day: after the first A trade closes, A
+   *          needs a fresh break + retrace. B and C keep one a stock.
+   *   -OEMA  A enters only if the ATM option is above its own 1-min 21 EMA at
+   *          the moment A fires; otherwise the setup is lost for the day.
+   *
+   * Python: `BREAKOUT_RETRACE_21EMA_A2X` / `_AOEMA` and the BREAKDOWN pair in
+   * backtest/strategies.py; tests/test_a_variants.py checks these six entries match.
+   */
+  {
+    setup: "A-2X",
+    strategy: "breakout-retrace-21ema-atr600-a2x",
+    strategyName: "Level Break → 21 EMA Retrace [ATR600, A twice a stock]",
+    version: 1,
+    label: "Break & retrace",
+    side: "LONG",
+    option: "CE",
+    description:
+      "Setup A on ATR600, up to 2 trades a stock a day: once the first A trade closes, A re-arms and needs a " +
+      "fresh break + retrace. ATR/3 SL, ₹600 ladder, cost at +₹900.",
+    backtestOnly: true,
+    book: "atr600-a2x",
+    tag: "ATR600 · A ×2 a stock",
+  },
+  {
+    setup: "B-2X",
+    strategy: "breakout-retrace-21ema-atr600-a2x",
+    strategyName: "Level Break → 21 EMA Retrace [ATR600, A twice a stock]",
+    version: 1,
+    label: "Support hold & level cross",
+    side: "LONG",
+    option: "CE",
+    description:
+      "Setup B-ATR600 unchanged (one a stock), run beside A-2X so the legs share the three slots.",
+    backtestOnly: true,
+    book: "atr600-a2x",
+    tag: "ATR600 · A ×2 a stock",
+  },
+  {
+    setup: "C-2X",
+    strategy: "breakdown-retrace-21ema-atr600-a2x",
+    strategyName: "Support Break → 21 EMA Retrace (Short) [ATR600, A twice a stock]",
+    version: 1,
+    label: "Breakdown & retrace",
+    side: "SHORT",
+    option: "PE",
+    description:
+      "Setup C-ATR600 unchanged (one a stock), run beside A-2X so the legs share the three slots.",
+    backtestOnly: true,
+    book: "atr600-a2x",
+    tag: "ATR600 · A ×2 a stock",
+  },
+  {
+    setup: "A-OEMA",
+    strategy: "breakout-retrace-21ema-atr600-aoema",
+    strategyName: "Level Break → 21 EMA Retrace [ATR600, A needs option > 1-min 21 EMA]",
+    version: 1,
+    label: "Break & retrace",
+    side: "LONG",
+    option: "CE",
+    description:
+      "Setup A on ATR600, but at the moment A would enter the ATM option must be above its own 1-min 21 EMA; " +
+      "if not, the setup is lost for the day. ATR/3 SL, ₹600 ladder, cost at +₹900.",
+    backtestOnly: true,
+    book: "atr600-aoema",
+    tag: "ATR600 · A option > 1m EMA",
+  },
+  {
+    setup: "B-OEMA",
+    strategy: "breakout-retrace-21ema-atr600-aoema",
+    strategyName: "Level Break → 21 EMA Retrace [ATR600, A needs option > 1-min 21 EMA]",
+    version: 1,
+    label: "Support hold & level cross",
+    side: "LONG",
+    option: "CE",
+    description:
+      "Setup B-ATR600 unchanged (no option EMA check), run beside A-OEMA so the legs share the three slots.",
+    backtestOnly: true,
+    book: "atr600-aoema",
+    tag: "ATR600 · A option > 1m EMA",
+  },
+  {
+    setup: "C-OEMA",
+    strategy: "breakdown-retrace-21ema-atr600-aoema",
+    strategyName: "Support Break → 21 EMA Retrace (Short) [ATR600, A needs option > 1-min 21 EMA]",
+    version: 1,
+    label: "Breakdown & retrace",
+    side: "SHORT",
+    option: "PE",
+    description:
+      "Setup C-ATR600 unchanged (no option EMA check), run beside A-OEMA so the legs share the three slots.",
+    backtestOnly: true,
+    book: "atr600-aoema",
+    tag: "ATR600 · A option > 1m EMA",
+  },
 ];
 
 export function listSetups(): SetupOption[] {
@@ -594,7 +692,7 @@ export function mixError(setupIds: string[]): string | null {
     setupIds.map((id) => all.find((s) => s.setup === id)?.book).filter(Boolean)
   );
   if (books.size > 1) {
-    return "A/B/C, its variants (-ADR, -PB, -DL, -SK, -CAP, -35K, -ATR, -ATR600) and the -NIFTY legs are alternatives, not additions — replay each set in a run of its own";
+    return "A/B/C, its variants (-ADR, -PB, -DL, -SK, -CAP, -35K, -ATR, -ATR600, -2X, -OEMA) and the -NIFTY legs are alternatives, not additions — replay each set in a run of its own";
   }
   return null;
 }

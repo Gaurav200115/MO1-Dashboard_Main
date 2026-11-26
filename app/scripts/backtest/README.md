@@ -261,6 +261,28 @@ python run.py now --from 2025-11-10 --to 2026-10-30 --setups A-SK B-SK C-SK
 Compare with the ADR run on the same dates: only the major-level pick differs. Each trade stores
 the level it traded under `trigger.level` (`pivot`, `skew`), so the result can be split by pivot.
 
+## Backtest-only rules: A twice a stock, and A behind the option's EMA (`--setups A-2X B-2X C-2X`, `A-OEMA B-OEMA C-OEMA`)
+
+Both on the -ATR600 rule (ATR/3 SL, ₹600 ladder, cost at +₹900), as Gaurav specified them on
+2026-11-26; B and C are -ATR600's unchanged, in each run so the legs share the three slots.
+
+- **-2X** (book `atr600-a2x`): A may trade a stock **twice a day**. After the first A trade on a
+  stock closes, A re-arms on it (`signals.rearm`) and needs a fresh setup - price back under the
+  level, a new break, a new retrace. B and C keep one trade a stock, and a stock B or C traded
+  stays closed to A (`signals._can_trade_a`, `maxATradesPerSymbolPerDay`).
+- **-OEMA** (book `atr600-aoema`): at the moment A would enter, the ATM option it would buy must
+  be **above its own 21 EMA on 1-minute bars** (its closes before the entry minute today, SMA of
+  the first 21 then EMA) - checked once; otherwise the setup is lost, counted as
+  `option under its 1-min 21 EMA`. Under 21 printed option minutes before the signal (any A before
+  about 09:36) there is no EMA and no trade (`option 1-min EMA not ready`). B and C unchecked.
+
+```
+python run.py now --from 2025-11-10 --to 2026-11-12 --setups A-2X B-2X C-2X
+python run.py now --from 2025-11-10 --to 2026-11-12 --setups A-OEMA B-OEMA C-OEMA
+```
+
+Compare both with the A-ATR600 B-ATR600 C-ATR600 run on the same dates. `tests/test_a_variants.py`.
+
 ## Every trade replayed under two exits (`what_if.py`)
 
 From 2026-11-25 each backtest trade is also replayed - same contract, fill, stop and ladder
