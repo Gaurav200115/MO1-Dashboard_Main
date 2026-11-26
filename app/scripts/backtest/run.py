@@ -39,6 +39,12 @@ Every command that replays takes --setups, defaulting to all of them:
     --setups A-ATR600 B-ATR600 C-ATR600
                       the same ATR SL, ladder in fixed Rs 600 steps - both
                       backtest only
+    --setups A-2X B-2X C-2X
+                      -ATR600 with A allowed twice a stock (fresh setup after
+                      the first A closes) - backtest only
+    --setups A-OEMA B-OEMA C-OEMA
+                      -ATR600 with A entering only when the option is above its
+                      own 1-min 21 EMA - backtest only
 
 `levels` and `session` print and store nothing. `now` and `queue` write to Mongo.
 """

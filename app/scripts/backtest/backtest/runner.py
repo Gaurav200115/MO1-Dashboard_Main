@@ -363,6 +363,8 @@ def replay_session(conn, day, strategies, floors, log=None, setups=None):
         for position in open_positions:
             done = step_one(position, minute)
             (closed if done is not None else still_open).append(done or position)
+            if done is not None:
+                _rearm_a_after_close(done, states)
         open_positions = still_open
 
         still_shadowed = []
@@ -448,6 +450,8 @@ def replay_session(conn, day, strategies, floors, log=None, setups=None):
                     continue
 
                 state.trades_today += 1
+                if leg_of(strategy, signal.setup) == "A":
+                    state.a_trades += 1
                 taken[sid] += 1
                 open_positions.append(position)
                 shadows.extend(what_if.open_shadows(position))
@@ -467,6 +471,29 @@ def replay_session(conn, day, strategies, floors, log=None, setups=None):
         log(f"{day}  {len(symbols)} stocks, {notes['signals']} signals, "
             f"{len(closed)} trades")
     return closed, notes
+
+
+def _rearm_a_after_close(position, states):
+    """-2X: once an A trade on a stock closes, A waits on that stock for a fresh
+    break and retrace - while it still has an A trade left today."""
+    strategy = STRATEGIES[position.strategy_id]
+    params = strategy["params"]
+    if not params.get("rearmAAfterClose") or leg_of(strategy, position.setup) != "A":
+        return
+    state = states.get((position.strategy_id, position.symbol))
+    if state is not None and state.a_trades < params["maxATradesPerSymbolPerDay"]:
+        rearm(state, "A")
+
+
+def option_ema(bars, before, period):
+    """The option's own EMA over its 1-minute closes strictly before `before`
+    (SMA of the first `period`, then EMA - the stock EMA's own definition).
+    `bars` is {minute: bar} for one strike; a minute it did not trade is not a
+    bar. None with fewer than `period` closes."""
+    ema = Ema(period)
+    for minute in sorted(m for m in bars if m < before):
+        ema.push(bars[minute]["close"])
+    return ema.value
 
 
 def premium_in(position):
@@ -525,6 +552,18 @@ def _try_fill(conn, day, prev, strategy, signal, plan, minute, floors,
         notes["skipped"]["no at-the-money strike at the entry minute"] += 1
         return None
     strike, entry_bar = picked
+
+    # -OEMA: setup A enters only while the option it would buy trades above its
+    # own 1-minute 21 EMA. Checked once, here; failing it spends the setup.
+    gate = strategy["params"].get("optionEmaGate")
+    if gate and leg_of(strategy, signal.setup) in gate["legs"]:
+        ema = option_ema(by_strike.get(strike, {}), minute, gate["period"])
+        if ema is None:
+            notes["rejected"]["option 1-min EMA not ready"] += 1
+            return None
+        if entry_bar["close"] <= ema:
+            notes["rejected"]["option under its 1-min 21 EMA"] += 1
+            return None
 
     key = (signal.symbol, side, strike)
     if key not in gate_cache:

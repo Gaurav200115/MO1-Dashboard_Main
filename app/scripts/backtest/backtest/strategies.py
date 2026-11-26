@@ -645,6 +645,62 @@ BREAKDOWN_RETRACE_21EMA_ATR600 = {
     "risk": dict(ATR600_RISK),
 }
 
+# Two changes to setup A, each on the -ATR600 rule (2026-11-26, as Gaurav
+# specified them). Backtest only. B and C are -ATR600's, unchanged, in each run
+# so the three legs share the three-position cap as they do live.
+#
+#   -2X    A may trade a stock twice a day. After the first A trade on a stock
+#          closes, A re-arms on it and needs a *fresh* setup - price back under
+#          the level, a new break, a new retrace - before it can enter again. B
+#          and C keep one trade a stock, and a stock B or C has traded still
+#          cannot be taken by A (the per-stock limit, as before).
+#   -OEMA  At the moment A would enter, the ATM option it would buy must be
+#          trading above its own 21 EMA on 1-minute bars; if not, the setup is
+#          lost for the day, as a gate rejection spends it. The EMA is the
+#          option's closes before the entry minute today (SMA of the first 21,
+#          then EMA, as the stock's), against the entry minute's close. Fewer
+#          than 21 printed minutes before the signal: no EMA, no trade.
+#          B and C are not checked.
+A2X_TAG = "ATR600, A twice a stock"
+AOEMA_TAG = "ATR600, A needs option > 1-min 21 EMA"
+
+A2X_PARAMS = dict(PIVOT_SKEW_PARAMS, maxATradesPerSymbolPerDay=2, rearmAAfterClose=True)
+AOEMA_PARAMS = dict(PIVOT_SKEW_PARAMS,
+                    optionEmaGate={"legs": ["A"], "period": 21, "intervalMinutes": 1})
+
+
+def _atr600_variant(sid, name, tag, book, suffix, params, side):
+    legs = {"LONG": ("A", "B"), "SHORT": ("C",)}[side]
+    labels = {"A": "Break & retrace", "B": "Support hold & level cross", "C": "Breakdown & retrace"}
+    setups = [f"{leg}-{suffix}" for leg in legs]
+    return {
+        "id": sid,
+        "version": 1,
+        "name": f"{name} [{tag}]",
+        "backtestOnly": True,
+        "book": book,
+        "setups": setups,
+        "setupLabels": {s: f"{labels[s[0]]} [{tag}]" for s in setups},
+        "sides": {s: side for s in setups},
+        "legs": {s: s[0] for s in setups},
+        "params": dict(params),
+        "risk": dict(ATR600_RISK),
+    }
+
+
+BREAKOUT_RETRACE_21EMA_A2X = _atr600_variant(
+    "breakout-retrace-21ema-atr600-a2x", "Level Break -> 21 EMA Retrace", A2X_TAG, "atr600-a2x", "2X",
+    A2X_PARAMS, "LONG")
+BREAKDOWN_RETRACE_21EMA_A2X = _atr600_variant(
+    "breakdown-retrace-21ema-atr600-a2x", "Support Break -> 21 EMA Retrace (Short)", A2X_TAG, "atr600-a2x",
+    "2X", A2X_PARAMS, "SHORT")
+BREAKOUT_RETRACE_21EMA_AOEMA = _atr600_variant(
+    "breakout-retrace-21ema-atr600-aoema", "Level Break -> 21 EMA Retrace", AOEMA_TAG, "atr600-aoema", "OEMA",
+    AOEMA_PARAMS, "LONG")
+BREAKDOWN_RETRACE_21EMA_AOEMA = _atr600_variant(
+    "breakdown-retrace-21ema-atr600-aoema", "Support Break -> 21 EMA Retrace (Short)", AOEMA_TAG,
+    "atr600-aoema", "OEMA", AOEMA_PARAMS, "SHORT")
+
 ALL_STRATEGIES = (BREAKOUT_RETRACE_21EMA, BREAKDOWN_RETRACE_21EMA, NIFTY_ORB_15M,
                   BREAKOUT_RETRACE_21EMA_ADR, BREAKDOWN_RETRACE_21EMA_ADR,
                   BREAKOUT_RETRACE_21EMA_PB, BREAKDOWN_RETRACE_21EMA_PB,
@@ -654,7 +710,9 @@ ALL_STRATEGIES = (BREAKOUT_RETRACE_21EMA, BREAKDOWN_RETRACE_21EMA, NIFTY_ORB_15M
                   BREAKOUT_RETRACE_21EMA_CAP, BREAKDOWN_RETRACE_21EMA_CAP,
                   BREAKOUT_RETRACE_21EMA_B35K,
                   BREAKOUT_RETRACE_21EMA_ATR, BREAKDOWN_RETRACE_21EMA_ATR,
-                  BREAKOUT_RETRACE_21EMA_ATR600, BREAKDOWN_RETRACE_21EMA_ATR600)
+                  BREAKOUT_RETRACE_21EMA_ATR600, BREAKDOWN_RETRACE_21EMA_ATR600,
+                  BREAKOUT_RETRACE_21EMA_A2X, BREAKDOWN_RETRACE_21EMA_A2X,
+                  BREAKOUT_RETRACE_21EMA_AOEMA, BREAKDOWN_RETRACE_21EMA_AOEMA)
 STRATEGIES = {s["id"]: s for s in ALL_STRATEGIES}
 
 
@@ -741,7 +799,7 @@ def selection(setup_ids):
     # The variants (ADR, pullback stop, daily loss limit, pivot skew) are other
     # versions of the desk's legs, so no two of those books ever share a run.
     if len({book_of(STRATEGIES[sid]) for sid in chosen}) > 1:
-        raise SystemExit("A/B/C, its variants (-ADR, -PB, -DL, -SK, -CAP, -35K, -ATR, -ATR600) and the -NIFTY legs are alternatives, not "
+        raise SystemExit("A/B/C, its variants (-ADR, -PB, -DL, -SK, -CAP, -35K, -ATR, -ATR600, -2X, -OEMA) and the -NIFTY legs are alternatives, not "
                          "additions - replay each set in a run of its own")
     return sorted(chosen), chosen
 

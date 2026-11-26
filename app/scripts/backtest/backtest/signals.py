@@ -100,6 +100,9 @@ class SymbolState:
 
     last_ltp: float | None = None
     trades_today: int = 0
+    # Setup A's own trades on this stock today - only read by -2X, where A may
+    # trade a stock twice (maxATradesPerSymbolPerDay).
+    a_trades: int = 0
     note: str | None = None
 
 
@@ -139,6 +142,16 @@ def _can_trade(state, params):
     # None = no per-symbol limit (the NIFTY legs, where the one symbol is the whole book).
     limit = params["maxTradesPerSymbolPerDay"]
     return limit is None or state.trades_today < limit
+
+
+def _can_trade_a(state, params):
+    """Setup A's per-stock limit. -2X: A may take a stock up to
+    maxATradesPerSymbolPerDay times, but only while every trade on it today was
+    A's - a stock B or C has traded stays closed to A, as with the usual limit."""
+    limit = params.get("maxATradesPerSymbolPerDay")
+    if limit is None:
+        return _can_trade(state, params)
+    return state.trades_today == state.a_trades and state.a_trades < limit
 
 
 def rearm(state, leg):
@@ -253,7 +266,7 @@ def evaluate_symbol(plan, state, params, ltp, ema, last_bar_close, at, entries_o
                         # itself to be above the EMA keeps a long from being
                         # opened while price is still under it.
                         state.note = "rebounded but still under the EMA"
-                    elif entries_open and _can_trade(state, params):
+                    elif entries_open and _can_trade_a(state, params):
                         state.phase_a = "spent"
                         return Signal(
                             setup="A", symbol=plan.symbol, spot=ltp, ema=ema,
