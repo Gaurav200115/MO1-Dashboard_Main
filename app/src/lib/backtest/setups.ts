@@ -658,6 +658,101 @@ const BACKTEST_ONLY: SetupOption[] = [
     book: "atr600-aoema",
     tag: "ATR600 · A option > 1m EMA",
   },
+
+  /*
+   * Setup A with a wider ATR stop (2026-11-26). For A only: SL = the stock's
+   * 5-min ATR / 2 (-ATR2) or / 1 (-ATR1) in premium points, no move to cost,
+   * no new entry from 12:00. B and C are -ATR600's exactly.
+   *
+   * Python: `BREAKOUT_RETRACE_21EMA_ATR2` / `_ATR1` and the BREAKDOWN pair in
+   * backtest/strategies.py; tests/test_a_wide.py checks these six entries match.
+   */
+  {
+    setup: "A-ATR2",
+    strategy: "breakout-retrace-21ema-atr600-a2",
+    strategyName: "Level Break → 21 EMA Retrace [ATR600, A: SL ATR/2, no cost move, none after 12:00]",
+    version: 1,
+    label: "Break & retrace",
+    side: "LONG",
+    option: "CE",
+    description:
+      "Setup A on ATR600 with a wider SL: the stock's 5-min ATR / 2 in option premium points. No move to " +
+      "cost (₹600 ladder from +₹1,200 kept), and no new A entry from 12:00.",
+    backtestOnly: true,
+    book: "atr600-a-atr2",
+    tag: "ATR600 · A SL ATR/2 · no cost · A till 12:00",
+  },
+  {
+    setup: "B-ATR2",
+    strategy: "breakout-retrace-21ema-atr600-a2",
+    strategyName: "Level Break → 21 EMA Retrace [ATR600, A: SL ATR/2, no cost move, none after 12:00]",
+    version: 1,
+    label: "Support hold & level cross",
+    side: "LONG",
+    option: "CE",
+    description:
+      "Setup B-ATR600 unchanged (ATR/3 SL, cost at +₹900, till 13:00), run beside A-ATR2 so the legs share the three slots.",
+    backtestOnly: true,
+    book: "atr600-a-atr2",
+    tag: "ATR600 · A SL ATR/2 · no cost · A till 12:00",
+  },
+  {
+    setup: "C-ATR2",
+    strategy: "breakdown-retrace-21ema-atr600-a2",
+    strategyName: "Support Break → 21 EMA Retrace (Short) [ATR600, A: SL ATR/2, no cost move, none after 12:00]",
+    version: 1,
+    label: "Breakdown & retrace",
+    side: "SHORT",
+    option: "PE",
+    description:
+      "Setup C-ATR600 unchanged (ATR/3 SL, cost at +₹900, till 13:00), run beside A-ATR2 so the legs share the three slots.",
+    backtestOnly: true,
+    book: "atr600-a-atr2",
+    tag: "ATR600 · A SL ATR/2 · no cost · A till 12:00",
+  },
+  {
+    setup: "A-ATR1",
+    strategy: "breakout-retrace-21ema-atr600-a1",
+    strategyName: "Level Break → 21 EMA Retrace [ATR600, A: SL ATR/1, no cost move, none after 12:00]",
+    version: 1,
+    label: "Break & retrace",
+    side: "LONG",
+    option: "CE",
+    description:
+      "Setup A on ATR600 with a wider SL: the stock's 5-min ATR / 1 in option premium points. No move to " +
+      "cost (₹600 ladder from +₹1,200 kept), and no new A entry from 12:00.",
+    backtestOnly: true,
+    book: "atr600-a-atr1",
+    tag: "ATR600 · A SL ATR/1 · no cost · A till 12:00",
+  },
+  {
+    setup: "B-ATR1",
+    strategy: "breakout-retrace-21ema-atr600-a1",
+    strategyName: "Level Break → 21 EMA Retrace [ATR600, A: SL ATR/1, no cost move, none after 12:00]",
+    version: 1,
+    label: "Support hold & level cross",
+    side: "LONG",
+    option: "CE",
+    description:
+      "Setup B-ATR600 unchanged (ATR/3 SL, cost at +₹900, till 13:00), run beside A-ATR1 so the legs share the three slots.",
+    backtestOnly: true,
+    book: "atr600-a-atr1",
+    tag: "ATR600 · A SL ATR/1 · no cost · A till 12:00",
+  },
+  {
+    setup: "C-ATR1",
+    strategy: "breakdown-retrace-21ema-atr600-a1",
+    strategyName: "Support Break → 21 EMA Retrace (Short) [ATR600, A: SL ATR/1, no cost move, none after 12:00]",
+    version: 1,
+    label: "Breakdown & retrace",
+    side: "SHORT",
+    option: "PE",
+    description:
+      "Setup C-ATR600 unchanged (ATR/3 SL, cost at +₹900, till 13:00), run beside A-ATR1 so the legs share the three slots.",
+    backtestOnly: true,
+    book: "atr600-a-atr1",
+    tag: "ATR600 · A SL ATR/1 · no cost · A till 12:00",
+  },
 ];
 
 export function listSetups(): SetupOption[] {
@@ -692,7 +787,7 @@ export function mixError(setupIds: string[]): string | null {
     setupIds.map((id) => all.find((s) => s.setup === id)?.book).filter(Boolean)
   );
   if (books.size > 1) {
-    return "A/B/C, its variants (-ADR, -PB, -DL, -SK, -CAP, -35K, -ATR, -ATR600, -2X, -OEMA) and the -NIFTY legs are alternatives, not additions — replay each set in a run of its own";
+    return "A/B/C, its variants (-ADR, -PB, -DL, -SK, -CAP, -35K, -ATR, -ATR600, -2X, -OEMA, -ATR2, -ATR1) and the -NIFTY legs are alternatives, not additions — replay each set in a run of its own";
   }
   return null;
 }

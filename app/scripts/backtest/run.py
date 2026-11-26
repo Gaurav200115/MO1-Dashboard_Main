@@ -45,6 +45,9 @@ Every command that replays takes --setups, defaulting to all of them:
     --setups A-OEMA B-OEMA C-OEMA
                       -ATR600 with A entering only when the option is above its
                       own 1-min 21 EMA - backtest only
+    --setups A-ATR2 B-ATR2 C-ATR2  /  A-ATR1 B-ATR1 C-ATR1
+                      -ATR600 with A's SL at ATR/2 (or ATR/1), no move to cost
+                      for A and no A from 12:00 - backtest only
 
 `levels` and `session` print and store nothing. `now` and `queue` write to Mongo.
 """
