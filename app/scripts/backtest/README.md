@@ -261,6 +261,21 @@ python run.py now --from 2025-11-10 --to 2026-10-30 --setups A-SK B-SK C-SK
 Compare with the ADR run on the same dates: only the major-level pick differs. Each trade stores
 the level it traded under `trigger.level` (`pivot`, `skew`), so the result can be split by pivot.
 
+## Capital ledger (`--capital 35000`; the dashboard's "Capital ₹" box, ₹35,000 by default)
+
+As Gaurav asked on 2026-11-28 (`ledger.py`). A run asked with a capital keeps a balance: the
+capital plus every closed trade's profit less its charges, carried day after day. A trade is taken
+only if its premium (price × qty) fits in the balance left after the premium already in open trades;
+otherwise it is skipped (`not enough capital (ledger)`), never made room for. Always 1 lot. Money
+moves at a trade's exit minute, before that minute's signals. The run stores `ledger` (start, end,
+high, low, deepest fall ₹ / %, longest stretch below a high, skipped count, one row a day) and each
+trade its `balanceAfter`; Trade Analysis shows it as **Capital ledger** when the run is opened.
+
+The capital is part of the run id (`run_key` / `key.ts`, only when set - older runs keep their ids),
+so the same legs at ₹35,000 and ₹50,000 are two runs. Leave the box empty to run without a ledger.
+`run.py recharge` re-prices a run's summaries, not its ledger: re-run a ledger run after a rate
+change. `tests/test_ledger.py`, `scripts/test-ledger-ts.mjs`.
+
 ## Backtest-only rules: ATR600-F and ATR600-FA, fewer entries (`--setups A-F B-F C-F`, `A-FA B-FA C-FA`)
 
 As Gaurav chose them on 2026-11-28, from the per-setup numbers of A-ATR600 / A-2X: on the -ATR600

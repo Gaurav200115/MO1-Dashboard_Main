@@ -7,6 +7,7 @@ import type { BacktestRun } from "@/lib/backtest/store";
 import type { TradeNotes } from "@/lib/useTradeNotes";
 import { useTradeNotes } from "@/lib/useTradeNotes";
 import { TagChips, TradeTagger } from "./TradeTags";
+import LedgerPanel from "./LedgerPanel";
 import { DASH, fmtPrice, grouped } from "@/lib/format";
 import { istClock, istDate } from "@/lib/strategy/ist";
 import {
@@ -219,6 +220,7 @@ export default function TradeAnalysis({
   return (
     <div className="flex flex-col gap-4">
       {run ? <BacktestBanner run={run} onClear={onClearRun} /> : null}
+      {run?.ledger ? <LedgerPanel ledger={run.ledger} /> : null}
 
       <FilterBar
         f={f}

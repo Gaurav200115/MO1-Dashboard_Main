@@ -53,8 +53,10 @@ def execute(run, conn, db):
     # filled in here and written back onto the run, which is also what makes
     # them visible next to the result rather than implicit in it.
     floors = run.get("gateFloors") or S.GATE_FLOORS
+    # The capital ledger's starting amount, when the run was asked with one.
+    capital = run.get("capitalRupees") or None
     _, payload = fingerprint(setup_ids, start, end, floors,
-                             data_revision(conn, start, end, setup_ids))
+                             data_revision(conn, start, end, setup_ids), capital)
     results.record_conditions(db, run_id, payload)
 
     log(f"run {run_id}: setups {describe(setup_ids)} from {start} to {end}")
@@ -63,7 +65,7 @@ def execute(run, conn, db):
         results.set_progress(db, run_id, done, total, day)
 
     positions, report = run_range(conn, setup_ids, start, end,
-                                  floors, log=None, on_progress=on_progress)
+                                  floors, log=None, on_progress=on_progress, capital=capital)
     results.save_results(db, run_id, positions, report)
 
     summary = report["summary"]

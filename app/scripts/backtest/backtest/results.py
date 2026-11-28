@@ -161,6 +161,8 @@ def trade_document(position, run_id):
                    for s in position.ladder],
         "trigger": trigger,
         "whatIf": what,
+        # Runs with a capital ledger: the balance once this trade was booked.
+        "balanceAfter": (context.get("ledger") or {}).get("balanceAfter"),
 
         "paper": True,
         "openedAt": position.entry_at,
@@ -191,6 +193,7 @@ def queue_run(db, run_id, payload, setup_ids, start, end, requested_by=None):
             "gateFloors": payload["floors"],
             "dataRevision": payload["dataRevision"],
             "conditions": payload["conditions"],
+            "capitalRupees": payload.get("capitalRupees"),
             "status": "queued",
             "progress": {"done": 0, "total": None, "day": None},
             "requestedBy": requested_by,
@@ -278,6 +281,7 @@ def save_results(db, run_id, positions, report):
         "skipped": report["skipped"],
         "signals": report["signals"],
         "incompleteStockDays": report["incompleteStockDays"],
+        "ledger": report.get("ledger"),
         "trades": report["summary"]["trades"],
         "chargesBroker": charges.BROKER,
         "error": None,
