@@ -282,7 +282,7 @@ def cmd_session(args):
 def _prepare(conn, args):
     revision = data_revision(conn, args.start, args.end, args.setups)
     run_id, payload = fingerprint(args.setups, args.start, args.end,
-                                  S.GATE_FLOORS, revision)
+                                  S.GATE_FLOORS, revision, args.capital)
     return run_id, payload
 
 
@@ -334,7 +334,7 @@ def cmd_now(args):
             results.set_progress(db, run_id, done, total, day)
 
         positions, report = run_range(conn, args.setups, args.start, args.end,
-                                      S.GATE_FLOORS, on_progress=progress)
+                                      S.GATE_FLOORS, on_progress=progress, capital=args.capital)
         results.save_results(db, run_id, positions, report)
 
     print(" " * 40, end="\r")
@@ -358,6 +358,11 @@ def cmd_now(args):
         print(f"  refused: {report['rejected']}")
     if report["skipped"]:
         print(f"  skipped: {report['skipped']}")
+    if report.get("ledger"):
+        lg = report["ledger"]
+        print(f"  ledger: Rs {lg['capital']:,.0f} -> Rs {lg['final']:,.0f}  (low Rs {lg['low']:,.0f}, "
+              f"peak Rs {lg['peak']:,.0f}, deepest fall {_money(lg['maxDrawdown'])} / {lg['maxDrawdownPct']:.1f}%, "
+              f"{lg['skipped']} trades skipped for capital)")
     if report["incompleteStockDays"]:
         print(f"  stock-days with incomplete option data: {report['incompleteStockDays']}")
     return 0
@@ -406,6 +411,9 @@ def main():
         p.add_argument("--from", dest="start", type=_date, required=True)
         p.add_argument("--to", dest="end", type=_date, required=True)
         p.add_argument("--setups", nargs="+", default=DEFAULT_SETUPS, choices=ALL_SETUPS)
+        p.add_argument("--capital", type=float, default=None,
+                       help="start a capital ledger with this many rupees (e.g. 35000): a trade is "
+                            "taken only if its premium fits in what is left")
         if name == "now":
             p.add_argument("--force", action="store_true")
         p.set_defaults(fn=fn)

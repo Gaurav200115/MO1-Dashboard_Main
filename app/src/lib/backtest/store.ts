@@ -79,6 +79,35 @@ export interface BacktestRun {
    * re-priced (`run.py recharge`) from 2026-11-25; absent means Zerodha.
    */
   chargesBroker?: string;
+  /** The capital ledger's starting amount, when the run was asked with one. */
+  capitalRupees?: number | null;
+  /** The capital ledger (backtest/ledger.py), on runs with a capital. */
+  ledger?: LedgerReport | null;
+}
+
+export interface LedgerDay {
+  date: string;
+  open: number;
+  close: number;
+  /** Closed P&L that day, before charges. */
+  pnl: number;
+  charges: number;
+  trades: number;
+  /** Signals skipped because their premium did not fit in what was left. */
+  skipped: number;
+}
+
+export interface LedgerReport {
+  capital: number;
+  final: number;
+  peak: number;
+  low: number;
+  /** Deepest fall from a peak, rupees (<= 0) and percent of that peak. */
+  maxDrawdown: number;
+  maxDrawdownPct: number;
+  longestUnderwaterDays: number;
+  skipped: number;
+  days: LedgerDay[];
 }
 
 /** A backtest trade is a live trade plus where it came from and how it was gated. */

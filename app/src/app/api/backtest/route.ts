@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  let body: { setups?: unknown; from?: unknown; to?: unknown };
+  let body: { setups?: unknown; from?: unknown; to?: unknown; capital?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -75,6 +75,9 @@ export async function POST(request: NextRequest) {
   const ids = Array.isArray(body.setups) ? body.setups.map(String) : [];
   const from = typeof body.from === "string" ? body.from.trim() : "";
   const to = typeof body.to === "string" ? body.to.trim() : "";
+  // The capital ledger's starting amount; absent or empty means no ledger.
+  const capital =
+    body.capital === null || body.capital === undefined || body.capital === "" ? null : Number(body.capital);
 
   if (ids.length === 0) {
     return NextResponse.json({ error: "pick at least one setup" }, { status: 400 });
@@ -94,10 +97,13 @@ export async function POST(request: NextRequest) {
   if (from > to) {
     return NextResponse.json({ error: "the start date is after the end date" }, { status: 400 });
   }
+  if (capital !== null && (!Number.isFinite(capital) || capital < 1000 || capital > 100_000_000)) {
+    return NextResponse.json({ error: "capital must be between ₹1,000 and ₹10 crore" }, { status: 400 });
+  }
 
   try {
     await ensureIndexes();
-    const id = runKey(ids, from, to);
+    const id = runKey(ids, from, to, capital);
     const setups = [...new Set(ids)].sort();
     const strategyIds = strategiesFor(setups);
     const catalogue = listSetups();
@@ -116,6 +122,7 @@ export async function POST(request: NextRequest) {
       gateFloors: {},
       dataRevision: "",
       requestedBy: null,
+      capitalRupees: capital === null ? null : Math.round(capital),
     });
 
     return ok({ run, created, queued: created || run.status === "queued" });

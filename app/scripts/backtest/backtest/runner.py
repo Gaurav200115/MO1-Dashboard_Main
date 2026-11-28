@@ -28,6 +28,7 @@ from collections import defaultdict
 
 from . import atr_stop, charges, db, orb, pullback_stop, what_if
 from .adr import adr_pct
+from .ledger import Ledger
 from .config import S, ist_time
 from .fills import step_position
 from .gate import CLEAR, assess, contract_tick, fill_price, step_too_costly
@@ -231,7 +232,7 @@ def _seed_closes(conn, day, prev, symbols, period, interval):
     return out
 
 
-def replay_session(conn, day, strategies, floors, log=None, setups=None):
+def replay_session(conn, day, strategies, floors, log=None, setups=None, ledger=None):
     """Replays one session. Returns (closed_positions, notes).
 
     `setups` limits which legs may fire, as {strategy id: {setup ids}}. Left out,
@@ -366,6 +367,9 @@ def replay_session(conn, day, strategies, floors, log=None, setups=None):
             (closed if done is not None else still_open).append(done or position)
             if done is not None:
                 _rearm_a_after_close(done, states)
+                # The ledger books it now, so its money is free for this minute's signals.
+                if ledger is not None:
+                    ledger.close(done)
         open_positions = still_open
 
         still_shadowed = []
@@ -449,6 +453,12 @@ def replay_session(conn, day, strategies, floors, log=None, setups=None):
                 if budget is not None and over_budget(open_positions, position, budget):
                     notes["rejected"][f"over the Rs {budget:g} budget"] += 1
                     continue
+                # The run's capital ledger: skipped when its premium does not fit in
+                # the balance left after the premium already in open trades.
+                if ledger is not None and not ledger.fits(open_positions, position):
+                    notes["rejected"]["not enough capital (ledger)"] += 1
+                    ledger.skip()
+                    continue
 
                 state.trades_today += 1
                 if leg_of(strategy, signal.setup) == "A":
@@ -463,6 +473,8 @@ def replay_session(conn, day, strategies, floors, log=None, setups=None):
         position.exit_at = position.last_at
         position.exit_reason = "eod-flatten"
         closed.append(position)
+        if ledger is not None:
+            ledger.close(position)
     for parent, key, shadow in shadows:
         shadow.exit_price, shadow.exit_at, shadow.exit_reason = (
             shadow.last_price, shadow.last_at, "eod-flatten")
@@ -625,7 +637,7 @@ def _try_fill(conn, day, prev, strategy, signal, plan, minute, floors,
 
 # ---------------- the run ----------------
 
-def run_key(setup_ids, start, end):
+def run_key(setup_ids, start, end, capital=None):
     """A run's id, from the three things the person actually chose.
 
     Deliberately *not* a hash of everything that decides the result. The
@@ -641,10 +653,15 @@ def run_key(setup_ids, start, end):
     `lib/backtest/key.ts` is the other half of this and must match it.
     """
     base = "|".join([",".join(sorted(setup_ids)), str(start), str(end)])
+    # A run with a capital ledger is a different run from the same legs without
+    # one, or with another capital. Added only when set, so every run made
+    # before the ledger keeps its id. `lib/backtest/key.ts` does the same.
+    if capital:
+        base += f"|capital={int(round(capital))}"
     return hashlib.sha1(base.encode("utf-8")).hexdigest()[:16]
 
 
-def fingerprint(setup_ids, start, end, floors, data_revision):
+def fingerprint(setup_ids, start, end, floors, data_revision, capital=None):
     """(run id, everything that decided the result) - the latter stored for the record."""
     setup_ids = sorted(setup_ids)
     strategy_ids, _ = selection(setup_ids)
@@ -657,10 +674,11 @@ def fingerprint(setup_ids, start, end, floors, data_revision):
         "floors": floors,
         "fillRule": "entry-minute-close",
         "dataRevision": data_revision,
+        "capitalRupees": capital or None,
     }
     blob = json.dumps(payload, sort_keys=True, default=str)
     payload["conditions"] = hashlib.sha1(blob.encode("utf-8")).hexdigest()[:16]
-    return run_key(setup_ids, start, end), payload
+    return run_key(setup_ids, start, end, capital), payload
 
 
 def data_revision(conn, start, end, setup_ids=()):
@@ -730,7 +748,7 @@ def summarise(positions):
     }
 
 
-def run_range(conn, setup_ids, start, end, floors, log=None, on_progress=None):
+def run_range(conn, setup_ids, start, end, floors, log=None, on_progress=None, capital=None):
     """Replays every trading day in [start, end]. Returns (positions, report).
 
     `setup_ids` names the legs to replay - A, B, C or any mix. One leg at a time
@@ -749,9 +767,20 @@ def run_range(conn, setup_ids, start, end, floors, log=None, on_progress=None):
     skipped = defaultdict(int)
     by_setup = defaultdict(int)
 
+    # The capital ledger, when the run has a capital: carried across every day.
+    ledger = Ledger(capital) if capital else None
+
     for i, day in enumerate(days, 1):
+        if ledger is not None:
+            ledger.start_day(day)
         day_positions, notes = replay_session(conn, day, strategies, floors, log=log,
-                                              setups=chosen)
+                                              setups=chosen, ledger=ledger)
+        if ledger is not None:
+            # The NIFTY opening-range rule has a replay of its own: its trades are
+            # booked here, at the end of their day, rather than minute by minute.
+            for position in sorted(day_positions, key=lambda p: p.exit_at or p.entry_at):
+                ledger.close(position)
+            ledger.end_day()
         positions.extend(day_positions)
         totals["signals"] += notes["signals"]
         totals["symbols"] = max(totals["symbols"], notes["symbols"])
@@ -785,5 +814,6 @@ def run_range(conn, setup_ids, start, end, floors, log=None, on_progress=None):
         "skipped": dict(skipped),
         "signals": totals["signals"],
         "incompleteStockDays": totals["incomplete"],
+        "ledger": ledger.report() if ledger is not None else None,
     }
     return positions, report

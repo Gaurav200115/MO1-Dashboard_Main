@@ -18,7 +18,10 @@ import { createHash } from "node:crypto";
  * had picked the job up. What the key leaves out is recorded on the run instead
  * (`dataRevision`, `gateFloors`, the rule versions) and shown beside it.
  */
-export function runKey(setupIds: string[], from: string, to: string): string {
-  const base = [[...setupIds].sort().join(","), from, to].join("|");
+export function runKey(setupIds: string[], from: string, to: string, capital?: number | null): string {
+  let base = [[...setupIds].sort().join(","), from, to].join("|");
+  // A run with a capital ledger is its own run: the capital joins the id, and
+  // only when set, so every run made before the ledger keeps its id.
+  if (capital) base += `|capital=${Math.round(capital)}`;
   return createHash("sha1").update(base, "utf8").digest("hex").slice(0, 16);
 }

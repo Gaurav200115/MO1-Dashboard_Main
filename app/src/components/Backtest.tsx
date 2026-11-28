@@ -46,6 +46,8 @@ export default function Backtest({ onOpenRun }: { onOpenRun?: (runId: string) =>
   const [picked, setPicked] = useState<string[]>([]);
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  // The capital ledger's starting amount. Empty runs without a ledger, as before.
+  const [capital, setCapital] = useState("35000");
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
 
@@ -118,7 +120,7 @@ export default function Backtest({ onOpenRun }: { onOpenRun?: (runId: string) =>
       const res = await fetch("/api/backtest", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ setups: picked, from, to }),
+        body: JSON.stringify({ setups: picked, from, to, capital: capital.trim() === "" ? null : Number(capital) }),
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
@@ -168,6 +170,8 @@ export default function Backtest({ onOpenRun }: { onOpenRun?: (runId: string) =>
             to={to}
             onFrom={setFrom}
             onTo={setTo}
+            capital={capital}
+            onCapital={setCapital}
             coverage={coverage}
             outOfRange={!!outOfRange}
             busy={busy}
@@ -212,6 +216,8 @@ function Ask({
   to,
   onFrom,
   onTo,
+  capital,
+  onCapital,
   coverage,
   outOfRange,
   busy,
@@ -227,6 +233,8 @@ function Ask({
   to: string;
   onFrom: (v: string) => void;
   onTo: (v: string) => void;
+  capital: string;
+  onCapital: (v: string) => void;
   coverage: ArchiveCoverage | null;
   outOfRange: boolean;
   busy: boolean;
@@ -363,6 +371,22 @@ function Ask({
             max={options?.to}
             onChange={(e) => onTo(e.target.value)}
             className="rounded-[4px] border border-line bg-surface px-2 py-1 font-mono text-[12px] font-normal normal-case tracking-normal text-ink"
+          />
+        </label>
+
+        <label
+          className="flex flex-col gap-1 text-[10px] font-bold uppercase tracking-[0.13em] text-muted"
+          title="Capital ledger: the run starts with this many rupees and a trade is only taken if its premium fits in what is left. Leave empty to run without a ledger."
+        >
+          Capital ₹
+          <input
+            type="number"
+            min={1000}
+            step={1000}
+            value={capital}
+            placeholder="no ledger"
+            onChange={(e) => onCapital(e.target.value)}
+            className="w-28 rounded-[4px] border border-line bg-surface px-2 py-1 font-mono text-[12px] font-normal normal-case tracking-normal text-ink"
           />
         </label>
 
@@ -558,6 +582,14 @@ function RunRow({
       </td>
       <td className="py-1.5 pr-3 font-mono text-[11.5px] text-ink2">
         {(run.setups ?? []).join(" ") || run.strategyIds.map(short).join(", ")}
+        {run.capitalRupees ? (
+          <span
+            className="ml-2 rounded-[3px] border border-accent px-1 py-px text-[9.5px] text-accent"
+            title={run.ledger ? `Ledger: ₹${Math.round(run.ledger.capital).toLocaleString("en-IN")} → ₹${Math.round(run.ledger.final).toLocaleString("en-IN")}, ${run.ledger.skipped} trades skipped for capital` : "Capital ledger"}
+          >
+            ₹{Math.round(run.capitalRupees / 1000)}k ledger
+          </span>
+        ) : null}
       </td>
       <td className="py-1.5 pr-3">
         <span
