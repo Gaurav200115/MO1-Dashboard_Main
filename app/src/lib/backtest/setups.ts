@@ -753,6 +753,100 @@ const BACKTEST_ONLY: SetupOption[] = [
     book: "atr600-a-atr1",
     tag: "ATR600 · A SL ATR/1 · no cost · A till 12:00",
   },
+
+  /*
+   * Fewer, better entries on ATR600 (2026-11-28), two versions side by side:
+   *   -F   A: no move to cost, no A from 12:00. B: unchanged. C: skip a stock whose
+   *        5-min ATR is under 0.2% of price.
+   *   -FA  A, B, C: no move to cost and the 0.2% ATR floor. A: none from 12:00.
+   *
+   * Python: `BREAKOUT_RETRACE_21EMA_F` / `_FA` and the BREAKDOWN pair in
+   * backtest/strategies.py; tests/test_atr600_f.py checks these six entries match.
+   */
+  {
+    setup: "A-F",
+    strategy: "breakout-retrace-21ema-atr600-f",
+    strategyName: "Level Break → 21 EMA Retrace [ATR600-F: A no cost move + till 12:00, C ATR >= 0.2%]",
+    version: 1,
+    label: "Break & retrace",
+    side: "LONG",
+    option: "CE",
+    description:
+      "Setup A on ATR600 (ATR/3 SL, ₹600 ladder) with no move to cost and no new A entry from 12:00.",
+    backtestOnly: true,
+    book: "atr600-f",
+    tag: "ATR600-F · A no cost, till 12:00",
+  },
+  {
+    setup: "B-F",
+    strategy: "breakout-retrace-21ema-atr600-f",
+    strategyName: "Level Break → 21 EMA Retrace [ATR600-F: A no cost move + till 12:00, C ATR >= 0.2%]",
+    version: 1,
+    label: "Support hold & level cross",
+    side: "LONG",
+    option: "CE",
+    description:
+      "Setup B-ATR600 unchanged (cost at +₹900 kept, no ATR floor).",
+    backtestOnly: true,
+    book: "atr600-f",
+    tag: "ATR600-F · B unchanged",
+  },
+  {
+    setup: "C-F",
+    strategy: "breakdown-retrace-21ema-atr600-f",
+    strategyName: "Support Break → 21 EMA Retrace (Short) [ATR600-F: A no cost move + till 12:00, C ATR >= 0.2%]",
+    version: 1,
+    label: "Breakdown & retrace",
+    side: "SHORT",
+    option: "PE",
+    description:
+      "Setup C-ATR600, but a trade is skipped when the stock's 5-min ATR is under 0.2% of its price. Cost at +₹900 kept.",
+    backtestOnly: true,
+    book: "atr600-f",
+    tag: "ATR600-F · C ATR ≥ 0.2%",
+  },
+  {
+    setup: "A-FA",
+    strategy: "breakout-retrace-21ema-atr600-fa",
+    strategyName: "Level Break → 21 EMA Retrace [ATR600-FA: all no cost move + ATR >= 0.2%, A till 12:00]",
+    version: 1,
+    label: "Break & retrace",
+    side: "LONG",
+    option: "CE",
+    description:
+      "Setup A on ATR600: no move to cost, no new A from 12:00, and skipped when the stock's 5-min ATR is under 0.2%.",
+    backtestOnly: true,
+    book: "atr600-fa",
+    tag: "ATR600-FA · all filters",
+  },
+  {
+    setup: "B-FA",
+    strategy: "breakout-retrace-21ema-atr600-fa",
+    strategyName: "Level Break → 21 EMA Retrace [ATR600-FA: all no cost move + ATR >= 0.2%, A till 12:00]",
+    version: 1,
+    label: "Support hold & level cross",
+    side: "LONG",
+    option: "CE",
+    description:
+      "Setup B on ATR600: no move to cost, skipped when the stock's 5-min ATR is under 0.2%.",
+    backtestOnly: true,
+    book: "atr600-fa",
+    tag: "ATR600-FA · all filters",
+  },
+  {
+    setup: "C-FA",
+    strategy: "breakdown-retrace-21ema-atr600-fa",
+    strategyName: "Support Break → 21 EMA Retrace (Short) [ATR600-FA: all no cost move + ATR >= 0.2%, A till 12:00]",
+    version: 1,
+    label: "Breakdown & retrace",
+    side: "SHORT",
+    option: "PE",
+    description:
+      "Setup C on ATR600: no move to cost, skipped when the stock's 5-min ATR is under 0.2%.",
+    backtestOnly: true,
+    book: "atr600-fa",
+    tag: "ATR600-FA · all filters",
+  },
 ];
 
 export function listSetups(): SetupOption[] {
@@ -787,7 +881,7 @@ export function mixError(setupIds: string[]): string | null {
     setupIds.map((id) => all.find((s) => s.setup === id)?.book).filter(Boolean)
   );
   if (books.size > 1) {
-    return "A/B/C, its variants (-ADR, -PB, -DL, -SK, -CAP, -35K, -ATR, -ATR600, -2X, -OEMA, -ATR2, -ATR1) and the -NIFTY legs are alternatives, not additions — replay each set in a run of its own";
+    return "A/B/C, its variants (-ADR, -PB, -DL, -SK, -CAP, -35K, -ATR, -ATR600, -2X, -OEMA, -ATR2, -ATR1, -F, -FA) and the -NIFTY legs are alternatives, not additions — replay each set in a run of its own";
   }
   return null;
 }
