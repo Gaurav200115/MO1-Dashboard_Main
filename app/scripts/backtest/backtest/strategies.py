@@ -733,6 +733,40 @@ BREAKDOWN_RETRACE_21EMA_ATR1 = _atr600_variant(
     "breakdown-retrace-21ema-atr600-a1", "Support Break -> 21 EMA Retrace (Short)", ATR1_TAG, "atr600-a-atr1",
     "ATR1", A_WIDE_PARAMS, "SHORT")
 
+# Fewer, better entries on the -ATR600 rule (2026-11-28, as Gaurav chose them),
+# from the per-setup numbers of the A-ATR600 / A-2X runs. Backtest only. Two
+# versions, run side by side:
+#
+#   -F    each change only where it helped:
+#           A  no move to cost (+900), no new A entry from 12:00
+#           B  unchanged
+#           C  skip a trade whose stock's 5-min ATR is under 0.2% of price
+#   -FA   every change on every setup: no move to cost and the 0.2% ATR floor
+#         on A, B and C; no new A entry from 12:00
+#
+# The ATR floor reads the same 5-min ATR the stop is sized from, as a percent of
+# the stock price at the signal (`minAtrPct`, per leg).
+F_TAG = "ATR600-F: A no cost move + till 12:00, C ATR >= 0.2%"
+FA_TAG = "ATR600-FA: all no cost move + ATR >= 0.2%, A till 12:00"
+F_LONG_PARAMS = dict(PIVOT_SKEW_PARAMS, legCutoffIst={"A": "12:00"})
+F_SHORT_PARAMS = dict(PIVOT_SKEW_PARAMS, minAtrPct={"C": 0.2})
+FA_LONG_PARAMS = dict(PIVOT_SKEW_PARAMS, legCutoffIst={"A": "12:00"}, minAtrPct={"A": 0.2, "B": 0.2})
+FA_SHORT_PARAMS = dict(PIVOT_SKEW_PARAMS, minAtrPct={"C": 0.2})
+ATR600_NO_BE_RISK = {k: v for k, v in ATR600_RISK.items() if k != "breakevenAtR"}
+
+BREAKOUT_RETRACE_21EMA_F = dict(
+    _atr600_variant("breakout-retrace-21ema-atr600-f", "Level Break -> 21 EMA Retrace", F_TAG, "atr600-f", "F",
+                    F_LONG_PARAMS, "LONG"), legRisk={"A": {"breakevenAtR": None}})
+BREAKDOWN_RETRACE_21EMA_F = _atr600_variant(
+    "breakdown-retrace-21ema-atr600-f", "Support Break -> 21 EMA Retrace (Short)", F_TAG, "atr600-f", "F",
+    F_SHORT_PARAMS, "SHORT")
+BREAKOUT_RETRACE_21EMA_FA = dict(
+    _atr600_variant("breakout-retrace-21ema-atr600-fa", "Level Break -> 21 EMA Retrace", FA_TAG, "atr600-fa", "FA",
+                    FA_LONG_PARAMS, "LONG"), risk=dict(ATR600_NO_BE_RISK))
+BREAKDOWN_RETRACE_21EMA_FA = dict(
+    _atr600_variant("breakdown-retrace-21ema-atr600-fa", "Support Break -> 21 EMA Retrace (Short)", FA_TAG,
+                    "atr600-fa", "FA", FA_SHORT_PARAMS, "SHORT"), risk=dict(ATR600_NO_BE_RISK))
+
 ALL_STRATEGIES = (BREAKOUT_RETRACE_21EMA, BREAKDOWN_RETRACE_21EMA, NIFTY_ORB_15M,
                   BREAKOUT_RETRACE_21EMA_ADR, BREAKDOWN_RETRACE_21EMA_ADR,
                   BREAKOUT_RETRACE_21EMA_PB, BREAKDOWN_RETRACE_21EMA_PB,
@@ -746,7 +780,9 @@ ALL_STRATEGIES = (BREAKOUT_RETRACE_21EMA, BREAKDOWN_RETRACE_21EMA, NIFTY_ORB_15M
                   BREAKOUT_RETRACE_21EMA_A2X, BREAKDOWN_RETRACE_21EMA_A2X,
                   BREAKOUT_RETRACE_21EMA_AOEMA, BREAKDOWN_RETRACE_21EMA_AOEMA,
                   BREAKOUT_RETRACE_21EMA_ATR2, BREAKDOWN_RETRACE_21EMA_ATR2,
-                  BREAKOUT_RETRACE_21EMA_ATR1, BREAKDOWN_RETRACE_21EMA_ATR1)
+                  BREAKOUT_RETRACE_21EMA_ATR1, BREAKDOWN_RETRACE_21EMA_ATR1,
+                  BREAKOUT_RETRACE_21EMA_F, BREAKDOWN_RETRACE_21EMA_F,
+                  BREAKOUT_RETRACE_21EMA_FA, BREAKDOWN_RETRACE_21EMA_FA)
 STRATEGIES = {s["id"]: s for s in ALL_STRATEGIES}
 
 
@@ -849,7 +885,7 @@ def selection(setup_ids):
     # The variants (ADR, pullback stop, daily loss limit, pivot skew) are other
     # versions of the desk's legs, so no two of those books ever share a run.
     if len({book_of(STRATEGIES[sid]) for sid in chosen}) > 1:
-        raise SystemExit("A/B/C, its variants (-ADR, -PB, -DL, -SK, -CAP, -35K, -ATR, -ATR600, -2X, -OEMA, -ATR2, -ATR1) and the -NIFTY legs are alternatives, not "
+        raise SystemExit("A/B/C, its variants (-ADR, -PB, -DL, -SK, -CAP, -35K, -ATR, -ATR600, -2X, -OEMA, -ATR2, -ATR1, -F, -FA) and the -NIFTY legs are alternatives, not "
                          "additions - replay each set in a run of its own")
     return sorted(chosen), chosen
 

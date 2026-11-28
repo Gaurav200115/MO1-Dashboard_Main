@@ -48,6 +48,10 @@ Every command that replays takes --setups, defaulting to all of them:
     --setups A-ATR2 B-ATR2 C-ATR2  /  A-ATR1 B-ATR1 C-ATR1
                       -ATR600 with A's SL at ATR/2 (or ATR/1), no move to cost
                       for A and no A from 12:00 - backtest only
+    --setups A-F B-F C-F  /  A-FA B-FA C-FA
+                      ATR600 with fewer entries: -F = A no cost move + till
+                      12:00, C skipped under 0.2% stock ATR; -FA = all of it on
+                      every setup - backtest only
 
 `levels` and `session` print and store nothing. `now` and `queue` write to Mongo.
 """

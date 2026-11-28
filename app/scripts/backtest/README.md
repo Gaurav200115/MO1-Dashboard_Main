@@ -261,6 +261,20 @@ python run.py now --from 2025-11-10 --to 2026-10-30 --setups A-SK B-SK C-SK
 Compare with the ADR run on the same dates: only the major-level pick differs. Each trade stores
 the level it traded under `trigger.level` (`pivot`, `skew`), so the result can be split by pivot.
 
+## Backtest-only rules: ATR600-F and ATR600-FA, fewer entries (`--setups A-F B-F C-F`, `A-FA B-FA C-FA`)
+
+As Gaurav chose them on 2026-11-28, from the per-setup numbers of A-ATR600 / A-2X: on the -ATR600
+rule, two versions run side by side.
+
+- **-F** (book `atr600-f`), each change only where it helped: **A** no move to cost and no new A
+  from 12:00; **B** unchanged; **C** skipped when the stock's 5-min ATR is under 0.2% of price.
+- **-FA** (book `atr600-fa`), every change everywhere: no move to cost and the 0.2% ATR floor on
+  A, B and C; no new A from 12:00.
+
+The floor (`minAtrPct`, per leg) reads the same 5-min ATR the stop is sized from, against the
+stock price at the signal; a skipped trade is counted as `stock 5-min ATR under 0.2%`.
+`tests/test_atr600_f.py`.
+
 ## Backtest-only rules: A with a wider ATR stop (`--setups A-ATR2 B-ATR2 C-ATR2`, `A-ATR1 B-ATR1 C-ATR1`)
 
 After the A analysis of 2026-11-26 (half of A-ATR600's trades stopped, median 9 minutes, the SL

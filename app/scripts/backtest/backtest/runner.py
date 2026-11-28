@@ -528,6 +528,12 @@ def _try_fill(conn, day, prev, strategy, signal, plan, minute, floors,
         if atr_plan is None:
             notes["rejected"]["no 5-min ATR yet"] += 1
             return None
+        # -F / -FA: a floor on the stock's own 5-min ATR, as a percent of price,
+        # per leg. A stock barely moving is skipped before any contract is read.
+        floor = strategy["params"].get("minAtrPct", {}).get(leg_of(strategy, signal.setup))
+        if floor is not None and atr / signal.spot * 100 < floor:
+            notes["rejected"][f"stock 5-min ATR under {floor:g}%"] += 1
+            return None
 
     # Pullback-stop variant: R is known from the stock alone, so a trade whose
     # stop would cost more than the cap is turned away before any contract is
